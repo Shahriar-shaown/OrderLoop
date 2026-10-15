@@ -15,6 +15,9 @@ allowBuilds:
   '@swc/core': true
   esbuild: true
   msgpackr-extract: false
+  '@prisma/engines': true
+  prisma: true
+  '@node-rs/argon2': false
 
 minimumReleaseAgeExclude:
   - '@expo/cli@57.0.31'

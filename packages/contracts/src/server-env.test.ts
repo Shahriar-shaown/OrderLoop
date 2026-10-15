@@ -14,3 +14,17 @@ describe('loadServerEnv', () => {
     expect(() => loadServerEnv({})).toThrow(/DATABASE_URL[\s\S]*REDIS_URL/);
   });
 });
+
+describe('auth env', () => {
+  it('requires signing keys in production', () => {
+    expect(() => loadServerEnv({ ...valid, NODE_ENV: 'production' })).toThrow(/JWT_PRIVATE_KEY/);
+  });
+  it('rejects a half-configured key pair', () => {
+    expect(() => loadServerEnv({ ...valid, JWT_PRIVATE_KEY: 'x' })).toThrow(/both/);
+  });
+  it('splits WEB_ORIGINS', () => {
+    expect(
+      loadServerEnv({ ...valid, WEB_ORIGINS: 'http://a.test, http://b.test' }).WEB_ORIGINS,
+    ).toEqual(['http://a.test', 'http://b.test']);
+  });
+});

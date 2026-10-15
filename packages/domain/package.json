@@ -23,5 +23,8 @@
     "@types/node": "^22.0.0",
     "eslint": "^10.0.0",
     "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "@orderloop/contracts": "workspace:*"
   }
 }
