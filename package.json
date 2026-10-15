@@ -18,13 +18,15 @@
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check": "turbo run lint typecheck test build && node --test scripts/*.test.mjs && node scripts/check-versions.mjs && node scripts/check-boundaries.mjs",
     "services:up": "docker compose -f infra/docker-compose.yml up -d --wait",
-    "services:down": "docker compose -f infra/docker-compose.yml down",
+    "services:down": "docker compose -f infra/docker-compose.yml --profile mail down",
     "services:logs": "docker compose -f infra/docker-compose.yml logs -f",
     "db:setup": "pnpm --filter @orderloop/db run setup-roles",
     "db:migrate": "pnpm --filter @orderloop/db migrate",
     "db:migrate:deploy": "pnpm --filter @orderloop/db migrate:deploy",
     "test:integration": "turbo run test:integration",
-    "db:init": "pnpm db:setup && pnpm db:migrate:deploy"
+    "db:init": "pnpm db:setup && pnpm db:migrate:deploy",
+    "db:seed": "pnpm --filter @orderloop/api db:seed",
+    "services:mail": "docker compose -f infra/docker-compose.yml --profile mail up -d mailpit"
   },
   "devDependencies": {
     "turbo": "2.11.8",

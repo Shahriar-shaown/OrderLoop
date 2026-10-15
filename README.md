@@ -6,6 +6,8 @@ One loop. Every order. A Bangladesh-first platform for Facebook and Instagram se
 
 - Plan: [docs/implementation-plan.md](docs/implementation-plan.md)
 - Architecture decisions: [docs/architecture.md](docs/architecture.md)
+- API reference, auth flows, errors, rate limits, email setup: [docs/api.md](docs/api.md)
+- Data model, tenant isolation, migrations, seed data: [docs/database.md](docs/database.md)
 
 ## What is in the repo
 
@@ -63,7 +65,7 @@ curl -s -X POST localhost:4000/v1/auth/register -H 'content-type: application/js
 # then: curl -s localhost:4000/v1/me -H "authorization: Bearer <accessToken from above>"
 ```
 
-Browsers send `x-client: web` and receive the refresh token as an HttpOnly cookie; native apps receive it in the JSON body. Access tokens last 15 minutes. In development the signing key is generated at start-up, so restarting the API signs everyone out; production requires `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY` (`pnpm --filter @orderloop/api auth:generate-keys`). Invitation emails are not sent yet: in development the link is printed in the API log.
+Browsers send `x-client: web` and receive the refresh token as an HttpOnly cookie; native apps receive it in the JSON body. Access tokens last 15 minutes. In development the signing key is generated at start-up, so restarting the API signs everyone out; production requires `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY` (`pnpm --filter @orderloop/api auth:generate-keys`). Emails (verification, password reset, invitations) are printed in the API log in development; see [docs/api.md](docs/api.md#email) to read them in a local Mailpit inbox or configure a real SMTP provider.
 
 ## Prerequisites
 
@@ -205,4 +207,4 @@ Bun lockfiles (`bun.lock`) are git-ignored. To make Bun the primary tool instead
 
 ## Not built yet
 
-Email delivery, password reset and verification, login screens in web and mobile, catalog, orders, couriers, COD reconciliation and analytics. See the phases in [docs/implementation-plan.md](docs/implementation-plan.md).
+Login and sign-up screens in web and mobile, catalog, orders, couriers, COD reconciliation and analytics. See the phases in [docs/implementation-plan.md](docs/implementation-plan.md).
