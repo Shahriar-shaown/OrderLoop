@@ -148,6 +148,12 @@ export function createApiClient(options: ApiClientOptions) {
       refresh: (body: RouteInput<typeof routes.refresh>['body'] = {}) =>
         call(routes.refresh, { body }),
       logout: () => call(routes.logout),
+      verifyEmail: (token: string) => call(routes.verifyEmail, { body: { token } }),
+      resendVerification: () => call(routes.resendVerification),
+      /** Always resolves, whether or not the address has an account. */
+      forgotPassword: (email: string) => call(routes.forgotPassword, { body: { email } }),
+      resetPassword: (token: string, password: string) =>
+        call(routes.resetPassword, { body: { token, password } }),
       switchTenant: (tenantId: string) => call(routes.switchTenant, { body: { tenantId } }),
       acceptInvitation: (body: RouteInput<typeof routes.acceptInvitation>['body']) =>
         call(routes.acceptInvitation, { body }),

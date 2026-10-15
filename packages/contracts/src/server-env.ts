@@ -4,7 +4,8 @@ import { z } from 'zod';
 
 export const ServerEnv = z
   .object({
-    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    /** Required, with no default: production safeguards (signing keys, mail provider) key off it, so a deploy that forgets it must fail to start, not quietly run as development. */
+    NODE_ENV: z.enum(['development', 'test', 'production']),
     API_PORT: z.coerce.number().int().positive().default(4000),
     /** Runtime role (app_user). NOBYPASSRLS; never the owner or a superuser. */
     DATABASE_URL: z.string().url(),
@@ -14,6 +15,21 @@ export const ServerEnv = z
     JWT_PUBLIC_KEY: z.string().min(1).optional(),
     ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+    /** `console` prints emails to the log (development only); `smtp` sends through SMTP_* (Mailpit locally, any provider in production). */
+    MAIL_PROVIDER: z.enum(['console', 'smtp']).default('console'),
+    MAIL_FROM: z.string().min(3).default('OrderLoop <no-reply@orderloop.invalid>'),
+    SMTP_HOST: z.string().min(1).optional(),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+    /** Implicit TLS (port 465). Leave false for STARTTLS on 587 or plain local Mailpit. */
+    SMTP_SECURE: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
+    SMTP_USER: z.string().min(1).optional(),
+    SMTP_PASSWORD: z.string().min(1).optional(),
+    LOG_LEVEL: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default('info'),
     /** Number of reverse-proxy hops in front of the API (0 = none). Needed for correct client IPs behind a load balancer. */
     TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
     /** Disable only in automated tests. */
@@ -38,6 +54,27 @@ export const ServerEnv = z
         code: 'custom',
         path: ['JWT_PRIVATE_KEY'],
         message: 'JWT_PRIVATE_KEY and JWT_PUBLIC_KEY are required in production',
+      });
+    }
+    if (env.MAIL_PROVIDER === 'smtp' && !env.SMTP_HOST) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SMTP_HOST'],
+        message: 'SMTP_HOST is required when MAIL_PROVIDER=smtp',
+      });
+    }
+    if (Boolean(env.SMTP_USER) !== Boolean(env.SMTP_PASSWORD)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SMTP_PASSWORD'],
+        message: 'Set both SMTP_USER and SMTP_PASSWORD, or neither',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.MAIL_PROVIDER === 'console') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MAIL_PROVIDER'],
+        message: 'MAIL_PROVIDER=console prints tokens to the log; configure smtp in production',
       });
     }
     if (Boolean(env.JWT_PRIVATE_KEY) !== Boolean(env.JWT_PUBLIC_KEY)) {

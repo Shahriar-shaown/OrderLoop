@@ -1,6 +1,6 @@
 // OrderLoop data model. Tenant-owned tables carry tenant_id and are protected by PostgreSQL
 // row-level security (see prisma/migrations/*_rls). Global auth tables (users, sessions,
-// refresh_tokens) are intentionally not tenant-scoped; the allowlist lives in src/tables.ts.
+// refresh_tokens, user_tokens) are intentionally not tenant-scoped; the allowlist lives in src/tables.ts.
 
 generator client {
   provider = "prisma-client"
@@ -19,17 +19,25 @@ enum Role {
   ACCOUNTANT
 }
 
+enum TokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
 /// Global. One row per person.
 model User {
-  id           String    @id @default(uuid(7)) @db.Uuid
-  email        String    @unique
-  name         String
-  passwordHash String    @map("password_hash")
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  disabledAt   DateTime? @map("disabled_at") @db.Timestamptz(3)
+  id              String    @id @default(uuid(7)) @db.Uuid
+  email           String    @unique
+  name            String
+  passwordHash    String    @map("password_hash")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  disabledAt      DateTime? @map("disabled_at") @db.Timestamptz(3)
+  /// Set when the user proves they control the address (verification link, or accepting an invitation sent to it).
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
 
   memberships Membership[]
   sessions    Session[]
+  userTokens  UserToken[]
 
   @@map("users")
 }
@@ -97,6 +105,22 @@ model RefreshToken {
 
   @@index([sessionId])
   @@map("refresh_tokens")
+}
+
+/// Global. One-time emailed tokens (verification, password reset). Only the SHA-256 hash is stored.
+model UserToken {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  purpose   TokenPurpose
+  tokenHash String         @unique @map("token_hash")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime       @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime?      @map("used_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("user_tokens")
 }
 
 /// Tenant-scoped.

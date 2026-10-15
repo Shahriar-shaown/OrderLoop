@@ -3,7 +3,7 @@ import { Prisma, PrismaClient } from './generated/client.js';
 
 export type Tx = Prisma.TransactionClient;
 /** The only models reachable without a tenant context. Tenant tables are deliberately absent. */
-export type GlobalDb = Pick<Tx, 'user' | 'session' | 'refreshToken'>;
+export type GlobalDb = Pick<Tx, 'user' | 'session' | 'refreshToken' | 'userToken'>;
 
 export interface DbContext {
   tenantId?: string | undefined;

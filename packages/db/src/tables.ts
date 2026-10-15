@@ -8,7 +8,7 @@ export const TENANT_TABLES = ['tenants', 'memberships', 'invitations', 'audit_lo
  * Global auth tables: reached before any tenant is known (login, refresh), keyed by unguessable
  * secrets or unique identity. They hold no tenant business data.
  */
-export const GLOBAL_TABLES = ['users', 'sessions', 'refresh_tokens'] as const;
+export const GLOBAL_TABLES = ['users', 'sessions', 'refresh_tokens', 'user_tokens'] as const;
 
 /** Prisma bookkeeping; not reachable by the runtime role. */
 export const SYSTEM_TABLES = ['_prisma_migrations'] as const;

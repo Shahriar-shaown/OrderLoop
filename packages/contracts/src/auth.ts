@@ -17,7 +17,16 @@ export const Uuid = z.string().uuid();
 export const Email = z.string().trim().toLowerCase().email().max(254);
 /** Length floor only (NIST 800-63B): no composition rules. 128 caps the hashing cost an attacker can force. */
 export const Password = z.string().min(10, 'Use at least 10 characters').max(128);
-const DisplayName = z.string().trim().min(1).max(100);
+// Names are shown to other people. Reject control and formatting characters (line breaks, zero-width, bidi overrides).
+const DisplayName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .refine(
+    (v) => !/[\p{Cc}\p{Cf}\u2028\u2029]/u.test(v),
+    'Contains characters that are not allowed',
+  );
 
 export const RegisterBody = z.object({
   email: Email,
@@ -39,6 +48,17 @@ export type LoginBody = z.infer<typeof LoginBody>;
 export const RefreshBody = z.object({ refreshToken: z.string().min(1).max(512).optional() });
 export type RefreshBody = z.infer<typeof RefreshBody>;
 
+const OneTimeToken = z.string().min(20).max(512);
+
+export const VerifyEmailBody = z.object({ token: OneTimeToken });
+export type VerifyEmailBody = z.infer<typeof VerifyEmailBody>;
+
+export const ForgotPasswordBody = z.object({ email: Email });
+export type ForgotPasswordBody = z.infer<typeof ForgotPasswordBody>;
+
+export const ResetPasswordBody = z.object({ token: OneTimeToken, password: Password });
+export type ResetPasswordBody = z.infer<typeof ResetPasswordBody>;
+
 export const SwitchTenantBody = z.object({ tenantId: Uuid });
 export type SwitchTenantBody = z.infer<typeof SwitchTenantBody>;
 
@@ -51,7 +71,7 @@ export const AuthResult = z.object({
   expiresIn: z.number().int().positive(),
   /** Present for native clients. Web clients (header `x-client: web`) receive an HttpOnly cookie instead. */
   refreshToken: z.string().optional(),
-  user: z.object({ id: Uuid, email: z.string(), name: z.string() }),
+  user: z.object({ id: Uuid, email: z.string(), name: z.string(), emailVerified: z.boolean() }),
   tenant: z.object({ id: Uuid, name: z.string() }),
   role: Role,
   memberships: z.array(MembershipSummary),
@@ -59,7 +79,7 @@ export const AuthResult = z.object({
 export type AuthResult = z.infer<typeof AuthResult>;
 
 export const Me = z.object({
-  user: z.object({ id: Uuid, email: z.string(), name: z.string() }),
+  user: z.object({ id: Uuid, email: z.string(), name: z.string(), emailVerified: z.boolean() }),
   tenant: z.object({ id: Uuid, name: z.string() }),
   role: Role,
   permissions: z.array(Permission),

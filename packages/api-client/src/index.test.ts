@@ -11,7 +11,12 @@ function stub(status: number, body: unknown, seen: Seen[] = []) {
 }
 
 const ME = {
-  user: { id: '0197b0a0-0000-7000-8000-000000000001', email: 'a@b.test', name: 'A' },
+  user: {
+    id: '0197b0a0-0000-7000-8000-000000000001',
+    email: 'a@b.test',
+    name: 'A',
+    emailVerified: true,
+  },
   tenant: { id: '0197b0a0-0000-7000-8000-000000000002', name: 'T' },
   role: 'OWNER',
   permissions: ['tenant:read'],
@@ -108,6 +113,50 @@ describe('authenticated calls', () => {
       headers: { 'x-client': 'web' },
     }).health.live();
     expect((seen[0]!.init.headers as Record<string, string>)['x-client']).toBe('web');
+  });
+});
+
+describe('email verification and password reset', () => {
+  it('posts the token or email in the body and needs no bearer token', async () => {
+    const seen: Seen[] = [];
+    const { fetchImpl } = stub(200, {}, seen);
+    const api = createApiClient({
+      baseUrl: 'http://x',
+      fetch: fetchImpl,
+      getAccessToken: () => 'tok123',
+    });
+    await api.auth.verifyEmail('t'.repeat(30));
+    await api.auth.forgotPassword('A@B.test');
+    await api.auth.resetPassword('r'.repeat(30), 'a long enough password');
+    expect(seen.map((s) => s.url)).toEqual([
+      'http://x/v1/auth/verify-email',
+      'http://x/v1/auth/forgot-password',
+      'http://x/v1/auth/reset-password',
+    ]);
+    expect(JSON.parse(seen[1]!.init.body as string)).toEqual({ email: 'a@b.test' }); // normalised before sending
+    for (const s of seen)
+      expect((s.init.headers as Record<string, string>).authorization).toBeUndefined();
+  });
+
+  it('rejects a too-short reset password locally, before any request', async () => {
+    const seen: Seen[] = [];
+    const { fetchImpl } = stub(200, {}, seen);
+    const err = await createApiClient({ baseUrl: 'http://x', fetch: fetchImpl })
+      .auth.resetPassword('r'.repeat(30), 'short')
+      .catch((e: unknown) => e);
+    expect(err).toMatchObject({ code: 'validation_failed' });
+    expect(seen).toHaveLength(0);
+  });
+
+  it('resend-verification sends the bearer token', async () => {
+    const seen: Seen[] = [];
+    const { fetchImpl } = stub(200, {}, seen);
+    await createApiClient({
+      baseUrl: 'http://x',
+      fetch: fetchImpl,
+      getAccessToken: () => 'tok123',
+    }).auth.resendVerification();
+    expect((seen[0]!.init.headers as Record<string, string>).authorization).toBe('Bearer tok123');
   });
 });
 

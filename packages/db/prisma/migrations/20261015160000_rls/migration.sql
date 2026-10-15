@@ -53,4 +53,11 @@ CREATE POLICY audit_insert ON audit_logs FOR INSERT
 REVOKE UPDATE, DELETE, TRUNCATE ON audit_logs FROM app_user;
 
 -- Least privilege: the runtime role has no business with Prisma's bookkeeping table.
-REVOKE ALL ON TABLE _prisma_migrations FROM app_user;
+-- Prisma's shadow database (used by `migrate dev`) replays migrations before it creates this table.
+DO $$
+BEGIN
+  IF to_regclass('public._prisma_migrations') IS NOT NULL THEN
+    REVOKE ALL ON TABLE _prisma_migrations FROM app_user;
+  END IF;
+END
+$$;

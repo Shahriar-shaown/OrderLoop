@@ -5,6 +5,7 @@ import {
   AuditQuery,
   AuthResult,
   Empty,
+  ForgotPasswordBody,
   IdParam,
   Invitation,
   InvitationSummary,
@@ -14,9 +15,11 @@ import {
   Member,
   RefreshBody,
   RegisterBody,
+  ResetPasswordBody,
   SwitchTenantBody,
   TenantInfo,
   UpdateMemberBody,
+  VerifyEmailBody,
   type Permission,
 } from './auth.js';
 import { LiveResponse, ReadyResponse } from './health.js';
@@ -131,6 +134,43 @@ export const routes = {
     body: AcceptInvitationBody,
     response: AuthResult,
     status: 201,
+  }),
+
+  verifyEmail: route({
+    id: 'verifyEmail',
+    method: 'POST',
+    path: '/v1/auth/verify-email',
+    summary: 'Confirm an email address with the token from the verification email',
+    auth: 'public',
+    body: VerifyEmailBody,
+    response: Empty,
+  }),
+  resendVerification: route({
+    id: 'resendVerification',
+    method: 'POST',
+    path: '/v1/auth/resend-verification',
+    summary: 'Send a new verification email to the signed-in user (no-op if already verified)',
+    auth: 'access',
+    response: Empty,
+  }),
+  forgotPassword: route({
+    id: 'forgotPassword',
+    method: 'POST',
+    path: '/v1/auth/forgot-password',
+    summary:
+      'Email a password-reset link. Always answers 200, whether or not the address has an account',
+    auth: 'public',
+    body: ForgotPasswordBody,
+    response: Empty,
+  }),
+  resetPassword: route({
+    id: 'resetPassword',
+    method: 'POST',
+    path: '/v1/auth/reset-password',
+    summary: 'Set a new password with the emailed token; ends every session of that user',
+    auth: 'public',
+    body: ResetPasswordBody,
+    response: Empty,
   }),
 
   me: route({

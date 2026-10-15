@@ -11,6 +11,8 @@ export const ErrorCode = z.enum([
   'conflict',
   'rate_limited',
   'invitation_invalid',
+  'token_invalid',
+  'email_not_verified',
   'last_owner',
   'internal_error',
 ]);

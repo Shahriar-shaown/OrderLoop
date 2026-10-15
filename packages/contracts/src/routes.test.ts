@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RegisterBody } from './auth.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { routes } from './routes.js';
 
@@ -14,7 +15,7 @@ describe('route registry', () => {
   });
 
   it('every access route that is not self-service declares a permission or is intentionally open to any member', () => {
-    const openToAnyMember = new Set(['logout', 'switchTenant', 'me']);
+    const openToAnyMember = new Set(['logout', 'switchTenant', 'me', 'resendVerification']);
     for (const spec of Object.values(routes)) {
       if (spec.auth === 'access' && !openToAnyMember.has(spec.id))
         expect('permission' in spec).toBe(true);
@@ -37,5 +38,24 @@ describe('openapi', () => {
     expect(op.parameters).toContainEqual(
       expect.objectContaining({ name: 'id', in: 'path', required: true }),
     );
+  });
+});
+
+describe('display names', () => {
+  const base = { email: 'a@b.test', password: 'long enough password', tenantName: 'Shop' };
+  it('accept ordinary names, including non-Latin scripts', () => {
+    for (const name of ['Ann Lee', 'আনিকা রহমান', "O'Brien-Smith"])
+      expect(RegisterBody.safeParse({ ...base, name }).success, name).toBe(true);
+  });
+  it('reject line breaks, control characters and invisible formatting characters', () => {
+    for (const name of [
+      'Ann\nClick here',
+      'Ann\u0000',
+      'Ann\u200bLee',
+      'Ann\u202eLee',
+      'a\u2028b',
+    ]) {
+      expect(RegisterBody.safeParse({ ...base, name }).success, JSON.stringify(name)).toBe(false);
+    }
   });
 });
