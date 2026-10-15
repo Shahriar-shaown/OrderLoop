@@ -247,7 +247,7 @@ Verified locally: `pnpm install`; `pnpm check` (lint, typecheck, test, build for
 
 **Not verified (environment gaps):**
 
-- iOS Simulator launch: full Xcode is not installed (only command-line tools).
+- iOS Simulator launch: Xcode cannot be installed on the development machine. iOS is covered by the Metro iOS bundle build and (when available) Expo Go on a physical iPhone; Android emulator is the verified mobile runtime.
 - GitHub Actions workflow has not run (nothing pushed).
 
 Notes: pnpm 11 manages `overrides`/`allowBuilds` in `pnpm-workspace.yaml` (mirrored in `package.json` `overrides` for Bun); `packages/db` and `courier-sdk` are created in the phases that need them; `@orderloop/contracts` has a browser-safe root entry and a Node-only `@orderloop/contracts/server` entry (found when the mobile bundle failed on `node:fs`).

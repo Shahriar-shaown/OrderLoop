@@ -112,6 +112,8 @@ adb reverse tcp:8081 tcp:8081   # Metro
 
 (Alternatively set `EXPO_PUBLIC_API_URL=http://10.0.2.2:4000`, the emulator's alias for the host.) The iOS Simulator shares the host network, so it needs nothing extra.
 
+**No Xcode? iOS without a Mac simulator.** Install **Expo Go** from the App Store on an iPhone and scan the QR code that `pnpm --filter @orderloop/mobile start` prints. The iOS Simulator itself needs full Xcode, which is macOS-only.
+
 A physical phone cannot reach `localhost`. Set `EXPO_PUBLIC_API_URL` in `.env` to your computer's LAN address, for example `http://192.168.1.20:4000`, and restart the Expo server. The phone and computer must be on the same network.
 
 ## Quality checks
