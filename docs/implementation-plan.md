@@ -243,9 +243,11 @@ Verified locally: `pnpm install`; `pnpm check` (lint, typecheck, test, build for
 
 **Verified with Docker Desktop 4.95 (2026-10-15):** `pnpm services:up` brings Postgres 16 (5433) and Redis 7 (6379) to healthy; `/health/ready` returns 200 `{"status":"ok","checks":{"postgres":"up","redis":"up"}}`; the web page shows both up; the worker logs `ready, listening on queue "system"`.
 
+**Verified on the Android emulator (Medium Phone, API 37, 2026-10-15):** Expo Go installed, Metro bundled 1507 modules, the development home screen rendered, and **Check API health** returned Status ok, PostgreSQL up, Redis up (using `adb reverse` for ports 4000 and 8081).
+
 **Not verified (environment gaps):**
 
-- iOS Simulator / Android emulator launch: full Xcode is not installed (only command-line tools); no Android emulator.
+- iOS Simulator launch: full Xcode is not installed (only command-line tools).
 - GitHub Actions workflow has not run (nothing pushed).
 
 Notes: pnpm 11 manages `overrides`/`allowBuilds` in `pnpm-workspace.yaml` (mirrored in `package.json` `overrides` for Bun); `packages/db` and `courier-sdk` are created in the phases that need them; `@orderloop/contracts` has a browser-safe root entry and a Node-only `@orderloop/contracts/server` entry (found when the mobile bundle failed on `node:fs`).

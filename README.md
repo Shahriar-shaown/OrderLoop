@@ -96,6 +96,22 @@ pnpm --filter @orderloop/mobile start
 
 Then press `i` (iOS Simulator, needs Xcode) or `a` (Android emulator), or scan the QR code with Expo Go on a phone. Tap **Check API health** on the home screen.
 
+**Android emulator setup (one time).** Install Android Studio, open it once so it downloads the SDK, and create a virtual device in Device Manager. Then add these to `~/.zshrc`:
+
+```bash
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export PATH="$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$PATH"
+```
+
+Inside the emulator, `localhost` is the emulator itself, not your computer. Forward the ports once per emulator boot, then run `pnpm --filter @orderloop/mobile android`:
+
+```bash
+adb reverse tcp:4000 tcp:4000   # API
+adb reverse tcp:8081 tcp:8081   # Metro
+```
+
+(Alternatively set `EXPO_PUBLIC_API_URL=http://10.0.2.2:4000`, the emulator's alias for the host.) The iOS Simulator shares the host network, so it needs nothing extra.
+
 A physical phone cannot reach `localhost`. Set `EXPO_PUBLIC_API_URL` in `.env` to your computer's LAN address, for example `http://192.168.1.20:4000`, and restart the Expo server. The phone and computer must be on the same network.
 
 ## Quality checks
@@ -142,6 +158,7 @@ Bun lockfiles (`bun.lock`) are git-ignored. To make Bun the primary tool instead
 | `/health/ready` shows `postgres: down`    | Run `pnpm services:up`. Confirm `DATABASE_URL` uses port **5433**.                          |
 | `Invalid environment: DATABASE_URL ...`   | You skipped `cp .env.example .env`.                                                         |
 | Expo says it cannot find Xcode            | Install full Xcode, then `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`. |
+| Android emulator shows `unreachable`      | Run the two `adb reverse` commands above.                                                   |
 | Phone shows `unreachable`                 | Use your LAN IP in `EXPO_PUBLIC_API_URL`, not `localhost`.                                  |
 | `.next` errors after an interrupted build | Delete `apps/web/.next` and rerun.                                                          |
 
