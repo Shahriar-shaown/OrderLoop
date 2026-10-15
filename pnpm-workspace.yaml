@@ -1,0 +1,32 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Single React for web + Expo SDK 57 (bundles 19.2.3). Drift is checked by scripts/check-versions.mjs.
+overrides:
+  react: 19.2.3
+  react-dom: 19.2.3
+  typescript: 6.0.3
+  zod: 4.6.7
+
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+  "@swc/core": true
+  esbuild: true
+  msgpackr-extract: false
+
+minimumReleaseAgeExclude:
+  - '@expo/cli@57.0.31'
+  - '@expo/metro-runtime@57.0.17'
+  - '@expo/prebuild-config@57.0.19'
+  - '@expo/router-server@57.0.13'
+  - '@expo/ui@57.0.25'
+  - babel-preset-expo@57.0.16
+  - expo-asset@57.0.20
+  - expo-constants@57.0.22
+  - expo-linking@57.0.13
+  - expo-modules-autolinking@57.0.16
+  - expo-modules-core@57.0.23
+  - expo-router@57.0.28
+  - expo@57.0.30

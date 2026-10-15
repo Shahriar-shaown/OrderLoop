@@ -1,0 +1,26 @@
+{
+  "name": "orderloop",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@11.28.6",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test && pnpm test:scripts",
+    "check:versions": "node scripts/check-versions.mjs",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "services:up": "docker compose -f infra/docker-compose.yml up -d --wait",
+    "services:down": "docker compose -f infra/docker-compose.yml down",
+    "test:scripts": "node --test scripts/*.test.mjs"
+  },
+  "devDependencies": {
+    "turbo": "2.11.8",
+    "typescript": "6.0.3",
+    "prettier": "^3.6.0"
+  }
+}

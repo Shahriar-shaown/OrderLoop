@@ -1,0 +1,26 @@
+{
+  "name": "@orderloop/worker",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json && node --watch dist/main.js",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@orderloop/contracts": "workspace:*",
+    "bullmq": "^6.3.15",
+    "ioredis": "^5.0.0"
+  },
+  "devDependencies": {
+    "@orderloop/config": "workspace:*",
+    "@types/node": "^22.0.0",
+    "eslint": "^10.0.0",
+    "vitest": "^3.0.0"
+  },
+  "type": "module"
+}

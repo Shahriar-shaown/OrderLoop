@@ -1,0 +1,6 @@
+{
+  "extends": "@orderloop/config/tsconfig.node.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": "src", "emitDecoratorMetadata": false, "experimentalDecorators": false },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}
