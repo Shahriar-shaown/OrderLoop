@@ -10,12 +10,12 @@ jobs:
       postgres:
         image: postgres:16
         env: { POSTGRES_USER: orderloop, POSTGRES_PASSWORD: orderloop, POSTGRES_DB: orderloop }
-        ports: ["5433:5432"]
+        ports: ['5433:5432']
         options: >-
           --health-cmd "pg_isready -U orderloop" --health-interval 5s --health-timeout 3s --health-retries 10
       redis:
         image: redis:7
-        ports: ["6379:6379"]
+        ports: ['6379:6379']
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:

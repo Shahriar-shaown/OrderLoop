@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { loadDotEnv, loadServerEnv } from '@orderloop/contracts';
+import { loadDotEnv, loadServerEnv } from '@orderloop/contracts/server';
 import { AppModule } from './app.module.js';
 
 async function bootstrap() {

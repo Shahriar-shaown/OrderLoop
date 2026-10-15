@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { loadServerEnv } from './env.js';
+import { parsePublicEnv } from './env.js';
 
-const valid = { DATABASE_URL: 'postgresql://u:p@localhost:5433/db', REDIS_URL: 'redis://localhost:6379' };
-
-describe('loadServerEnv', () => {
-  it('applies defaults', () => {
-    expect(loadServerEnv(valid)).toMatchObject({ API_PORT: 4000, NODE_ENV: 'development' });
+describe('parsePublicEnv', () => {
+  it('accepts a valid API url and defaults APP_ENV', () => {
+    expect(parsePublicEnv({ API_URL: 'http://localhost:4000' })).toEqual({
+      API_URL: 'http://localhost:4000',
+      APP_ENV: 'development',
+    });
   });
-  it('lists every invalid variable', () => {
-    expect(() => loadServerEnv({})).toThrow(/DATABASE_URL[\s\S]*REDIS_URL/);
+  it('rejects a missing or malformed API url', () => {
+    expect(() => parsePublicEnv({})).toThrow(/API_URL/);
+    expect(() => parsePublicEnv({ API_URL: 'not a url' })).toThrow(/API_URL/);
   });
 });

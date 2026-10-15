@@ -1,10 +1,50 @@
+# dependencies
 node_modules
+.pnp
+.pnp.js
+
+# build output
 dist
+build
+out
 .next
-.expo
 .turbo
-.env
-.env.local
+.expo
+.expo-shared
 *.tsbuildinfo
+next-env.d.ts
+
+# env (only .env.example is committed)
+.env
+.env.*
+!.env.example
+
+# logs and coverage
+*.log
+npm-debug.log*
 coverage
+.nyc_output
+
+# native build artefacts (Expo prebuild)
+apps/mobile/ios
+apps/mobile/android
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Bun (pnpm-lock.yaml is the committed lockfile; Bun lockfiles are local-only)
+bun.lock
+bun.lockb
+
+# editors and OS
 .DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# local databases and volumes
+*.sqlite
+infra/data

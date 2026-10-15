@@ -1,6 +1,6 @@
 import { Worker } from 'bullmq';
 import { Redis } from 'ioredis';
-import { loadDotEnv, loadServerEnv } from '@orderloop/contracts';
+import { loadDotEnv, loadServerEnv } from '@orderloop/contracts/server';
 
 // Queues are added per phase (courier-sync, reconciliation, ...). M0 only proves
 // the process can connect to Redis and run a BullMQ worker.
@@ -8,7 +8,12 @@ const SYSTEM_QUEUE = 'system';
 
 /** Connection failures surface as AggregateError with an empty message; fall back to the code or the errors inside. */
 function describe(err: Error & { code?: string; errors?: Error[] }): string {
-  return err.message || err.code || err.errors?.map((e) => e.message || (e as { code?: string }).code).join(', ') || err.name;
+  return (
+    err.message ||
+    err.code ||
+    err.errors?.map((e) => e.message || (e as { code?: string }).code).join(', ') ||
+    err.name
+  );
 }
 
 function main(): void {

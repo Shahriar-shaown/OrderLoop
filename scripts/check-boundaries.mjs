@@ -5,19 +5,49 @@ import { fileURLToPath } from 'node:url';
 
 /** Packages each workspace project must NOT import. */
 export const FORBIDDEN = {
-  'apps/web': ['db', 'courier-sdk', 'api', 'worker'],
-  'apps/mobile': ['db', 'courier-sdk', 'api', 'worker'],
+  'apps/web': ['contracts/server', 'db', 'courier-sdk', 'api', 'worker'],
+  'apps/mobile': ['contracts/server', 'db', 'courier-sdk', 'api', 'worker'],
   'apps/api': ['worker'],
   'apps/worker': ['api'],
-  'packages/contracts': ['db', 'domain', 'courier-sdk', 'api-client', 'api', 'worker', 'web', 'mobile'],
-  'packages/domain': ['db', 'courier-sdk', 'api-client', 'api', 'worker', 'web', 'mobile'],
+  'packages/contracts': [
+    'db',
+    'domain',
+    'courier-sdk',
+    'api-client',
+    'api',
+    'worker',
+    'web',
+    'mobile',
+  ],
+  'packages/api-client': [
+    'contracts/server',
+    'db',
+    'domain',
+    'courier-sdk',
+    'api',
+    'worker',
+    'web',
+    'mobile',
+  ],
+  'packages/domain': [
+    'contracts/server',
+    'db',
+    'courier-sdk',
+    'api-client',
+    'api',
+    'worker',
+    'web',
+    'mobile',
+  ],
 };
 
-const IMPORT_RE = /(?:from\s+|import\s*\(\s*|require\s*\(\s*|import\s+)['"](@orderloop\/[\w-]+)/g;
+const IMPORT_RE =
+  /(?:from\s+|import\s*\(\s*|require\s*\(\s*|import\s+)['"](@orderloop\/[\w-]+(?:\/[\w./-]+)?)/g;
 
 export function findViolations(project, source) {
   const banned = new Set((FORBIDDEN[project] ?? []).map((n) => `@orderloop/${n}`));
-  return [...source.matchAll(IMPORT_RE)].map((m) => m[1]).filter((spec) => banned.has(spec));
+  const isBanned = (spec) => [...banned].some((b) => spec === b || spec.startsWith(`${b}/`));
+  return [...source.matchAll(IMPORT_RE)].map((m) => m[1]).filter(isBanned);
 }
 
 function* walk(dir) {
@@ -45,7 +75,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     if (existsSync(pj)) {
       const pkg = JSON.parse(readFileSync(pj, 'utf8'));
       for (const dep of Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })) {
-        if (FORBIDDEN[project].some((n) => dep === `@orderloop/${n}`)) errors.push(`${project}/package.json depends on ${dep} (forbidden)`);
+        if (FORBIDDEN[project].some((n) => dep === `@orderloop/${n}`))
+          errors.push(`${project}/package.json depends on ${dep} (forbidden)`);
       }
     }
   }

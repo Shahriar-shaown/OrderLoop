@@ -1,6 +1,6 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - 'apps/*'
+  - 'packages/*'
 
 # Single React for web + Expo SDK 57 (bundles 19.2.3). Drift is checked by scripts/check-versions.mjs.
 overrides:
@@ -12,7 +12,7 @@ overrides:
 allowBuilds:
   sharp: false
   unrs-resolver: false
-  "@swc/core": true
+  '@swc/core': true
   esbuild: true
   msgpackr-extract: false
 

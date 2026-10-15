@@ -6,7 +6,5 @@
     "emitDecoratorMetadata": false,
     "experimentalDecorators": false
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

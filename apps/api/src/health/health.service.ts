@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { loadServerEnv, type DependencyStatus, type ReadyResponse } from '@orderloop/contracts';
+import type { DependencyStatus, ReadyResponse } from '@orderloop/contracts';
+import { loadServerEnv } from '@orderloop/contracts/server';
 import { Redis } from 'ioredis';
 import { Client } from 'pg';
 
@@ -23,12 +24,18 @@ export class HealthService implements OnModuleDestroy {
 
   async check(): Promise<ReadyResponse> {
     const [postgres, redis] = await Promise.all([this.pingPostgres(), this.pingRedis()]);
-    return { status: postgres === 'up' && redis === 'up' ? 'ok' : 'degraded', checks: { postgres, redis } };
+    return {
+      status: postgres === 'up' && redis === 'up' ? 'ok' : 'degraded',
+      checks: { postgres, redis },
+    };
   }
 
   private pingPostgres(): Promise<DependencyStatus> {
     return probe(async () => {
-      const client = new Client({ connectionString: this.env.DATABASE_URL, connectionTimeoutMillis: TIMEOUT_MS });
+      const client = new Client({
+        connectionString: this.env.DATABASE_URL,
+        connectionTimeoutMillis: TIMEOUT_MS,
+      });
       client.on('error', () => undefined);
       try {
         await client.connect();

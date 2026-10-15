@@ -1,36 +1,23 @@
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import { z } from 'zod';
 
-export const ServerEnv = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  API_PORT: z.coerce.number().int().positive().default(4000),
-  DATABASE_URL: z.string().url(),
-  REDIS_URL: z.string().url(),
+export const PublicEnv = z.object({
+  API_URL: z.string().url(),
+  APP_ENV: z.enum(['development', 'staging', 'production']).default('development'),
 });
-export type ServerEnv = z.infer<typeof ServerEnv>;
+export type PublicEnv = z.infer<typeof PublicEnv>;
 
-/** Parse and validate process env; throws a readable error listing every bad variable. */
-export function loadServerEnv(source: Record<string, string | undefined> = process.env): ServerEnv {
-  const result = ServerEnv.safeParse(source);
+/**
+ * Validate client-side env. Bundlers only inline *literal* `process.env.X` reads, so callers pass an
+ * explicit object rather than `process.env`.
+ */
+export function parsePublicEnv(source: {
+  API_URL?: string | undefined;
+  APP_ENV?: string | undefined;
+}): PublicEnv {
+  const result = PublicEnv.safeParse(source);
   if (!result.success) {
     const issues = result.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`).join('\n');
-    throw new Error(`Invalid environment:\n${issues}`);
+    throw new Error(`Invalid public environment (check .env against .env.example):\n${issues}`);
   }
   return result.data;
-}
-
-/** Load the nearest `.env` walking up from cwd (dev convenience; no-op if none found). Vars already in the process win. */
-export function loadDotEnv(startDir: string = process.cwd()): void {
-  let dir = startDir;
-  for (;;) {
-    const file = join(dir, '.env');
-    if (existsSync(file)) {
-      process.loadEnvFile(file);
-      return;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) return;
-    dir = parent;
-  }
 }

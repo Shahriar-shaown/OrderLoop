@@ -15,7 +15,9 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-worklets": "0.10.1",
-    "react-native-reanimated": "4.5.1"
+    "react-native-reanimated": "4.5.1",
+    "@orderloop/api-client": "workspace:*",
+    "@orderloop/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
@@ -25,11 +27,11 @@
     "@react-native/metro-config": "0.86.3"
   },
   "scripts": {
-    "start": "expo start",
-    "ios": "expo start --ios",
-    "android": "expo start --android",
-    "dev": "expo start",
-    "build": "expo export --platform ios --output-dir dist",
+    "start": "node scripts/with-root-env.mjs expo start",
+    "ios": "node scripts/with-root-env.mjs expo start --ios",
+    "android": "node scripts/with-root-env.mjs expo start --android",
+    "dev": "node scripts/with-root-env.mjs expo start",
+    "build": "node scripts/with-root-env.mjs expo export --platform ios --output-dir dist",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "test": "echo \"no tests yet\""

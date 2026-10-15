@@ -9,12 +9,12 @@ Product: **OrderLoop** (Bangladesh-first SaaS for Facebook/Instagram sellers). n
 
 ## 1. Repository findings (baseline)
 
-| Item | Finding |
-|---|---|
-| Contents | `README.md` only (2 lines, "OrderLoop… One loop. Every order."). No code, config, CI, or lockfiles. |
-| Git | Branch `main`, 1 commit (`5594478 Initial commit`), remote `origin` = `github.com/Shahriar-shaown/OrderLoop`. Working tree clean. |
-| Conventions | None exist yet, so we define them. |
-| Local toolchain | Node 22.19.0, npm 10.9.3, corepack, git 2.50, PostgreSQL 16.15 (Homebrew). **Missing:** pnpm, Docker, Redis. |
+| Item            | Finding                                                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Contents        | `README.md` only (2 lines, "OrderLoop… One loop. Every order."). No code, config, CI, or lockfiles.                               |
+| Git             | Branch `main`, 1 commit (`5594478 Initial commit`), remote `origin` = `github.com/Shahriar-shaown/OrderLoop`. Working tree clean. |
+| Conventions     | None exist yet, so we define them.                                                                                                |
+| Local toolchain | Node 22.19.0, npm 10.9.3, corepack, git 2.50, PostgreSQL 16.15 (Homebrew). **Missing:** pnpm, Docker, Redis.                      |
 
 Consequence: the repo is greenfield. Redis is required for BullMQ; it will run in Docker (Docker Desktop is not yet installed locally).
 
@@ -22,25 +22,25 @@ Consequence: the repo is greenfield. Redis is required for BullMQ; it will run i
 
 ## 2. Version decisions
 
-| Component | Pin | Why |
-|---|---|---|
-| Node.js | **22 LTS** (22.19+) | Satisfies Next (>=20.9), Nest (>=20), Prisma 7 (`^20.19 \|\| ^22.12 \|\| >=24`), turbo. Already installed. |
-| Package manager | **pnpm 11.x** via corepack (`packageManager` field) | Best monorepo support. pnpm 12 is the newest tag; 11.28.x is chosen as the more settled line. Approval item D5. |
-| Monorepo runner | **Turborepo 2.x** | Task graph and caching. |
-| TypeScript | **6.0.3** | `typescript@latest` is 7.0.2, a new major (native compiler) that is a risk for NestJS decorator metadata, Prisma generation, and Expo/Metro tooling. 6.0.x is the conservative choice; revisit 7 in a later spike. |
-| React | **19.2.3 everywhere (exact)** | **Critical:** Expo SDK 57 bundles `react 19.2.3` / `react-native 0.86.3`. `react@latest` is 19.3.1, but a single React version must be shared across the workspace or Metro/React Native renderer mismatches occur. Web follows mobile. |
-| Web | **Next.js 16.4.x** (App Router) | Peer React `^19`, so 19.2.3 is fine. |
-| Mobile | **Expo SDK 57** (`expo ~57.0.x`), React Native **0.86.3** (as bundled), `expo-router ~57.0.27` | Use the versions from `bundledNativeModules.json`, not `npm latest` (RN latest is 0.88, which is *not* SDK 57-compatible). Always install with `npx expo install`. |
-| API | **NestJS 12.x** (`@nestjs/*` ^12) with the Express adapter | Node >=20. **Nest 12 packages are ESM-only**, so `api`, `worker` and `contracts` are ESM (`"type": "module"`, `module: NodeNext`, relative imports use `.js`). Fastify adapter is a later optimisation. |
-| ORM | **Prisma 7.10.0** (`prisma` CLI and `@prisma/client` both pinned to `7.10.0`) | `prisma@latest` currently points to `8.0.0-rc.23`, a release candidate. Do not use it. Pin CLI and client to the same stable version. Uses driver adapter `@prisma/adapter-pg`. |
-| DB | **PostgreSQL 16** (local already 16.15) | RLS, partial indexes, `pg_trgm`. |
-| Queue | **BullMQ 6.x** + **Redis 7+** | BullMQ 6 treats `ioredis` (>=5) as a peer dependency, so apps depend on `ioredis@^5` explicitly. |
-| Validation | **Zod 4** shared via `packages/contracts` | One schema source for API, web, mobile. |
-| Styling (web) | Tailwind CSS 4 + shadcn/ui | |
-| Styling (mobile) | NativeWind or plain StyleSheet (decide in Phase 7) | NativeWind compat with Expo 57 must be verified first. |
-| Unit tests | **Vitest** (shared packages, web), **Jest** only where the Expo/Nest preset requires it | |
-| E2E | Playwright (web), Supertest (API), Maestro later (mobile) | |
-| Lint/format | ESLint 10 flat config + Prettier | |
+| Component        | Pin                                                                                            | Why                                                                                                                                                                                                                                     |
+| ---------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node.js          | **22 LTS** (22.19+)                                                                            | Satisfies Next (>=20.9), Nest (>=20), Prisma 7 (`^20.19 \|\| ^22.12 \|\| >=24`), turbo. Already installed.                                                                                                                              |
+| Package manager  | **pnpm 11.x** via corepack (`packageManager` field)                                            | Best monorepo support. pnpm 12 is the newest tag; 11.28.x is chosen as the more settled line. Approval item D5.                                                                                                                         |
+| Monorepo runner  | **Turborepo 2.x**                                                                              | Task graph and caching.                                                                                                                                                                                                                 |
+| TypeScript       | **6.0.3**                                                                                      | `typescript@latest` is 7.0.2, a new major (native compiler) that is a risk for NestJS decorator metadata, Prisma generation, and Expo/Metro tooling. 6.0.x is the conservative choice; revisit 7 in a later spike.                      |
+| React            | **19.2.3 everywhere (exact)**                                                                  | **Critical:** Expo SDK 57 bundles `react 19.2.3` / `react-native 0.86.3`. `react@latest` is 19.3.1, but a single React version must be shared across the workspace or Metro/React Native renderer mismatches occur. Web follows mobile. |
+| Web              | **Next.js 16.4.x** (App Router)                                                                | Peer React `^19`, so 19.2.3 is fine.                                                                                                                                                                                                    |
+| Mobile           | **Expo SDK 57** (`expo ~57.0.x`), React Native **0.86.3** (as bundled), `expo-router ~57.0.27` | Use the versions from `bundledNativeModules.json`, not `npm latest` (RN latest is 0.88, which is _not_ SDK 57-compatible). Always install with `npx expo install`.                                                                      |
+| API              | **NestJS 12.x** (`@nestjs/*` ^12) with the Express adapter                                     | Node >=20. **Nest 12 packages are ESM-only**, so `api`, `worker` and `contracts` are ESM (`"type": "module"`, `module: NodeNext`, relative imports use `.js`). Fastify adapter is a later optimisation.                                 |
+| ORM              | **Prisma 7.10.0** (`prisma` CLI and `@prisma/client` both pinned to `7.10.0`)                  | `prisma@latest` currently points to `8.0.0-rc.23`, a release candidate. Do not use it. Pin CLI and client to the same stable version. Uses driver adapter `@prisma/adapter-pg`.                                                         |
+| DB               | **PostgreSQL 16** (local already 16.15)                                                        | RLS, partial indexes, `pg_trgm`.                                                                                                                                                                                                        |
+| Queue            | **BullMQ 6.x** + **Redis 7+**                                                                  | BullMQ 6 treats `ioredis` (>=5) as a peer dependency, so apps depend on `ioredis@^5` explicitly.                                                                                                                                        |
+| Validation       | **Zod 4** shared via `packages/contracts`                                                      | One schema source for API, web, mobile.                                                                                                                                                                                                 |
+| Styling (web)    | Tailwind CSS 4 + shadcn/ui                                                                     |                                                                                                                                                                                                                                         |
+| Styling (mobile) | NativeWind or plain StyleSheet (decide in Phase 7)                                             | NativeWind compat with Expo 57 must be verified first.                                                                                                                                                                                  |
+| Unit tests       | **Vitest** (shared packages, web), **Jest** only where the Expo/Nest preset requires it        |                                                                                                                                                                                                                                         |
+| E2E              | Playwright (web), Supertest (API), Maestro later (mobile)                                      |                                                                                                                                                                                                                                         |
+| Lint/format      | ESLint 10 flat config + Prettier                                                               |                                                                                                                                                                                                                                         |
 
 Rule: **versions are pinned exactly** in the root `package.json` `pnpm.overrides` for `react`, `react-dom`, `typescript`, `zod`, `prisma`, `@prisma/client`. A CI check (`pnpm check:versions`) fails on drift.
 
@@ -99,6 +99,7 @@ Model: **shared database, shared schema, `tenant_id` on every tenant-owned row**
 3. **PostgreSQL Row-Level Security.** `ENABLE` and `FORCE ROW LEVEL SECURITY` on every tenant table with policy `tenant_id = current_setting('app.tenant_id')::uuid`. The application connects as role `app_user` (no `BYPASSRLS`, not table owner). Migrations run as a separate `app_migrator` role. This makes a forgotten `where` clause fail closed rather than leak.
 
 Additional rules:
+
 - Composite foreign keys `(tenant_id, id)` so a child can never reference another tenant's parent.
 - Unique constraints are always tenant-scoped (e.g. `(tenant_id, sku)`, `(tenant_id, order_number)`).
 - Background jobs carry `tenantId` in the payload and run inside `TenantContext`; a job without one is rejected.
@@ -142,35 +143,35 @@ BullMQ queues: `courier-sync`, `courier-webhooks`, `reconciliation`, `notificati
 
 ## 10. Technical risks
 
-| # | Risk | Impact | Mitigation |
-|---|---|---|---|
-| R1 | **Version drift between Expo and web React** | Broken mobile builds | Exact pinning, overrides, CI drift check, `expo install` only, `expo-doctor` in CI. |
-| R2 | **Prisma 8 RC / TS 7 major churn** | Unstable tooling | Stay on Prisma 7.10 stable and TS 6.0; scheduled upgrade spikes. |
-| R3 | **Tenant data leakage** | Existential | Three-layer isolation (§5), mandatory isolation tests, non-bypass DB role. |
-| R4 | **Prisma + RLS** requires per-request transaction with `set_config`; connection-pool misuse can leak the setting | Leakage or latency | Always `set_config(..., true)` (transaction-local) inside `$transaction`; benchmark early (Phase 1). Fallback: raw `pg` for hot paths. |
-| R5 | **Courier APIs** (Pathao, Steadfast, RedX, Paperfly) are inconsistent, sparsely documented, and change; sandbox availability varies | Delays, wrong statuses | `CourierAdapter` interface, recorded-fixture contract tests, mock adapter, normalised status mapping table, feature flag per courier. |
-| R6 | **COD money correctness** (partial deliveries, courier fees, delayed settlement) | Financial disputes | Integer paisa, append-only ledger, property-based tests in `domain`, reconciliation reports that surface mismatches. |
-| R7 | **Meta (Facebook/Instagram) API access** needs app review, business verification, and tight policies; messaging windows limited | Social order import may be blocked or slow | Treat as late-phase and optional; ship manual and bulk-import order entry first; build against a mock webhook. |
-| R8 | **Overselling / race conditions** in inventory | Wrong stock | Row locking, ledger, concurrency tests. |
-| R9 | **Bangladesh specifics**: phone and address normalisation, Bangla text and fonts, low-end Android and poor connectivity, SMS sender-ID (BTRC) rules, local payment rails (bKash/Nagad) for billing | Poor UX or blocked launch | Normalisation lib in `domain`, offline-tolerant mobile, i18n early, defer billing and SMS provider choice. |
-| R10 | **Mobile store release** (Apple dev account, Play console, signing) | Launch delay | Start accounts early (needs the user); use EAS internal distribution first. |
-| R11 | **Webhook replay, duplication, ordering** | Corrupt order status | Inbox table, dedupe, monotonic status rules. |
-| R12 | **PII and compliance** (customer names, phones, addresses) | Legal and reputational | Encrypt secrets (courier credentials) with envelope encryption, field-level access logging, data-retention policy, backups. |
-| R13 | **Scope size** for a small team | Never ships | Strict phase gates (see implementation plan); web-first, mobile after the API stabilises. |
-| R14 | **Courier credentials stored per tenant** | Credential theft | AES-256-GCM with a KMS-style master key from env, never logged, redacted in responses. |
+| #   | Risk                                                                                                                                                                                               | Impact                                     | Mitigation                                                                                                                             |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | **Version drift between Expo and web React**                                                                                                                                                       | Broken mobile builds                       | Exact pinning, overrides, CI drift check, `expo install` only, `expo-doctor` in CI.                                                    |
+| R2  | **Prisma 8 RC / TS 7 major churn**                                                                                                                                                                 | Unstable tooling                           | Stay on Prisma 7.10 stable and TS 6.0; scheduled upgrade spikes.                                                                       |
+| R3  | **Tenant data leakage**                                                                                                                                                                            | Existential                                | Three-layer isolation (§5), mandatory isolation tests, non-bypass DB role.                                                             |
+| R4  | **Prisma + RLS** requires per-request transaction with `set_config`; connection-pool misuse can leak the setting                                                                                   | Leakage or latency                         | Always `set_config(..., true)` (transaction-local) inside `$transaction`; benchmark early (Phase 1). Fallback: raw `pg` for hot paths. |
+| R5  | **Courier APIs** (Pathao, Steadfast, RedX, Paperfly) are inconsistent, sparsely documented, and change; sandbox availability varies                                                                | Delays, wrong statuses                     | `CourierAdapter` interface, recorded-fixture contract tests, mock adapter, normalised status mapping table, feature flag per courier.  |
+| R6  | **COD money correctness** (partial deliveries, courier fees, delayed settlement)                                                                                                                   | Financial disputes                         | Integer paisa, append-only ledger, property-based tests in `domain`, reconciliation reports that surface mismatches.                   |
+| R7  | **Meta (Facebook/Instagram) API access** needs app review, business verification, and tight policies; messaging windows limited                                                                    | Social order import may be blocked or slow | Treat as late-phase and optional; ship manual and bulk-import order entry first; build against a mock webhook.                         |
+| R8  | **Overselling / race conditions** in inventory                                                                                                                                                     | Wrong stock                                | Row locking, ledger, concurrency tests.                                                                                                |
+| R9  | **Bangladesh specifics**: phone and address normalisation, Bangla text and fonts, low-end Android and poor connectivity, SMS sender-ID (BTRC) rules, local payment rails (bKash/Nagad) for billing | Poor UX or blocked launch                  | Normalisation lib in `domain`, offline-tolerant mobile, i18n early, defer billing and SMS provider choice.                             |
+| R10 | **Mobile store release** (Apple dev account, Play console, signing)                                                                                                                                | Launch delay                               | Start accounts early (needs the user); use EAS internal distribution first.                                                            |
+| R11 | **Webhook replay, duplication, ordering**                                                                                                                                                          | Corrupt order status                       | Inbox table, dedupe, monotonic status rules.                                                                                           |
+| R12 | **PII and compliance** (customer names, phones, addresses)                                                                                                                                         | Legal and reputational                     | Encrypt secrets (courier credentials) with envelope encryption, field-level access logging, data-retention policy, backups.            |
+| R13 | **Scope size** for a small team                                                                                                                                                                    | Never ships                                | Strict phase gates (see implementation plan); web-first, mobile after the API stabilises.                                              |
+| R14 | **Courier credentials stored per tenant**                                                                                                                                                          | Credential theft                           | AES-256-GCM with a KMS-style master key from env, never logged, redacted in responses.                                                 |
 
 ---
 
 ## 11. Decision log
 
-| ID | Decision | Status |
-|---|---|---|
-| A1 | pnpm workspaces + Turborepo monorepo | Proposed |
-| A2 | Shared-schema multitenancy with RLS as defense-in-depth | Proposed |
-| A3 | JWT access + rotating opaque refresh, argon2id | Proposed |
-| A4 | Money as integer paisa | Proposed |
-| A5 | Separate `worker` process; BullMQ | Proposed |
-| A6 | React pinned to Expo's version (19.2.3) for all apps | Proposed |
-| A7 | Prisma 7.10.0 stable, TypeScript 6.0.3 | Proposed |
-| A8 | OpenAPI-generated client + shared Zod contracts | Proposed |
-| A9 | Appended ledgers for stock, COD, order events, audit | Proposed |
+| ID  | Decision                                                | Status   |
+| --- | ------------------------------------------------------- | -------- |
+| A1  | pnpm workspaces + Turborepo monorepo                    | Proposed |
+| A2  | Shared-schema multitenancy with RLS as defense-in-depth | Proposed |
+| A3  | JWT access + rotating opaque refresh, argon2id          | Proposed |
+| A4  | Money as integer paisa                                  | Proposed |
+| A5  | Separate `worker` process; BullMQ                       | Proposed |
+| A6  | React pinned to Expo's version (19.2.3) for all apps    | Proposed |
+| A7  | Prisma 7.10.0 stable, TypeScript 6.0.3                  | Proposed |
+| A8  | OpenAPI-generated client + shared Zod contracts         | Proposed |
+| A9  | Appended ledgers for stock, COD, order events, audit    | Proposed |
