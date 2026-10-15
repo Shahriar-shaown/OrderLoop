@@ -1,0 +1,14 @@
+node_modules
+dist
+.next
+.expo
+.turbo
+coverage
+pnpm-lock.yaml
+bun.lock
+bun.lockb
+apps/mobile/assets
+apps/web/public
+apps/web/next-env.d.ts
+*.icon
+expo-env.d.ts

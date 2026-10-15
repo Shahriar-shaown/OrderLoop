@@ -1,0 +1,30 @@
+{
+  "name": "@orderloop/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "typecheck": "next typegen && tsc --noEmit",
+    "lint": "eslint",
+    "test": "echo \"no tests yet\""
+  },
+  "dependencies": {
+    "next": "16.4.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "@orderloop/contracts": "workspace:*",
+    "@orderloop/api-client": "workspace:*"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "^4",
+    "@types/node": "^22.0.0",
+    "@types/react": "~19.2.2",
+    "@types/react-dom": "~19.2.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.0",
+    "tailwindcss": "^4",
+    "typescript": "6.0.3"
+  }
+}

@@ -1,0 +1,33 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: orderloop, POSTGRES_PASSWORD: orderloop, POSTGRES_DB: orderloop }
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U orderloop" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: cp .env.example .env
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:versions
+      - run: pnpm check:boundaries
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
