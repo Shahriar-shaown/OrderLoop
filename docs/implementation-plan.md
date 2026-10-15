@@ -241,10 +241,10 @@ Branches: `feat/m0-foundation` then `feat/m1-dev-foundation`.
 
 Verified locally: `pnpm install`; `pnpm check` (lint, typecheck, test, build for all 6 workspaces, plus `check:versions`, `check:boundaries`) passes; the same `check` passes under Bun in a scratch copy; `expo-doctor` 21/21; `pnpm dev` starts API, worker, web and Expo; API `/health/live` is 200; `/health/ready` is 503 with Redis reported down and **PostgreSQL reported up against a real PostgreSQL 16 on port 5433**; the web development page renders the live health result; Metro serves an iOS dev bundle containing the mobile home screen.
 
+**Verified with Docker Desktop 4.95 (2026-10-15):** `pnpm services:up` brings Postgres 16 (5433) and Redis 7 (6379) to healthy; `/health/ready` returns 200 `{"status":"ok","checks":{"postgres":"up","redis":"up"}}`; the web page shows both up; the worker logs `ready, listening on queue "system"`.
+
 **Not verified (environment gaps):**
 
-- `pnpm services:up` / Docker Compose: Docker is not installed on the development machine.
-- Redis "up" path and the worker connecting to Redis: no Redis available (not installed, Docker missing).
 - iOS Simulator / Android emulator launch: full Xcode is not installed (only command-line tools); no Android emulator.
 - GitHub Actions workflow has not run (nothing pushed).
 
