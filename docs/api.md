@@ -286,7 +286,7 @@ curl -s -X POST localhost:4000/v1/auth/login -H 'content-type: application/json'
 
 ## Tests
 
-`pnpm test` runs unit tests (no services). `pnpm test:integration` runs the API against real PostgreSQL and Redis in an
+`pnpm test` runs unit tests (no services). `apps/api/test/user-journey.e2e.test.ts` is the checkpoint test: it walks a native-app user and a browser user through register, protected access, refresh and logout over real HTTP with plain `fetch`. `pnpm test:integration` runs the API against real PostgreSQL and Redis in an
 isolated `orderloop_test` database, covering: valid and invalid sign-in; account lockout; token rotation, reuse detection and
 expiry; session revocation by logout, password reset, member removal and account disabling; unauthorised and forged tokens;
 email verification and password reset including concurrency and purpose confusion; rate limits on every sensitive endpoint;

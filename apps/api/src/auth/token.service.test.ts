@@ -30,6 +30,14 @@ describe('TokenService', () => {
     });
   });
 
+  it('issues a distinct token every time, even for the same session in the same second', async () => {
+    const s = await service();
+    const [a, b] = await Promise.all([s.signAccessToken(claims), s.signAccessToken(claims)]);
+    expect(a).not.toBe(b);
+    // ...and both still verify to the same identity.
+    expect(await s.verifyAccessToken(a)).toEqual(await s.verifyAccessToken(b));
+  });
+
   it('rejects a tampered token', async () => {
     const s = await service();
     const token = await s.signAccessToken(claims);

@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { Role } from '@orderloop/contracts';
 import {
@@ -59,14 +59,18 @@ export class TokenService implements OnModuleInit {
   }
 
   signAccessToken(claims: AccessClaims): Promise<string> {
-    return new SignJWT({ tid: claims.tenantId, role: claims.role, sid: claims.sessionId })
-      .setProtectedHeader({ alg: ALG, kid: this.kid })
-      .setSubject(claims.userId)
-      .setIssuer(ISSUER)
-      .setAudience(AUDIENCE)
-      .setIssuedAt()
-      .setExpirationTime(`${this.accessTtlSeconds}s`)
-      .sign(this.privateKey);
+    return (
+      new SignJWT({ tid: claims.tenantId, role: claims.role, sid: claims.sessionId })
+        .setProtectedHeader({ alg: ALG, kid: this.kid })
+        .setSubject(claims.userId)
+        // Unique per token: without it, two tokens issued for the same session in the same second are byte-identical.
+        .setJti(randomUUID())
+        .setIssuer(ISSUER)
+        .setAudience(AUDIENCE)
+        .setIssuedAt()
+        .setExpirationTime(`${this.accessTtlSeconds}s`)
+        .sign(this.privateKey)
+    );
   }
 
   /** Verifies signature, expiry, issuer and audience. Only the claims needed to look up the session are trusted. */
