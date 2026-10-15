@@ -11,3 +11,4 @@ apps/mobile/assets
 apps/web/public
 apps/web/next-env.d.ts
 *.icon
+expo-env.d.ts
