@@ -1,0 +1,37 @@
+{
+  "name": "@orderloop/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "build": "prisma generate && tsc -p tsconfig.json",
+    "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src scripts",
+    "test": "echo \"db integration tests run from apps/api\"",
+    "migrate": "node scripts/with-root-env.mjs prisma migrate dev",
+    "migrate:deploy": "node scripts/with-root-env.mjs prisma migrate deploy",
+    "migrate:status": "node scripts/with-root-env.mjs prisma migrate status",
+    "setup-roles": "node scripts/with-root-env.mjs node scripts/setup-roles.mjs"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@orderloop/config": "workspace:*",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.16.0",
+    "eslint": "^10.0.0",
+    "prisma": "7.10.0"
+  }
+}

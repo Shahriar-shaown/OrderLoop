@@ -48,3 +48,4 @@ bun.lockb
 # local databases and volumes
 *.sqlite
 infra/data
+packages/db/src/generated

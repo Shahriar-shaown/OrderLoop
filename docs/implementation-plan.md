@@ -251,3 +251,38 @@ Verified locally: `pnpm install`; `pnpm check` (lint, typecheck, test, build for
 - GitHub Actions workflow has not run (nothing pushed).
 
 Notes: pnpm 11 manages `overrides`/`allowBuilds` in `pnpm-workspace.yaml` (mirrored in `package.json` `overrides` for Bun); `packages/db` and `courier-sdk` are created in the phases that need them; `@orderloop/contracts` has a browser-safe root entry and a Node-only `@orderloop/contracts/server` entry (found when the mobile bundle failed on `node:fs`).
+
+## 9. Phase 1 status: identity and tenancy (2026-10-15)
+
+Branch `feat/phase1-identity-tenancy`. Design notes and deviations are in [architecture.md](architecture.md) section 12.
+
+**Delivered:** Prisma 7.10 schema and migrations (users, tenants, memberships, sessions, refresh tokens, invitations, audit log); `app_migrator`/`app_user` roles; forced row-level security; register, login, refresh with rotation and reuse detection, logout, switch tenant, invite and accept, role changes, member removal, audit log, `/v1/me`, `/v1/tenant`; per-IP rate limiting and per-account lockout; route registry, typed client, generated OpenAPI.
+
+**Acceptance criteria:**
+
+| Criterion                                                                                                                                    | Result                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tests cover token rotation, replay revoking the family, expired and revoked tokens, role checks                                              | Met: `auth.e2e` and `members.e2e` (including concurrent exchange and concurrent demotion)                                                                                                 |
+| Tenant-isolation suite: cross-tenant read, write and list fail for every tenant table; unset context returns zero rows; CI fails without RLS | Met: `tenant-isolation.e2e` (database level as `app_user`, API level, pooled-connection stress, schema introspection)                                                                     |
+| Per-request tenant transaction p95 overhead under 15 ms                                                                                      | Met: about 1.8 ms (1 query) and 2.4 ms (3 queries) on local Docker. Re-measure on production-like infrastructure.                                                                         |
+| OpenAPI spec generated and `api-client` builds from it                                                                                       | Met, with a variation: both derive from the route registry rather than the client being generated from the spec file; a test pins `docs/openapi.json` and a live-client test exercises it |
+
+**Review:** an independent security review found no critical or high issues; its medium and low findings are handled as listed in architecture.md section 12.
+
+**Verified:** `pnpm check` (32 tasks) passes; 25 API unit tests and 71 integration tests pass against real PostgreSQL 16 and Redis 7; a live run against the dev server registered a tenant and returned `/health/ready` ok.
+
+**Known limits (not blockers for Phase 2):** no email delivery (invitation links are logged in development); no password reset or email verification yet; per-instance in-memory IP rate limiting (shared store needed for multiple replicas); registration reveals taken emails; no refresh grace window; the web and mobile apps do not use the auth API yet (Phases 6 and 7); iOS runtime is still unverified (no Xcode).
+
+## 10. Milestone 2 status: database and authentication complete (2026-10-15)
+
+Branch `feat/m2-auth-completion`, on top of Phase 1. Behaviour is documented in [api.md](api.md) and [database.md](database.md).
+
+**Added on top of Phase 1:** email verification and password reset (one-time hashed tokens, every session revoked on reset, anti-enumeration, per-address send limit); a pluggable mailer with console (development), SMTP (Mailpit locally, any provider in production) and in-memory (tests) implementations; structured JSON logging with layered redaction and a request id on every request; stricter start-up validation (mail, log level, production rules); a development-only seed script; inviting now requires a verified email, and accepting an invitation verifies the invited address.
+
+**Fixed:** Phase 1 migrations failed under `prisma migrate dev` (Prisma's shadow database replays them before `_prisma_migrations` exists); the `REVOKE` is now conditional. Local databases were rebuilt from scratch to prove a fresh `db:init` works.
+
+**Verified:** SMTP delivery against a real Mailpit (email arrived with correct sender and recipient, token redeemed once, reuse rejected, and the API log contained neither the token nor the password). Unit and integration suites pass; the full list is in the report that accompanied this milestone.
+
+**Independent review of the new flows:** no critical or high findings. Fixed from it: a timing difference in forgot-password (all differing work now runs after the response); resets could be blocked by someone else's requests (earlier links no longer expire when a new one is issued); account names no longer appear in emails and are validated; email addresses are masked in logged provider errors; unauthenticated reset requests no longer write into tenants' audit logs; `NODE_ENV` is required (no default) and the seed script has no remote override. Also found and fixed while verifying: the console mailer printed `[REDACTED]` instead of the link, because it went through the redacting logger (it now writes to the terminal and was tested end to end). Accepted and documented in api.md: registration reveals whether an email is taken, and pre-registration of an unverified account.
+
+**Not done / known limits:** the pages the email links point to (`/verify-email`, `/reset-password`, `/accept-invitation`) arrive with the web app in Phase 6; no change-password-while-signed-in endpoint; no production email provider has been exercised (no credentials); registration still reveals whether an email is taken; the IP rate limiter is per instance.

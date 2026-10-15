@@ -21,5 +21,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+  # Opt-in local mail server: `pnpm services:mail`, then set MAIL_PROVIDER=smtp and SMTP_HOST=localhost, SMTP_PORT=1025.
+  # Catches every email the API sends; read them at http://localhost:8025. Nothing is ever delivered externally.
+  mailpit:
+    image: axllent/mailpit
+    profiles: ['mail']
+    ports: ['1025:1025', '8025:8025']
 volumes:
   pgdata:

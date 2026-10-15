@@ -1,5 +1,52 @@
-import { Module } from '@nestjs/common';
+import { Module, RequestMethod, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AccessGuard } from './auth/access.guard.js';
+import { AuthModule } from './auth/auth.module.js';
+import { AuditModule } from './audit/audit.module.js';
+import { ProblemFilter } from './common/problem.filter.js';
+import { ValidationInterceptor } from './common/validation.interceptor.js';
+import { APP_CONFIG, ConfigModule, type AppConfig } from './config/config.module.js';
+import { DatabaseModule } from './db/database.module.js';
 import { HealthModule } from './health/health.module.js';
+import { LoggingModule } from './logging/logging.module.js';
+import { RequestLogMiddleware } from './logging/request-log.middleware.js';
+import { MailModule } from './mail/mail.module.js';
+import { MembersModule } from './members/members.module.js';
+import { OpenApiController } from './openapi.controller.js';
+import { RedisModule } from './redis/redis.module.js';
 
-@Module({ imports: [HealthModule] })
-export class AppModule {}
+@Module({
+  imports: [
+    ConfigModule,
+    LoggingModule,
+    MailModule,
+    DatabaseModule,
+    RedisModule,
+    // Per-IP budget for everything; credential endpoints tighten it with @Throttle. In-memory per instance:
+    // switch to a shared store before running more than one API replica.
+    ThrottlerModule.forRootAsync({
+      inject: [APP_CONFIG],
+      useFactory: (config: AppConfig) => ({
+        throttlers: [{ ttl: 60_000, limit: 120 }],
+        skipIf: () => !config.RATE_LIMIT_ENABLED,
+      }),
+    }),
+    HealthModule,
+    AuthModule,
+    AuditModule,
+    MembersModule,
+  ],
+  controllers: [OpenApiController],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useExisting: AccessGuard },
+    { provide: APP_INTERCEPTOR, useClass: ValidationInterceptor },
+    { provide: APP_FILTER, useClass: ProblemFilter },
+  ],
+})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestLogMiddleware).forRoutes({ path: '{*path}', method: RequestMethod.ALL });
+  }
+}

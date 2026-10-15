@@ -1,5 +1,5 @@
 {
   "extends": "@orderloop/config/tsconfig.node.json",
-  "compilerOptions": { "outDir": "dist", "rootDir": "src" },
-  "include": ["src"]
+  "compilerOptions": { "outDir": "dist", "rootDir": "." },
+  "include": ["src", "test", "vitest.config.ts", "vitest.integration.config.ts"]
 }
