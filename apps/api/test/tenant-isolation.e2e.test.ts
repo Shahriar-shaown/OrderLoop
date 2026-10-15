@@ -388,15 +388,15 @@ describe('API: tenants cannot reach each other', () => {
       .set(bearer(b.accessToken))
       .send({ email, role: 'STAFF' })
       .expect(201);
-    const sent = t.invites.sent.findLast((m) => m.email === email)!;
-    expect(sent.tenantId).toBe(b.tenant.id);
+    const token = t.mail.tokenFor(email, 'invitation');
+    expect(token.split('_')[1]).toBe(b.tenant.id); // the token names the tenant it belongs to
     const seenByA = await t.db.withContext(ctxA(), (tx) =>
       tx.invitation.findMany({ where: { email } }),
     );
     expect(seenByA).toEqual([]);
     const accepted = await t.http
       .post('/v1/auth/accept-invitation')
-      .send({ token: sent.token, name: 'Cross', password: PASSWORD });
+      .send({ token, name: 'Cross', password: PASSWORD });
     expect(accepted.body.tenant.id).toBe(b.tenant.id);
   });
 });

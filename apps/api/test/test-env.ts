@@ -32,5 +32,7 @@ export const testEnv = {
   DATABASE_ADMIN_URL: need('DATABASE_ADMIN_URL'),
   REDIS_URL: redisDb1(need('REDIS_URL')),
   RATE_LIMIT_ENABLED: 'false',
+  LOG_LEVEL: 'silent',
+  MAIL_PROVIDER: 'console',
   WEB_ORIGINS: 'http://localhost:3000',
 } as const;

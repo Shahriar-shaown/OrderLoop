@@ -97,6 +97,42 @@ export class AuthController {
     return {};
   }
 
+  @Endpoint(routes.verifyEmail)
+  @Throttle(STRICT)
+  async verifyEmail(
+    @Input() input: ParsedInput<typeof routes.verifyEmail>,
+    @Req() req: AppRequest,
+  ): Promise<Record<string, never>> {
+    await this.auth.verifyEmail(input.body, this.meta(req));
+    return {};
+  }
+
+  @Endpoint(routes.resendVerification)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  async resendVerification(@Auth() auth: AuthContext): Promise<Record<string, never>> {
+    await this.auth.resendVerification(auth);
+    return {};
+  }
+
+  @Endpoint(routes.forgotPassword)
+  @Throttle(STRICT)
+  async forgotPassword(
+    @Input() input: ParsedInput<typeof routes.forgotPassword>,
+  ): Promise<Record<string, never>> {
+    await this.auth.forgotPassword(input.body);
+    return {};
+  }
+
+  @Endpoint(routes.resetPassword)
+  @Throttle(STRICT)
+  async resetPassword(
+    @Input() input: ParsedInput<typeof routes.resetPassword>,
+    @Req() req: AppRequest,
+  ): Promise<Record<string, never>> {
+    await this.auth.resetPassword(input.body, this.meta(req));
+    return {};
+  }
+
   @Endpoint(routes.switchTenant)
   async switchTenant(
     @Auth() auth: AuthContext,

@@ -14,7 +14,8 @@ import { TokenService } from '../auth/token.service.js';
 import { ApiError } from '../common/api-error.js';
 import type { AuthContext } from '../common/endpoint.js';
 import { APP_CONFIG, type AppConfig } from '../config/config.module.js';
-import { InviteSender } from './invite-sender.js';
+import { MailService } from '../mail/mail.service.js';
+import { templates } from '../mail/templates.js';
 
 const INVITE_TTL_MS = 7 * 86_400_000;
 
@@ -41,7 +42,7 @@ export class MembersService {
     private readonly db: Database,
     private readonly audit: AuditService,
     private readonly tokens: TokenService,
-    private readonly sender: InviteSender,
+    private readonly mail: MailService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -65,6 +66,17 @@ export class MembersService {
     const invitation = await this.db.withContext(
       { tenantId: auth.tenantId, userId: auth.userId },
       async (tx) => {
+        // Unverified accounts cannot send email on our behalf: stops a throwaway sign-up from being used to spam.
+        const inviter = await tx.user.findUnique({
+          where: { id: auth.userId },
+          select: { emailVerifiedAt: true },
+        });
+        if (!inviter?.emailVerifiedAt)
+          throw new ApiError(
+            403,
+            'email_not_verified',
+            'Verify your email address before inviting people',
+          );
         const existing = await tx.user.findUnique({
           where: { email: body.email },
           select: { id: true },
@@ -106,13 +118,9 @@ export class MembersService {
     );
 
     // Sent after commit; the token is never returned to the inviter, who could otherwise accept it as the invitee.
-    await this.sender.send({
-      email: body.email,
-      role: body.role,
-      tenantId: auth.tenantId,
-      token,
-      link: `${this.config.WEB_ORIGINS[0]}/accept-invitation?token=${encodeURIComponent(token)}`,
-    });
+    await this.mail.send(
+      templates.invitation(body.email, this.config.WEB_ORIGINS[0]!, token, body.role),
+    );
     return {
       id: invitation.id,
       email: invitation.email,

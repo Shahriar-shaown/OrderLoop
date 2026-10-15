@@ -74,6 +74,18 @@ export class LoginThrottleService {
     }
   }
 
+  /** At most 3 reset emails per address per hour, so the endpoint cannot be used to flood someone's inbox. Fails open. */
+  async allowResetRequest(email: string): Promise<boolean> {
+    const key = `reset-req:${digest(email)}`;
+    try {
+      const count = await this.redis.incr(key);
+      if (count === 1) await this.redis.expire(key, 3600);
+      return count <= 3;
+    } catch {
+      return true;
+    }
+  }
+
   async clear(email: string, ip: string | null | undefined): Promise<void> {
     const { pair, account } = this.keys(email, ip);
     try {

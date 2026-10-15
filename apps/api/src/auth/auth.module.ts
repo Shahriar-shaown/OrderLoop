@@ -7,6 +7,7 @@ import { LoginThrottleService } from './login-throttle.service.js';
 import { PasswordService } from './password.service.js';
 import { SessionService } from './session.service.js';
 import { TokenService } from './token.service.js';
+import { UserTokenService } from './user-token.service.js';
 
 @Module({
   imports: [AuditModule],
@@ -17,6 +18,7 @@ import { TokenService } from './token.service.js';
     TokenService,
     SessionService,
     LoginThrottleService,
+    UserTokenService,
     AccessGuard,
   ],
   exports: [TokenService, AccessGuard],

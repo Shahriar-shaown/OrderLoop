@@ -61,6 +61,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -165,6 +167,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -250,6 +254,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -355,9 +361,12 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "emailVerified": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["id", "email", "name"],
+                      "required": ["id", "email", "name", "emailVerified"],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -437,6 +446,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -537,9 +548,12 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "emailVerified": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["id", "email", "name"],
+                      "required": ["id", "email", "name", "emailVerified"],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -619,6 +633,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -707,9 +723,12 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "emailVerified": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["id", "email", "name"],
+                      "required": ["id", "email", "name", "emailVerified"],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -789,6 +808,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -872,6 +893,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -966,9 +989,12 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "emailVerified": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["id", "email", "name"],
+                      "required": ["id", "email", "name", "emailVerified"],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -1048,6 +1074,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -1152,9 +1180,12 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "emailVerified": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["id", "email", "name"],
+                      "required": ["id", "email", "name", "emailVerified"],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -1234,6 +1265,416 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/verify-email": {
+      "post": {
+        "operationId": "verifyEmail",
+        "summary": "Confirm an email address with the token from the verification email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 512
+                  }
+                },
+                "required": ["token"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/resend-verification": {
+      "post": {
+        "operationId": "resendVerification",
+        "summary": "Send a new verification email to the signed-in user (no-op if already verified)",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/auth/forgot-password": {
+      "post": {
+        "operationId": "forgotPassword",
+        "summary": "Email a password-reset link. Always answers 200, whether or not the address has an account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  }
+                },
+                "required": ["email"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/reset-password": {
+      "post": {
+        "operationId": "resetPassword",
+        "summary": "Set a new password with the emailed token; ends every session of that user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 512
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 128
+                  }
+                },
+                "required": ["token", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -1293,9 +1734,12 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "emailVerified": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["id", "email", "name"],
+                      "required": ["id", "email", "name", "emailVerified"],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -1389,6 +1833,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -1490,6 +1936,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -1607,6 +2055,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -1737,6 +2187,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -1852,6 +2304,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -1953,6 +2407,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -2097,6 +2553,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -2196,6 +2654,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]
@@ -2358,6 +2818,8 @@
                         "conflict",
                         "rate_limited",
                         "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
                         "last_owner",
                         "internal_error"
                       ]

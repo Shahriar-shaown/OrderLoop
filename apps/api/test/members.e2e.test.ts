@@ -223,12 +223,12 @@ describe('invitations', () => {
       .set(bearer(owner.accessToken))
       .send({ email, role: 'MANAGER' })
       .expect(201);
-    const sent = t.invites.sent.findLast((m) => m.email === email)!;
-    expect(sent.link).toContain('/accept-invitation?token=');
+    const token = t.mail.tokenFor(email, 'invitation');
+    expect(t.mail.to(email, 'invitation').at(-1)!.text).toContain('/accept-invitation?token=');
 
     const accepted = await t.http
       .post('/v1/auth/accept-invitation')
-      .send({ token: sent.token, name: 'New Person', password: PASSWORD });
+      .send({ token, name: 'New Person', password: PASSWORD });
     expect(accepted.status).toBe(201);
     expect(accepted.body.role).toBe('MANAGER');
     expect(accepted.body.tenant.id).toBe(owner.tenant.id);
@@ -257,7 +257,7 @@ describe('invitations', () => {
       .post('/v1/members/invitations')
       .set(bearer(owner.accessToken))
       .send({ email, role: 'STAFF' });
-    const { token } = t.invites.sent.findLast((m) => m.email === email)!;
+    const token = t.mail.tokenFor(email, 'invitation');
     await t.http
       .post('/v1/auth/accept-invitation')
       .send({ token, name: 'A', password: PASSWORD })
@@ -276,7 +276,7 @@ describe('invitations', () => {
       .post('/v1/members/invitations')
       .set(bearer(owner.accessToken))
       .send({ email, role: 'STAFF' });
-    const old = t.invites.sent.findLast((m) => m.email === email)!.token;
+    const old = t.mail.tokenFor(email, 'invitation');
     await t.http
       .post('/v1/members/invitations')
       .set(bearer(owner.accessToken))
@@ -298,7 +298,7 @@ describe('invitations', () => {
       .post('/v1/members/invitations')
       .set(bearer(a.accessToken))
       .send({ email, role: 'STAFF' });
-    const { token } = t.invites.sent.findLast((m) => m.email === email)!;
+    const token = t.mail.tokenFor(email, 'invitation');
 
     const swapped = token.replace(a.tenant.id, b.tenant.id); // point the same secret at another tenant
     expect(
@@ -338,7 +338,7 @@ describe('invitations', () => {
       .post('/v1/members/invitations')
       .set(bearer(b.accessToken))
       .send({ email: a.email, role: 'STAFF' });
-    const { token } = t.invites.sent.findLast((m) => m.email === a.email)!;
+    const token = t.mail.tokenFor(a.email, 'invitation');
     expect(
       (await t.http.post('/v1/auth/accept-invitation').send({ token, password: 'not my password' }))
         .status,
@@ -365,7 +365,7 @@ describe('invitations carry their inviter’s authority', () => {
       .set(bearer(who.accessToken))
       .send({ email, role })
       .expect(201);
-    return t.invites.sent.findLast((m) => m.email === email)!.token;
+    return t.mail.tokenFor(email, 'invitation');
   };
   const memberId = async (owner: { accessToken: string }, email: string) =>
     (

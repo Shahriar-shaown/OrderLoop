@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, RequestMethod, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AccessGuard } from './auth/access.guard.js';
@@ -9,6 +9,9 @@ import { ValidationInterceptor } from './common/validation.interceptor.js';
 import { APP_CONFIG, ConfigModule, type AppConfig } from './config/config.module.js';
 import { DatabaseModule } from './db/database.module.js';
 import { HealthModule } from './health/health.module.js';
+import { LoggingModule } from './logging/logging.module.js';
+import { RequestLogMiddleware } from './logging/request-log.middleware.js';
+import { MailModule } from './mail/mail.module.js';
 import { MembersModule } from './members/members.module.js';
 import { OpenApiController } from './openapi.controller.js';
 import { RedisModule } from './redis/redis.module.js';
@@ -16,6 +19,8 @@ import { RedisModule } from './redis/redis.module.js';
 @Module({
   imports: [
     ConfigModule,
+    LoggingModule,
+    MailModule,
     DatabaseModule,
     RedisModule,
     // Per-IP budget for everything; credential endpoints tighten it with @Throttle. In-memory per instance:
@@ -40,4 +45,8 @@ import { RedisModule } from './redis/redis.module.js';
     { provide: APP_FILTER, useClass: ProblemFilter },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestLogMiddleware).forRoutes({ path: '{*path}', method: RequestMethod.ALL });
+  }
+}

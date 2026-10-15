@@ -1,6 +1,7 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@nestjs/common';
 import type { ErrorCode, Problem } from '@orderloop/contracts';
 import type { Response } from 'express';
+import { scrubSecrets } from '../logging/scrub.js';
 import { ApiError } from './api-error.js';
 
 const STATUS_CODE: Record<number, ErrorCode> = {
@@ -41,8 +42,11 @@ export class ProblemFilter implements ExceptionFilter {
         detail: status === 429 ? 'Too many requests, slow down' : exception.message,
       };
     } else {
+      // Driver and library messages can echo secrets (SQL parameters, tokens): scrub before they reach any logger.
       this.logger.error(
-        exception instanceof Error ? (exception.stack ?? exception.message) : String(exception),
+        scrubSecrets(
+          exception instanceof Error ? (exception.stack ?? exception.message) : String(exception),
+        ),
       );
       problem = {
         type: 'urn:orderloop:error:internal_error',
