@@ -251,3 +251,24 @@ Verified locally: `pnpm install`; `pnpm check` (lint, typecheck, test, build for
 - GitHub Actions workflow has not run (nothing pushed).
 
 Notes: pnpm 11 manages `overrides`/`allowBuilds` in `pnpm-workspace.yaml` (mirrored in `package.json` `overrides` for Bun); `packages/db` and `courier-sdk` are created in the phases that need them; `@orderloop/contracts` has a browser-safe root entry and a Node-only `@orderloop/contracts/server` entry (found when the mobile bundle failed on `node:fs`).
+
+## 9. Phase 1 status: identity and tenancy (2026-10-15)
+
+Branch `feat/phase1-identity-tenancy`. Design notes and deviations are in [architecture.md](architecture.md) section 12.
+
+**Delivered:** Prisma 7.10 schema and migrations (users, tenants, memberships, sessions, refresh tokens, invitations, audit log); `app_migrator`/`app_user` roles; forced row-level security; register, login, refresh with rotation and reuse detection, logout, switch tenant, invite and accept, role changes, member removal, audit log, `/v1/me`, `/v1/tenant`; per-IP rate limiting and per-account lockout; route registry, typed client, generated OpenAPI.
+
+**Acceptance criteria:**
+
+| Criterion                                                                                                                                    | Result                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tests cover token rotation, replay revoking the family, expired and revoked tokens, role checks                                              | Met: `auth.e2e` and `members.e2e` (including concurrent exchange and concurrent demotion)                                                                                                 |
+| Tenant-isolation suite: cross-tenant read, write and list fail for every tenant table; unset context returns zero rows; CI fails without RLS | Met: `tenant-isolation.e2e` (database level as `app_user`, API level, pooled-connection stress, schema introspection)                                                                     |
+| Per-request tenant transaction p95 overhead under 15 ms                                                                                      | Met: about 1.8 ms (1 query) and 2.4 ms (3 queries) on local Docker. Re-measure on production-like infrastructure.                                                                         |
+| OpenAPI spec generated and `api-client` builds from it                                                                                       | Met, with a variation: both derive from the route registry rather than the client being generated from the spec file; a test pins `docs/openapi.json` and a live-client test exercises it |
+
+**Review:** an independent security review found no critical or high issues; its medium and low findings are handled as listed in architecture.md section 12.
+
+**Verified:** `pnpm check` (32 tasks) passes; 25 API unit tests and 71 integration tests pass against real PostgreSQL 16 and Redis 7; a live run against the dev server registered a tenant and returned `/health/ready` ok.
+
+**Known limits (not blockers for Phase 2):** no email delivery (invitation links are logged in development); no password reset or email verification yet; per-instance in-memory IP rate limiting (shared store needed for multiple replicas); registration reveals taken emails; no refresh grace window; the web and mobile apps do not use the auth API yet (Phases 6 and 7); iOS runtime is still unverified (no Xcode).

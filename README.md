@@ -2,7 +2,7 @@
 
 One loop. Every order. A Bangladesh-first platform for Facebook and Instagram sellers: orders, couriers, COD reconciliation, inventory and analytics.
 
-**Current state: development foundation only.** The monorepo, tooling, a health endpoint and two placeholder client screens exist. There is no authentication, database schema, or business feature yet.
+**Current state: foundation plus identity and tenancy.** The API has accounts, tenants, roles, sessions, invitations and an audit log, isolated per tenant by PostgreSQL row-level security. There are no business features (catalog, orders, couriers) yet, and the web and mobile apps are still placeholder screens that do not use the auth API.
 
 - Plan: [docs/implementation-plan.md](docs/implementation-plan.md)
 - Architecture decisions: [docs/architecture.md](docs/architecture.md)
@@ -26,6 +26,44 @@ scripts/      Version-drift and import-boundary checks
 ```
 
 Import rules (enforced by `check:boundaries`): `web`/`mobile` never import `db`, `courier-sdk`, `api`, `worker` or `@orderloop/contracts/server`. `api` and `worker` never import each other.
+
+## Database
+
+`pnpm db:init` is safe to repeat. It runs two steps you can also run alone:
+
+```bash
+pnpm db:setup            # creates roles app_migrator (owns tables) and app_user (runtime, cannot bypass RLS)
+pnpm db:migrate:deploy   # applies prisma/migrations as app_migrator
+```
+
+After editing `packages/db/prisma/schema.prisma`, create a migration with `pnpm db:migrate`. Tenant tables need hand-written row-level-security SQL in the migration; the isolation tests fail until it exists. The application connects only as `app_user` (`DATABASE_URL`); `DATABASE_ADMIN_URL` is a superuser used by `db:setup` and nothing else.
+
+## API
+
+Base URL `http://localhost:4000`. Machine-readable description: `GET /openapi.json` (also committed as [docs/openapi.json](docs/openapi.json)).
+
+| Method and path                     | Needs                       | Purpose                                               |
+| ----------------------------------- | --------------------------- | ----------------------------------------------------- |
+| `GET /health/live`, `/health/ready` | nothing                     | Liveness and readiness (PostgreSQL, Redis)            |
+| `POST /v1/auth/register`            | nothing                     | Create a user and a tenant they own                   |
+| `POST /v1/auth/login`               | nothing                     | Sign in (optional `tenantId` to choose the tenant)    |
+| `POST /v1/auth/refresh`             | refresh token               | Rotate tokens; reuse of an old token ends the session |
+| `POST /v1/auth/logout`              | access token                | Revoke the session immediately                        |
+| `POST /v1/auth/switch-tenant`       | access token                | Re-scope the session to another tenant                |
+| `POST /v1/auth/accept-invitation`   | invitation token            | Join a tenant (creates the account if needed)         |
+| `GET /v1/me`, `GET /v1/tenant`      | access token                | Current user, role, permissions; current tenant       |
+| `GET/POST/PATCH/DELETE /v1/members` | `members:*` permission      | List, invite (`/invitations`), change role, remove    |
+| `GET /v1/audit-logs`                | `audit:read` (OWNER, ADMIN) | Tenant audit trail, newest first, cursor paginated    |
+
+Try it:
+
+```bash
+curl -s -X POST localhost:4000/v1/auth/register -H 'content-type: application/json' \
+  -d '{"email":"you@example.com","password":"a long passphrase","name":"You","tenantName":"My Shop"}'
+# then: curl -s localhost:4000/v1/me -H "authorization: Bearer <accessToken from above>"
+```
+
+Browsers send `x-client: web` and receive the refresh token as an HttpOnly cookie; native apps receive it in the JSON body. Access tokens last 15 minutes. In development the signing key is generated at start-up, so restarting the API signs everyone out; production requires `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY` (`pnpm --filter @orderloop/api auth:generate-keys`). Invitation emails are not sent yet: in development the link is printed in the API log.
 
 ## Prerequisites
 
@@ -121,7 +159,8 @@ A physical phone cannot reach `localhost`. Set `EXPO_PUBLIC_API_URL` in `.env` t
 ```bash
 pnpm lint            # ESLint in every workspace
 pnpm typecheck       # TypeScript in every workspace
-pnpm test            # Vitest unit tests + script tests
+pnpm test            # Vitest unit tests + script tests (no database needed)
+pnpm test:integration # API tests against real PostgreSQL + Redis (needs services:up); uses the isolated orderloop_test database
 pnpm build           # builds packages, api, worker, web (next build), mobile (expo export, iOS)
 pnpm format          # Prettier: write
 pnpm format:check    # Prettier: verify only
@@ -166,4 +205,4 @@ Bun lockfiles (`bun.lock`) are git-ignored. To make Bun the primary tool instead
 
 ## Not built yet
 
-Authentication, tenancy, the database schema and Prisma, catalog, orders, couriers, COD reconciliation and analytics. See the phases in [docs/implementation-plan.md](docs/implementation-plan.md).
+Email delivery, password reset and verification, login screens in web and mobile, catalog, orders, couriers, COD reconciliation and analytics. See the phases in [docs/implementation-plan.md](docs/implementation-plan.md).

@@ -175,3 +175,61 @@ BullMQ queues: `courier-sync`, `courier-webhooks`, `reconciliation`, `notificati
 | A7  | Prisma 7.10.0 stable, TypeScript 6.0.3                  | Proposed |
 | A8  | OpenAPI-generated client + shared Zod contracts         | Proposed |
 | A9  | Appended ledgers for stock, COD, order events, audit    | Proposed |
+
+---
+
+## 12. Phase 1 implementation notes (identity and tenancy)
+
+What was built, and where it deliberately differs from the sections above. Everything here is covered by `apps/api/test/*.e2e.test.ts`.
+
+### Tenant isolation as built
+
+- **No Prisma query-rewriting extension.** Section 5 proposed injecting `tenantId` into `where` and `data`. Instead, `Database.withContext({ tenantId, userId }, fn)` (`packages/db/src/database.ts`) opens one interactive transaction, runs `set_config('app.tenant_id' / 'app.user_id', ..., true)` first, and hands `fn` the transaction client. Row-level security is then the single enforcement point, so there is no second filter to drift out of sync. Tenant models are reachable only inside `withContext`; `Database.global` is typed to the three global models.
+- **Table classification** (`packages/db/src/tables.ts`): tenant tables `tenants`, `memberships`, `invitations`, `audit_logs` (forced RLS); global tables `users`, `sessions`, `refresh_tokens` (reached before a tenant is known, keyed by unique identity or 256-bit secrets, no tenant business data). A test fails if any table is unclassified.
+- **Policies** (`prisma/migrations/*_rls`): `tenants` by `id`; `invitations` by `tenant_id`; `memberships` SELECT also allows `user_id = app.user_id` so login can list the tenants a user belongs to (writes stay tenant-only); `audit_logs` is append-only (INSERT and SELECT only; INSERT also accepts `tenant_id IS NULL` for tenant-less security events, which the application can never read back).
+- **Roles:** `app_migrator` (owns tables, runs migrations) and `app_user` (runtime; NOSUPERUSER, NOBYPASSRLS, not an owner). `pnpm db:setup` creates them idempotently with a superuser URL used for nothing else. It intentionally never issues a blanket `GRANT ... ON ALL TABLES`: the isolation suite caught that doing so on re-run silently undid the per-table `REVOKE`s, so migration `*_assert_privileges` re-asserts them.
+- **Creating a tenant without a bypass:** ids are generated in the application (UUIDv7), and the context is set to the new tenant id before the first insert, so `WITH CHECK (id = current tenant)` passes naturally. Invitations embed the tenant id in the token (`inv_<tenantId>_<secret>`) so accepting one needs no cross-tenant lookup.
+- **Measured cost:** the per-request transaction adds about 2 ms at p95 (local Docker PostgreSQL; budget 15 ms). Run `pnpm --filter @orderloop/api bench:tenant`.
+
+### Authentication as built
+
+- Access token: EdDSA JWT, 15 min, claims `sub`, `tid`, `sid` only. **The role is not trusted from the token.** `AccessGuard` re-reads the session and the membership on every request, so logout, demotion and removal take effect immediately. (Section 4 mentioned a short-TTL Redis cache for this; it is deferred until it is needed, because correctness is simpler without it.)
+- Refresh tokens: opaque, SHA-256 hashed at rest, single use. Replay of a used token, or two concurrent exchanges of one token, revokes the whole session (compare-and-set on `used_at`). There is no grace period, so a client that double-submits a refresh will be signed out; add a short grace window only if real clients need it.
+- Passwords: argon2id (19 MiB, t=2, p=1), 10 to 128 characters, no composition rules. Login does a dummy verification for unknown emails and returns one error for every credential failure.
+- Brute force: per-IP request rate limits (strict on credential routes) plus two lockout counters in Redis: 5 failures per (account, IP) pair per 15 minutes, and 50 failures per account across all IPs. The pair counter means someone else's bad guesses cannot lock the real owner out from their own IP; the account-wide counter catches guessing spread across many IPs. Both fail open if Redis is down. The IP limiter is in-memory per instance; use a shared store before running multiple replicas. Set `TRUST_PROXY` to the exact number of proxy hops in production, otherwise every client shares the proxy's IP.
+- Invitations carry their inviter's authority. Acceptance re-checks that the inviter is still a member who may grant that role (and permanently revokes the invitation if not); removing or demoting a member revokes their pending invitations; OWNER and ADMIN can list and revoke invitations (an ADMIN only for roles they could grant).
+- Web clients (`x-client: web`) get the refresh token as an HttpOnly, SameSite=Lax cookie scoped to `/v1/auth`, never in JSON; the refresh route then requires the header and an allowed `Origin`. Native clients receive it in the body.
+- Signing keys come from `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY`. Development generates an ephemeral key at start-up; production refuses to start without them.
+- Roles and rules live in `packages/domain/src/permissions.ts`: an ADMIN cannot create, change or remove OWNERs or ADMINs; a tenant always keeps at least one OWNER (owner rows are locked and the actor's role is re-read under that lock, so concurrent demotions cannot both succeed).
+
+### API contract as built
+
+- **One route registry** (`packages/contracts/src/routes.ts`) defines every endpoint: method, path, auth, permission, params, query, body, response. The NestJS controllers bind to it (`@Endpoint(routes.x)`), requests are validated against it, the typed client (`packages/api-client`) is generated from it at the type level, and the OpenAPI 3.1 document is built from it. Section 7 proposed `@nestjs/swagger`; this replaces it, since the contract cannot drift from the code by construction. `docs/openapi.json` is committed and a test fails when it is stale (`pnpm --filter @orderloop/api openapi`).
+- Errors are RFC 9457 problem details with a stable `code`. Unauthenticated, forbidden and not-found cases are deliberately uniform where distinguishing them would leak information (for example, another tenant's member id returns 404, not 403).
+- Invitation delivery goes through an `InviteSender` seam. Development logs the link; production refuses to start sending until an email provider is configured. The token is never returned to the inviter.
+
+### Decision log additions
+
+| ID  | Decision                                                                                       | Status      |
+| --- | ---------------------------------------------------------------------------------------------- | ----------- |
+| A10 | RLS via `withContext` transactions; no query-rewriting Prisma extension                        | Implemented |
+| A11 | Role and membership re-read on every request; no authorisation cache yet                       | Implemented |
+| A12 | Route registry in `contracts` is the single source for controllers, client and OpenAPI         | Implemented |
+| A13 | Global auth tables (`users`, `sessions`, `refresh_tokens`) are not tenant-scoped, by allowlist | Implemented |
+
+### Independent security review (Phase 1)
+
+A separate reviewer read the auth, session, RLS and member code with no access to this document's conclusions. Result: no critical or high findings; cross-tenant access, role escalation, refresh-token reuse bypass, secret leakage, CSRF/CORS and SQL injection were each examined and none found. Items raised and how they were handled:
+
+| Finding                                                                   | Handling                                                                                                                                                  |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Medium: pending invitations outlived the inviter and could not be revoked | Fixed: accept-time inviter check, revoke on remove or demote, list and revoke endpoints, tests.                                                           |
+| Low: per-account lockout could be used to lock a victim out               | Mitigated: lockout is per (account, IP); a separate high account-wide threshold remains for distributed guessing.                                         |
+| Low: no `trust proxy` setting                                             | Fixed: `TRUST_PROXY` hop count.                                                                                                                           |
+| Low: registration reveals whether an email is taken (409)                 | Accepted for now (10 requests per minute per IP). Revisit with email verification.                                                                        |
+| Note: the console invite sender logs live links outside production        | Accepted. Never run an internet-facing host with `NODE_ENV=development`; production uses a sender that refuses until a real email provider is configured. |
+
+| ID  | Decision                                                           | Status      |
+| --- | ------------------------------------------------------------------ | ----------- |
+| A14 | Lockout keyed per (account, IP) plus a high account-wide threshold | Implemented |
+| A15 | Invitations are bound to their inviter's current authority         | Implemented |
