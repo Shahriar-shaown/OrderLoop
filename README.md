@@ -2,7 +2,7 @@
 
 One loop. Every order. A Bangladesh-first platform for Facebook and Instagram sellers: orders, couriers, COD reconciliation, inventory and analytics.
 
-**Current state: foundation plus identity and tenancy.** The API has accounts, tenants, roles, sessions, invitations and an audit log, isolated per tenant by PostgreSQL row-level security. There are no business features (catalog, orders, couriers) yet, and the web and mobile apps are still placeholder screens that do not use the auth API.
+**Current state: identity, tenancy, and the product catalog with stock control.** The API has accounts, tenants, roles, sessions, invitations and an audit log, plus products with variants, stock locations, an append-only stock ledger that cannot oversell, reservations, low-stock alerts and background CSV import, all isolated per tenant by PostgreSQL row-level security. There are no orders, couriers or COD features yet, and the web and mobile apps are still placeholder screens that do not use the auth API.
 
 - Plan: [docs/implementation-plan.md](docs/implementation-plan.md)
 - Architecture decisions: [docs/architecture.md](docs/architecture.md)
@@ -44,18 +44,23 @@ After editing `packages/db/prisma/schema.prisma`, create a migration with `pnpm 
 
 Base URL `http://localhost:4000`. Machine-readable description: `GET /openapi.json` (also committed as [docs/openapi.json](docs/openapi.json)).
 
-| Method and path                     | Needs                       | Purpose                                               |
-| ----------------------------------- | --------------------------- | ----------------------------------------------------- |
-| `GET /health/live`, `/health/ready` | nothing                     | Liveness and readiness (PostgreSQL, Redis)            |
-| `POST /v1/auth/register`            | nothing                     | Create a user and a tenant they own                   |
-| `POST /v1/auth/login`               | nothing                     | Sign in (optional `tenantId` to choose the tenant)    |
-| `POST /v1/auth/refresh`             | refresh token               | Rotate tokens; reuse of an old token ends the session |
-| `POST /v1/auth/logout`              | access token                | Revoke the session immediately                        |
-| `POST /v1/auth/switch-tenant`       | access token                | Re-scope the session to another tenant                |
-| `POST /v1/auth/accept-invitation`   | invitation token            | Join a tenant (creates the account if needed)         |
-| `GET /v1/me`, `GET /v1/tenant`      | access token                | Current user, role, permissions; current tenant       |
-| `GET/POST/PATCH/DELETE /v1/members` | `members:*` permission      | List, invite (`/invitations`), change role, remove    |
-| `GET /v1/audit-logs`                | `audit:read` (OWNER, ADMIN) | Tenant audit trail, newest first, cursor paginated    |
+| Method and path                                                                                                                              | Needs                                | Purpose                                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------- |
+| `GET /health/live`, `/health/ready`                                                                                                          | nothing                              | Liveness and readiness (PostgreSQL, Redis)                    |
+| `POST /v1/auth/register`                                                                                                                     | nothing                              | Create a user and a tenant they own                           |
+| `POST /v1/auth/login`                                                                                                                        | nothing                              | Sign in (optional `tenantId` to choose the tenant)            |
+| `POST /v1/auth/refresh`                                                                                                                      | refresh token                        | Rotate tokens; reuse of an old token ends the session         |
+| `POST /v1/auth/logout`                                                                                                                       | access token                         | Revoke the session immediately                                |
+| `POST /v1/auth/switch-tenant`                                                                                                                | access token                         | Re-scope the session to another tenant                        |
+| `POST /v1/auth/accept-invitation`                                                                                                            | invitation token                     | Join a tenant (creates the account if needed)                 |
+| `GET /v1/me`, `GET /v1/tenant`                                                                                                               | access token                         | Current user, role, permissions; current tenant               |
+| `GET/POST/PATCH/DELETE /v1/members`                                                                                                          | `members:*` permission               | List, invite (`/invitations`), change role, remove            |
+| `GET/POST /v1/products`, `GET/PATCH /v1/products/:id`, `POST /v1/products/:id/variants`, `PATCH /v1/variants/:id`                            | `catalog:read` / `catalog:write`     | Products with variants (SKU, price in paisa); search, archive |
+| `GET/POST /v1/categories`, `PATCH/DELETE /v1/categories/:id`, `GET/POST /v1/locations`, `PATCH /v1/locations/:id`                            | `catalog:*` / `inventory:read`       | Categories and stock locations                                |
+| `GET /v1/inventory`, `POST /v1/inventory/receive`, `POST /v1/inventory/adjust`, `GET /v1/inventory/movements`, `GET /v1/inventory/low-stock` | `inventory:read` / `inventory:write` | Stock levels, the ledger, low-stock alerts                    |
+| `GET/POST /v1/reservations`, `POST /v1/reservations/:id/release`, `/fulfil`                                                                  | `inventory:read` / `inventory:write` | Hold stock; resolves exactly once; `409 insufficient_stock`   |
+| `POST /v1/imports/products`, `GET /v1/imports`, `GET /v1/imports/:id`                                                                        | `catalog:write`                      | CSV catalog import, processed by the worker (returns 202)     |
+| `GET /v1/audit-logs`                                                                                                                         | `audit:read` (OWNER, ADMIN)          | Tenant audit trail, newest first, cursor paginated            |
 
 Try it:
 

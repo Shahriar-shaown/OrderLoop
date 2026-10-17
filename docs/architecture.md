@@ -233,3 +233,65 @@ A separate reviewer read the auth, session, RLS and member code with no access t
 | --- | ------------------------------------------------------------------ | ----------- |
 | A14 | Lockout keyed per (account, IP) plus a high account-wide threshold | Implemented |
 | A15 | Invitations are bound to their inviter's current authority         | Implemented |
+
+---
+
+## 13. Phase 2 implementation notes (catalog and inventory)
+
+### Stock is a ledger, enforced in SQL
+
+- `stock_levels` is a materialised running total of the append-only `stock_movements`; `packages/catalog` is the only writer of
+  either, and each change is one conditional `UPDATE` plus one ledger `INSERT` in one transaction. The `UPDATE`'s own `WHERE`
+  clause (`on_hand - reserved >= q`) prevents overselling under concurrency; `CHECK` constraints (`0 <= reserved <= on_hand`,
+  ledger row shapes) are a second barrier that holds even if application code is wrong.
+- This replaces the architecture's earlier sketch (section 6) of "reservations taken with `SELECT ... FOR UPDATE`": a single
+  conditional `UPDATE` gets the same serialisation with one statement and no lock-ordering to reason about.
+- A pure model of the same rules (`packages/domain/src/stock.ts`) is the executable specification. A property test drives
+  random operation sequences through the real API and checks every accept/refuse decision and every resulting level against that
+  model, then replays the ledger; a second one does the same with concurrent bursts.
+
+### Why `packages/catalog` exists
+
+The stock operations and the CSV import processor must run in two processes (API and worker), and the boundary rules forbid
+`api` and `worker` from importing each other. `packages/catalog` sits on `db` and `domain`, is importable by both, and is
+forbidden to browsers and to the pure packages (`scripts/check-boundaries.mjs`).
+
+### Background work
+
+- The API stores an import as an `import_jobs` row (the CSV lives there, in the tenant-isolated database) and puts **only
+  `{ tenantId, importId }`** on a BullMQ queue. File content never touches Redis.
+- The worker validates that payload, claims the row atomically (`PENDING` to `RUNNING`; or `RUNNING` for over 10 minutes, which
+  presumes a crashed worker), and processes row by row in per-row transactions under that tenant's row-level-security context.
+  Opening stock carries a per-row idempotency key, so a resumed job cannot double-count.
+- **Trust boundary:** the worker takes `tenantId` from the queue payload. Anyone who can write to Redis can enqueue a job, but a
+  job can only name an `import_jobs` row, which must exist in that tenant and still be `PENDING`; a forged job cannot invent data
+  or touch a different tenant's row. Redis must therefore never be reachable from outside the platform, and should require a password in any shared environment (the local compose file publishes it on localhost for development only; deployment is not set up yet). Each business may have at most three imports in flight (`429` beyond that); there is no further per-tenant queue fairness, since one worker serves everyone.
+
+### Other decisions
+
+| ID  | Decision                                                                                                                   | Status      |
+| --- | -------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| A16 | Stock changes are single conditional `UPDATE`s plus an append-only ledger row; invariants are also `CHECK` constraints     | Implemented |
+| A17 | `stock_movements.seq` (database sequence) is the ledger's total order; never replay by timestamp                           | Implemented |
+| A18 | Stock operations and CSV import live in `packages/catalog`, shared by API and worker                                       | Implemented |
+| A19 | Queue payloads carry ids only; imported files are stored in the database and deleted when processing ends                  | Implemented |
+| A20 | Money in the catalog is integer paisa end to end (CSV decimals are converted exactly, without floating point)              | Implemented |
+| A21 | Composite `(tenant_id, id)` foreign keys on every new relation; the one optional relation (`category_id`) is app-validated | Implemented |
+
+### Independent review of Phase 2
+
+A separate reviewer examined the stock logic, raw SQL, tenant isolation, CSV handling and permissions. No critical or high defects;
+the oversell and ledger logic, SQL bindings, isolation and parser were found sound. Its medium and low findings, and what was done:
+
+| Finding                                                                                                          | Handling                                                                                                                                                            |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Medium: crash recovery of imports never worked (redelivery refused for 10 minutes, then never retried; CSV kept) | Fixed: redelivered attempts reclaim the job at once, 3 attempts with backoff, the last failure marks the job `FAILED` and deletes the CSV. Tested.                  |
+| Medium: no per-tenant import limit; 3 MB body limit on all routes                                                | Fixed: 3 imports in flight per business; 100 KB everywhere, 3 MB only on the import route and only with a bearer token.                                             |
+| Low: default location could resolve to a non-default row                                                         | Fixed: an existing default, else promote the oldest active location, else create; serialised with an advisory lock.                                                 |
+| Low: archiving raced with concurrent stock changes                                                               | Fixed: stock changes lock the variant and location rows `FOR SHARE`, archiving locks them `FOR UPDATE`. 25-round race tests for each.                               |
+| Low: an idempotency key could be replayed against a different location                                           | Fixed: the replay check includes the location.                                                                                                                      |
+| Low: `GET /v1/locations` wrote                                                                                   | Fixed: it only reads.                                                                                                                                               |
+| Low: archived products still accepted stock                                                                      | Fixed (also for import rows).                                                                                                                                       |
+| Low: `seq` exposed, so its gaps reveal other tenants' ledger volume                                              | Fixed: removed from the API; results are ordered by it internally. Replay per level only (a global "everything after N" feed would need commit-ordered sequencing). |
+| Low: a malformed cursor could 500                                                                                | Fixed: strict validation; also fixed oversized bodies returning 500 instead of 413.                                                                                 |
+| Low: resumed imports report approximate counts                                                                   | Accepted and documented.                                                                                                                                            |

@@ -286,3 +286,32 @@ Branch `feat/m2-auth-completion`, on top of Phase 1. Behaviour is documented in 
 **Independent review of the new flows:** no critical or high findings. Fixed from it: a timing difference in forgot-password (all differing work now runs after the response); resets could be blocked by someone else's requests (earlier links no longer expire when a new one is issued); account names no longer appear in emails and are validated; email addresses are masked in logged provider errors; unauthenticated reset requests no longer write into tenants' audit logs; `NODE_ENV` is required (no default) and the seed script has no remote override. Also found and fixed while verifying: the console mailer printed `[REDACTED]` instead of the link, because it went through the redacting logger (it now writes to the terminal and was tested end to end). Accepted and documented in api.md: registration reveals whether an email is taken, and pre-registration of an unverified account.
 
 **Not done / known limits:** the pages the email links point to (`/verify-email`, `/reset-password`, `/accept-invitation`) arrive with the web app in Phase 6; no change-password-while-signed-in endpoint; no production email provider has been exercised (no credentials); registration still reveals whether an email is taken; the IP rate limiter is per instance.
+
+## 11. Phase 2 status: catalog and inventory (2026-10-17)
+
+Branch `feat/phase2-catalog-inventory`. Behaviour is documented in [api.md](api.md) ("Catalog, stock and imports") and
+[database.md](database.md); design notes and the review log are in [architecture.md](architecture.md) section 13.
+
+**Delivered:** categories, products with variants (SKU, integer-paisa prices, units), stock locations, stock levels backed by an
+append-only ledger, receive and adjust (with reasons and idempotency keys), reservations (hold, release, fulfil), low-stock
+alerts, the movements ledger, CSV catalog import processed by the BullMQ worker, role permissions (`catalog:*`, `inventory:*`),
+a fictional demo catalog in the seed, and the shared `packages/catalog` that holds the stock rules for both API and worker.
+
+**Acceptance criteria:**
+
+| Criterion                                                                                    | Result                                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 50 parallel reservations against 10 units give exactly 10 successes and never negative stock | Met: `inventory.e2e` ACCEPTANCE test (10 granted, 40 `409 insufficient_stock`, level 10/10/0, no 5xx). Repeated 15 times in a row with no failure.                                                                              |
+| Ledger replay equals the stored on-hand for a randomised property test                       | Met: sequential property (every accept/refuse decision and level matches the pure domain model, then the ledger replays to the stored level) and concurrent-burst property; soaked at 150 and 105 random cases with no failure. |
+| Tenant-isolation suite extended and green                                                    | Met: every tenant table is checked generically; cross-tenant read, update, delete, insert, composite foreign key and append-only checks on all new tables; the database refuses impossible stock on its own.                    |
+
+**Also verified:** the whole path API, database, Redis queue, a real worker process and back (including a 4,000-row, ~1 MB file in
+about 10 seconds, a crashed-worker recovery, and per-row error reporting); a hand-driven run against the live server and worker.
+
+**Independent review:** no critical or high defects; one medium that mattered (imports could never recover from a crashed worker)
+and the lower findings are fixed and regression-tested (see architecture.md section 13).
+
+**Known limits:** no order or purchasing flow yet (reservations are the hook for orders in Phase 3); one worker serves all tenants
+(three imports in flight per business, no finer fairness); the counts of an import that was resumed after a crash are approximate;
+no stock transfers between locations (adjust down and receive up instead); no returns movement yet; no catalog or inventory UI
+(Phases 6 and 7); the ledger cannot yet be consumed as a global change feed (replay is per variant and location).

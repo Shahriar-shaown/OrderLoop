@@ -47,6 +47,60 @@ users 1──* memberships *──1 tenants 1──* invitations
   └─* user_tokens
 ```
 
+## Catalog and inventory tables (Phase 2)
+
+Eight more tenant tables, all with `tenant_id`, forced row-level security and composite foreign keys `(tenant_id, id)`, so a
+child row can never point at another business's parent even if application code tried.
+
+| Table              | Purpose                                                                                                                                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `categories`       | `name`, `name_key` (lower-cased; unique per tenant).                                                                                                                                                                            |
+| `products`         | `name`, `name_key`, `description`, `category_id` (optional), `unit`, `status` (`ACTIVE`/`ARCHIVED`).                                                                                                                            |
+| `product_variants` | One SKU. `sku` (upper-case, unique per tenant, immutable), `name`, `attributes` (JSON), `price_minor` and `cost_minor` (integer paisa), `barcode`, `reorder_point`, `archived_at`.                                              |
+| `stock_locations`  | `name`, `name_key` (unique per tenant), `is_default` (at most one per tenant, by a partial unique index), `archived_at`.                                                                                                        |
+| `stock_levels`     | Current `on_hand` and `reserved` per (`variant_id`, `location_id`). Primary key is (`tenant_id`, `variant_id`, `location_id`).                                                                                                  |
+| `stock_movements`  | The **append-only ledger**: `type`, signed `on_hand_delta` and `reserved_delta`, `reason`, `reference_type`/`reference_id`, `reservation_id`, `idempotency_key` (unique per tenant), `created_by_id`, and `seq` (strict order). |
+| `reservations`     | Held stock: `quantity`, `status` (`ACTIVE`/`RELEASED`/`FULFILLED`), optional reference, `resolved_at`.                                                                                                                          |
+| `import_jobs`      | A CSV import: `status`, counts, first 100 row `errors`, and the raw `csv` only until processing ends.                                                                                                                           |
+
+`products.category_id` is a plain foreign key rather than a composite one (Prisma cannot express a composite key whose second
+column is nullable); the application checks that the category belongs to the same tenant, and a category from another tenant
+is invisible under RLS anyway.
+
+### Rules the database enforces itself
+
+These are `CHECK` constraints and indexes, so they hold even if application code has a bug:
+
+- `stock_levels`: `on_hand >= 0`, `reserved >= 0`, **`reserved <= on_hand`** (this is what makes overselling impossible), and
+  `on_hand <= 1,000,000,000`.
+- `stock_movements` must have the shape of its type: `RECEIVE` has `on_hand_delta > 0` and no reserved change; `ADJUSTMENT` a
+  non-zero `on_hand_delta`; `RESERVE` a positive `reserved_delta`; `RELEASE` a negative one; `SHIP` equal negative changes to
+  both. The ledger cannot describe an impossible event.
+- `reservations.quantity > 0`; `price_minor`, `cost_minor`, `reorder_point` are never negative.
+- The runtime role has **no `UPDATE`, `DELETE` or `TRUNCATE` on `stock_movements`** (like `audit_logs`): history cannot be rewritten.
+
+### How stock changes (and why it cannot oversell)
+
+All stock changes go through `packages/catalog/src/stock.ts`, nothing else writes `stock_levels` or `stock_movements`. Each
+change is **one conditional `UPDATE` of the level plus one `INSERT` of the ledger row, in one transaction**:
+
+```sql
+-- reserve q units: the condition is evaluated atomically under the row lock
+UPDATE stock_levels SET reserved = reserved + $q
+WHERE tenant_id = $t AND variant_id = $v AND location_id = $l AND on_hand - reserved >= $q;
+-- 0 rows updated  =>  refuse (409 insufficient_stock); nothing is written
+```
+
+It is a single statement, not a read followed by a write, so concurrent requests serialise on the row and each sees the result
+of the previous one. Reservations are resolved with a compare-and-set on `status` (`WHERE status = 'ACTIVE'`), so a reservation
+can be released or shipped exactly once. An idempotency key relies on a unique index: of simultaneous retries one inserts, the
+others roll back entirely and replay the winner's result.
+
+**Replaying the ledger.** For any (variant, location), summing the ledger gives the stored level, and replaying it in `seq`
+order through `packages/domain/src/stock.ts` never violates an invariant. `seq` is a database sequence, assigned while the
+level row is locked, so for a given level it matches the order changes were actually applied. Do not order by `created_at`:
+that is the transaction start time, and rows in the same millisecond tie.
+
 ## Tenant isolation
 
 Every request that touches tenant data runs inside **one transaction that first sets two transaction-local settings**,
@@ -133,7 +187,7 @@ pnpm services:up && pnpm db:init && pnpm db:seed
 pnpm db:seed      # idempotent
 ```
 
-Creates one fictional workspace, "Demo Shop (seed data)", with three fictional people whose emails are on the reserved
+Creates one fictional workspace with a small fictional catalog and opening stock,, "Demo Shop (seed data)", with three fictional people whose emails are on the reserved
 `.test` domain (which can never receive mail) and whose addresses are already verified:
 
 | Role  | Email                       |
