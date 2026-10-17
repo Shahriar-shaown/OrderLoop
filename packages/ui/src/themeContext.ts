@@ -14,3 +14,21 @@ export function useTheme(): Theme {
   if (!theme) throw new Error('UI components must be rendered inside <ThemeProvider>');
   return theme;
 }
+
+/** What the person chose: follow the device (`system`) or force one scheme. */
+export type ThemePreference = 'system' | Scheme;
+
+export interface ThemePreferenceValue {
+  preference: ThemePreference;
+  setPreference(next: ThemePreference): void;
+}
+
+export const ThemePreferenceContext = createContext<ThemePreferenceValue | null>(null);
+
+export function useThemePreference(): ThemePreferenceValue {
+  const value = useContext(ThemePreferenceContext);
+  if (!value) throw new Error('UI components must be rendered inside <ThemeProvider>');
+  return value;
+}
+
+export { THEME_STORAGE_KEY, themeInitScript } from './themeScript';

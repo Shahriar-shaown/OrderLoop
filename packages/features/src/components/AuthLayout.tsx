@@ -1,4 +1,4 @@
-import { Card, Link, Screen, SkipLink, Stack, Text } from '@orderloop/ui';
+import { Card, Link, Row, Screen, SkipLink, Stack, Text, ThemeToggle } from '@orderloop/ui';
 import type { ReactNode } from 'react';
 
 /** The frame of every signed-out screen: the brand, and a card with the screen's title. */
@@ -21,6 +21,9 @@ export function AuthLayout({ title, children }: { title: string; children: React
               {children}
             </Stack>
           </Card>
+          <Row justify="center">
+            <ThemeToggle />
+          </Row>
         </Stack>
       </Screen>
     </>

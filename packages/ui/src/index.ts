@@ -1,5 +1,13 @@
 export * from './tokens';
-export { ThemeProvider, useTheme, type Theme } from './theme';
+export {
+  ThemeProvider,
+  useTheme,
+  useThemePreference,
+  type Theme,
+  type ThemePreference,
+} from './theme';
+export { THEME_STORAGE_KEY, themeInitScript } from './themeScript';
+export { ThemeToggle } from './ThemeToggle';
 export { NavigationContext, useNavigation, type Navigation } from './navigation';
 export {
   createTextVariants,

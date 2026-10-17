@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { themeInitScript } from '@orderloop/ui/theme-script';
 import type { ReactNode } from 'react';
 import { Providers } from '@/components/providers';
 import { RNWRegistry } from './rnw-registry';
@@ -11,7 +12,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning: the script below may set data-scheme on <html> before React loads.
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body>
         <RNWRegistry>
           <Providers>{children}</Providers>

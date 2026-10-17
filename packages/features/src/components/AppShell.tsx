@@ -11,6 +11,7 @@ import {
   SkipLink,
   Stack,
   Text,
+  ThemeToggle,
   useNavigation,
   useTheme,
   useToast,
@@ -129,6 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Badge>{current.role.toLowerCase()}</Badge>
             </Row>
             <Row gap={3} wrap>
+              <ThemeToggle />
               <Text tone="muted" testID="user-email">
                 {current.user.email}
               </Text>

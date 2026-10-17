@@ -1,17 +1,37 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
-import { ThemeContext, type Theme } from './themeContext';
-import { palettes, type Scheme } from './tokens';
+import {
+  ThemeContext,
+  ThemePreferenceContext,
+  type Theme,
+  type ThemePreference,
+} from './themeContext';
+import { palettes } from './tokens';
 
-export { useTheme, type Theme } from './themeContext';
+export { useTheme, useThemePreference, type Theme, type ThemePreference } from './themeContext';
 
-/** Native implementation: picks the palette from the device's light/dark setting unless `scheme` forces one. (theme.web.tsx uses CSS variables.) */
-export function ThemeProvider({ children, scheme }: { children: ReactNode; scheme?: Scheme }) {
+/**
+ * Native implementation: the palette follows the device's light/dark setting unless the person picked one (kept for this
+ * session). (theme.web.tsx uses CSS variables and remembers the choice in the browser.)
+ */
+export function ThemeProvider({
+  children,
+  defaultPreference = 'system',
+}: {
+  children: ReactNode;
+  defaultPreference?: ThemePreference;
+}) {
   const device = useColorScheme();
-  const resolved: Scheme = scheme ?? (device === 'dark' ? 'dark' : 'light');
+  const [preference, setPreference] = useState<ThemePreference>(defaultPreference);
+  const resolved = preference === 'system' ? (device === 'dark' ? 'dark' : 'light') : preference;
   const theme = useMemo<Theme>(
     () => ({ scheme: resolved, colors: palettes[resolved] }),
     [resolved],
   );
-  return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
+  const choice = useMemo(() => ({ preference, setPreference }), [preference]);
+  return (
+    <ThemePreferenceContext.Provider value={choice}>
+      <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>
+    </ThemePreferenceContext.Provider>
+  );
 }
