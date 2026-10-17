@@ -31,6 +31,32 @@ export const FORBIDDEN = {
     'web',
     'mobile',
   ],
+  // ui is pure presentation shared by web and mobile: it knows nothing about the business, the API, or the database.
+  'packages/ui': [
+    'contracts',
+    'contracts/server',
+    'domain',
+    'api-client',
+    'features',
+    'db',
+    'catalog',
+    'courier-sdk',
+    'api',
+    'worker',
+    'web',
+    'mobile',
+  ],
+  // features are the cross-platform screens: built on ui, the API client, contracts and domain; never on server code or an app.
+  'packages/features': [
+    'contracts/server',
+    'db',
+    'catalog',
+    'courier-sdk',
+    'api',
+    'worker',
+    'web',
+    'mobile',
+  ],
   // catalog is server-side stock and import logic shared by api and worker; it sits on db and domain only.
   'packages/catalog': [
     'contracts/server',
@@ -63,6 +89,22 @@ export function findViolations(project, source) {
   return [...source.matchAll(IMPORT_RE)].map((m) => m[1]).filter(isBanned);
 }
 
+/**
+ * Platform files (Foo.web.tsx, Foo.native.tsx) must never import their own base module ('./Foo'): on the web './Foo' resolves
+ * to Foo.web.tsx itself, so the import is a loop that makes the bundler hang without any error. Share code through a
+ * third, platform-neutral file instead.
+ */
+export function findSelfImports(fileName, source) {
+  const m = /^(.+?)\.(web|native|ios|android)\.(tsx?|jsx?)$/.exec(fileName);
+  if (!m) return [];
+  const base = m[1];
+  const re = new RegExp(
+    `(?:from\\s+|import\\s*\\(\\s*|require\\s*\\(\\s*)['"]\\./${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:['"/])`,
+    'g',
+  );
+  return [...source.matchAll(re)].map(() => `./${base}`);
+}
+
 function* walk(dir) {
   for (const name of readdirSync(dir)) {
     if (['node_modules', 'dist', '.next', '.expo', '.turbo'].includes(name)) continue;
@@ -79,6 +121,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const dir = join(root, project);
     if (!existsSync(dir)) continue;
     for (const file of walk(dir)) {
+      for (const self of findSelfImports(file.split('/').pop(), readFileSync(file, 'utf8'))) {
+        errors.push(
+          `${relative(root, file)} imports ${self}, which resolves back to itself on that platform (infinite loop)`,
+        );
+      }
       for (const spec of findViolations(project, readFileSync(file, 'utf8'))) {
         errors.push(`${relative(root, file)} imports ${spec} (forbidden for ${project})`);
       }

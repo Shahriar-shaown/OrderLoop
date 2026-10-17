@@ -346,9 +346,11 @@ then set, in `.env`, and restart the API:
 
 ```
 MAIL_PROVIDER=smtp
-SMTP_HOST=localhost
+SMTP_HOST=127.0.0.1
 SMTP_PORT=1025
 ```
+
+Use `127.0.0.1`, not `localhost`: the mail library resolves host names with its own DNS lookup, which does not read `/etc/hosts` and can time out on some networks.
 
 ### Production
 

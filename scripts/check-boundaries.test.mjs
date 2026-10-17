@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { findViolations } from './check-boundaries.mjs';
+import { findSelfImports, findViolations } from './check-boundaries.mjs';
 
 test('web importing db is a violation', () => {
   assert.deepEqual(findViolations('apps/web', `import { prisma } from '@orderloop/db';`), [
@@ -67,4 +67,23 @@ test('catalog cannot reach into the apps', () => {
     ),
     ['@orderloop/api'],
   );
+});
+
+test('a platform file importing its own base module is caught', () => {
+  assert.deepEqual(findSelfImports('theme.web.tsx', `import { x } from './theme';`), ['./theme']);
+  assert.deepEqual(findSelfImports('Form.native.tsx', `const f = require('./Form')`), ['./Form']);
+  assert.deepEqual(findSelfImports('Form.web.tsx', `import type { P } from "./Form";`), ['./Form']);
+});
+test('platform files may import other modules, including ones that merely share a prefix', () => {
+  assert.deepEqual(
+    findSelfImports(
+      'theme.web.tsx',
+      `import { c } from './themeContext'; import { p } from './tokens';`,
+    ),
+    [],
+  );
+  assert.deepEqual(findSelfImports('Form.web.tsx', `import { c } from './formContext';`), []);
+});
+test('ordinary files are never flagged', () => {
+  assert.deepEqual(findSelfImports('theme.tsx', `import { c } from './theme';`), []);
 });

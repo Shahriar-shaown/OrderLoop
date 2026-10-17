@@ -3,6 +3,24 @@ import { json, type NextFunction, type Request, type Response } from 'express';
 import { bodyParserProblem } from './common/body-parser-problem.js';
 
 /**
+ * Refuses a request that carries no bearer token. A browser's CORS preflight (OPTIONS) never carries one, by design, and
+ * must reach the CORS handler: answering it with 401 here would stop every browser from ever calling the route.
+ */
+export function requireBearerToken(req: Request, res: Response, next: NextFunction): void {
+  if (req.method === 'OPTIONS' || req.headers.authorization?.startsWith('Bearer ')) {
+    next();
+    return;
+  }
+  res.status(401).type('application/problem+json').json({
+    type: 'urn:orderloop:error:unauthorized',
+    title: 'unauthorized',
+    status: 401,
+    code: 'unauthorized',
+    detail: 'Authentication required',
+  });
+}
+
+/**
  * Settings shared by main.ts and the test harness. Create the app with `{ bodyParser: false }`; the parsers are set up here.
  *
  * JSON bodies are capped at 100 KB everywhere. The one exception is the catalog import, which carries a CSV of up to 2 MB
@@ -10,23 +28,7 @@ import { bodyParserProblem } from './common/body-parser-problem.js';
  * body is parsed before authentication runs, so without this check anyone could make the server buffer 3 MB per request.
  */
 export function configureApp(app: NestExpressApplication): void {
-  app.use(
-    '/v1/imports/products',
-    (req: Request, res: Response, next: NextFunction) => {
-      if (!req.headers.authorization?.startsWith('Bearer ')) {
-        res.status(401).type('application/problem+json').json({
-          type: 'urn:orderloop:error:unauthorized',
-          title: 'unauthorized',
-          status: 401,
-          code: 'unauthorized',
-          detail: 'Authentication required',
-        });
-        return;
-      }
-      next();
-    },
-    json({ limit: '3mb' }),
-  );
+  app.use('/v1/imports/products', requireBearerToken, json({ limit: '3mb' }));
   app.use(json({ limit: '100kb' })); // skipped for requests the route above already parsed
   // Parser failures (too large, invalid JSON) happen before any controller or guard. Answer them here as problem details;
   // otherwise they reach the generic handler, which can echo the parser's message (it may quote the body).

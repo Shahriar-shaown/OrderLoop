@@ -15,12 +15,14 @@ One loop. Every order. A Bangladesh-first platform for Facebook and Instagram se
 apps/
   api/        NestJS 12 REST API (ESM). GET /health/live, GET /health/ready
   worker/     BullMQ worker process (connects to Redis; no jobs yet)
-  web/        Next.js 16 + Tailwind CSS 4. One clearly labelled development page
-  mobile/     Expo SDK 57 + React Native + Expo Router. One labelled development home screen
+  web/        Next.js 16. Thin routes over the shared screens: sign-in, sign-up, password reset, catalog, stock
+  mobile/     Expo SDK 57 + React Native + Expo Router. A development screen built from the shared components
 packages/
   contracts/  Zod schemas and types shared by every app (health, env validation)
   api-client/ Typed fetch client built on the contracts (used by web and mobile)
-  domain/     Pure business primitives with no I/O (currently only integer-paisa money helpers)
+  domain/     Pure business primitives with no I/O (money, stock ledger rules, CSV, permissions)
+  ui/         Shared components with variants (React Native primitives; web renders them through react-native-web)
+  features/   Shared screens and their logic (session, forms, queries); apps only mount them
   config/     Shared tsconfig and ESLint presets
 infra/
   docker-compose.yml   PostgreSQL 16 (host port 5433) and Redis 7 (host port 6379)
@@ -28,6 +30,20 @@ scripts/      Version-drift and import-boundary checks
 ```
 
 Import rules (enforced by `check:boundaries`): `web`/`mobile` never import `db`, `courier-sdk`, `api`, `worker` or `@orderloop/contracts/server`. `api` and `worker` never import each other.
+
+## Web app and shared UI
+
+The screens and components are written once in `packages/ui` and `packages/features` and used by web and mobile. See [docs/web.md](docs/web.md) for how it fits together, how to add a component, and how the browser tests work.
+
+```bash
+pnpm services:up && pnpm db:init   # PostgreSQL + Redis
+pnpm services:mail                 # Mailpit, the inbox for verification and reset emails (http://localhost:8025)
+pnpm --filter @orderloop/api dev   # API on :4000
+pnpm --filter @orderloop/worker dev   # background imports
+pnpm --filter @orderloop/web dev   # web on http://localhost:3000, start at /signup
+```
+
+To receive the emails in Mailpit instead of the API log, set `MAIL_PROVIDER=smtp`, `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025` in `.env` and restart the API.
 
 ## Database
 
@@ -167,6 +183,7 @@ A physical phone cannot reach `localhost`. Set `EXPO_PUBLIC_API_URL` in `.env` t
 pnpm lint            # ESLint in every workspace
 pnpm typecheck       # TypeScript in every workspace
 pnpm test            # Vitest unit tests + script tests (no database needed)
+pnpm test:e2e        # (in apps/web) browser tests: real Chrome against API, worker, web, Mailpit; needs services:up and services:mail
 pnpm test:integration # API tests against real PostgreSQL + Redis (needs services:up); uses the isolated orderloop_test database
 pnpm build           # builds packages, api, worker, web (next build), mobile (expo export, iOS)
 pnpm format          # Prettier: write
@@ -212,4 +229,4 @@ Bun lockfiles (`bun.lock`) are git-ignored. To make Bun the primary tool instead
 
 ## Not built yet
 
-Login and sign-up screens in web and mobile, catalog, orders, couriers, COD reconciliation and analytics. See the phases in [docs/implementation-plan.md](docs/implementation-plan.md).
+Mobile sign-in and catalog screens (the shared screens exist; native session storage does not yet), orders, couriers, COD reconciliation and analytics. See the phases in [docs/implementation-plan.md](docs/implementation-plan.md).

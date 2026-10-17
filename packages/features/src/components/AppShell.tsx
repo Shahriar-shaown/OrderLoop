@@ -1,0 +1,159 @@
+import type { Permission } from '@orderloop/contracts';
+import {
+  Alert,
+  Badge,
+  Button,
+  Link,
+  LoadingState,
+  NavLink,
+  Row,
+  Screen,
+  SkipLink,
+  Stack,
+  Text,
+  useNavigation,
+  useTheme,
+  useToast,
+} from '@orderloop/ui';
+import { useState, type ReactNode } from 'react';
+import { View } from 'react-native';
+import { useAuth, useRequireAuth } from '../auth';
+import { messageFor } from '../errors';
+import { useCan } from '../permissions';
+import { useRuntime } from '../runtime';
+
+const NAV: { href: string; label: string; needs?: Permission }[] = [
+  { href: '/products', label: 'Products' },
+  { href: '/inventory', label: 'Stock' },
+  { href: '/categories', label: 'Categories' },
+  { href: '/locations', label: 'Locations' },
+  { href: '/imports', label: 'Import', needs: 'catalog:write' },
+];
+
+function VerifyBanner() {
+  const { session: current } = useAuth();
+  const { api, session } = useRuntime();
+  const toast = useToast();
+  const [busy, setBusy] = useState<'resend' | 'check' | null>(null);
+  if (!current || current.user.emailVerified) return null;
+
+  async function resend() {
+    setBusy('resend');
+    try {
+      await api.auth.resendVerification();
+      toast.success('If a verification email was due, it is on its way. Check your inbox.');
+    } catch (error) {
+      toast.error(messageFor(error));
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function check() {
+    setBusy('check');
+    try {
+      const fresh = await session.refresh();
+      if (fresh && !fresh.user.emailVerified) toast.error('Your email is not verified yet.');
+    } catch (error) {
+      toast.error(messageFor(error));
+    } finally {
+      setBusy(null);
+    }
+  }
+  return (
+    <Alert
+      tone="warning"
+      action={
+        <Row gap={2} wrap>
+          <Button variant="secondary" size="sm" loading={busy === 'resend'} onPress={resend}>
+            Resend verification email
+          </Button>
+          <Button variant="secondary" size="sm" loading={busy === 'check'} onPress={check}>
+            I have verified
+          </Button>
+        </Row>
+      }
+    >
+      <Text>
+        Please verify your email address (<Text weight="bold">{current.user.email}</Text>). Some
+        actions, like inviting people, need it.
+      </Text>
+    </Alert>
+  );
+}
+
+/** The signed-in frame: header with the workspace and account, the menu, the verification reminder, then the screen. */
+export function AppShell({ children }: { children: ReactNode }) {
+  const { status, session: current, signOut } = useAuth();
+  useRequireAuth();
+  const navigation = useNavigation();
+  const can = useCan();
+  const { colors } = useTheme();
+  const [leaving, setLeaving] = useState(false);
+
+  // While restoring the session (or being sent to sign in) show nothing from the app: no flash of private screens.
+  if (status !== 'authenticated' || !current) {
+    return (
+      <Screen width="sm">
+        <LoadingState label="Loading your workspace" />
+      </Screen>
+    );
+  }
+
+  async function leave() {
+    setLeaving(true);
+    await signOut();
+    navigation.replace('/login');
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      <SkipLink />
+      <View
+        role="banner"
+        style={{
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+        }}
+      >
+        <View style={{ width: '100%', maxWidth: 1100, alignSelf: 'center' }}>
+          <Stack direction="row" justify="between" align="center" gap={3} wrap>
+            <Row gap={3} wrap>
+              <Link href="/products" variant="plain">
+                <Text variant="heading">OrderLoop</Text>
+              </Link>
+              <Text tone="muted" testID="tenant-name">
+                {current.tenant.name}
+              </Text>
+              <Badge>{current.role.toLowerCase()}</Badge>
+            </Row>
+            <Row gap={3} wrap>
+              <Text tone="muted" testID="user-email">
+                {current.user.email}
+              </Text>
+              <Button variant="secondary" size="sm" loading={leaving} onPress={leave}>
+                Sign out
+              </Button>
+            </Row>
+          </Stack>
+          <View role="navigation" aria-label="Main" style={{ marginTop: 8 }}>
+            <Row gap={1} wrap>
+              {NAV.filter((item) => !item.needs || can(item.needs)).map((item) => (
+                <NavLink key={item.href} href={item.href}>
+                  {item.label}
+                </NavLink>
+              ))}
+            </Row>
+          </View>
+        </View>
+      </View>
+      <Screen>
+        <Stack gap={5}>
+          <VerifyBanner />
+          {children}
+        </Stack>
+      </Screen>
+    </View>
+  );
+}

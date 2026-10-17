@@ -33,3 +33,42 @@ jobs:
       - run: pnpm db:init
       - run: pnpm test:integration
       - run: pnpm build
+
+  e2e:
+    # Real browser scenarios against the whole stack: API, worker, web app, PostgreSQL, Redis and a mail catcher.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: orderloop, POSTGRES_PASSWORD: orderloop, POSTGRES_DB: orderloop }
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U orderloop" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+      mailpit:
+        image: axllent/mailpit:latest
+        ports: ['1025:1025', '8025:8025']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: cp .env.example .env
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:init
+      # The API and worker run from their build output.
+      - run: pnpm build
+      # GitHub's Ubuntu runners include Google Chrome, which the tests drive (no browser download).
+      - run: pnpm --filter @orderloop/web test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
