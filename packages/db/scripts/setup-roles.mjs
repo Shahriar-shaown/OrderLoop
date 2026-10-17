@@ -68,6 +68,10 @@ for (const database of databases) {
     await client.query(
       `ALTER DEFAULT PRIVILEGES FOR ROLE ${m} IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${u}`,
     );
+    // Sequences created by later migrations (serial columns) are usable by the runtime role.
+    await client.query(
+      `ALTER DEFAULT PRIVILEGES FOR ROLE ${m} IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO ${u}`,
+    );
     // Deliberately NO blanket "GRANT ... ON ALL TABLES": re-running setup would undo the per-table
     // REVOKEs in the migrations (append-only audit_logs, no access to _prisma_migrations).
   });

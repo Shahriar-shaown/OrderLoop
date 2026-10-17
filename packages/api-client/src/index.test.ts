@@ -160,6 +160,99 @@ describe('email verification and password reset', () => {
   });
 });
 
+describe('catalog and inventory calls', () => {
+  it('post a product body to /v1/products and put the id in the path for updates', async () => {
+    const seen: Seen[] = [];
+    const { fetchImpl } = stub(
+      201,
+      {
+        id: '0197b0a0-0000-7000-8000-000000000001',
+        name: 'Mug',
+        description: null,
+        categoryId: null,
+        unit: 'pcs',
+        status: 'ACTIVE',
+        createdAt: '2026-01-01T00:00:00Z',
+        variants: [],
+      },
+      seen,
+    );
+    const api = createApiClient({
+      baseUrl: 'http://x',
+      fetch: fetchImpl,
+      getAccessToken: () => 't',
+    });
+    await api.products.create({
+      name: 'Mug',
+      variants: [{ sku: 'mug-1', priceMinor: 1200 }],
+    } as never);
+    expect(seen[0]!.url).toBe('http://x/v1/products');
+    expect(JSON.parse(seen[0]!.init.body as string).variants[0]).toMatchObject({
+      sku: 'MUG-1',
+      priceMinor: 1200,
+    });
+  });
+
+  it('refuses a float price locally, before any request', async () => {
+    const seen: Seen[] = [];
+    const { fetchImpl } = stub(201, {}, seen);
+    const err = await createApiClient({ baseUrl: 'http://x', fetch: fetchImpl })
+      .products.create({ name: 'Mug', variants: [{ sku: 'mug-1', priceMinor: 12.5 }] } as never)
+      .catch((e: unknown) => e);
+    expect(err).toMatchObject({ code: 'validation_failed' });
+    expect(seen).toHaveLength(0);
+  });
+
+  it('surfaces insufficient_stock as a typed error with the API detail', async () => {
+    const { fetchImpl } = stub(409, {
+      type: 'urn:orderloop:error:insufficient_stock',
+      title: 'insufficient_stock',
+      status: 409,
+      code: 'insufficient_stock',
+      detail: 'Only 2 available, 3 requested',
+    });
+    const err = await createApiClient({ baseUrl: 'http://x', fetch: fetchImpl })
+      .reservations.create({ variantId: '0197b0a0-0000-7000-8000-000000000001', quantity: 3 })
+      .catch((e: unknown) => e);
+    expect(err).toMatchObject({
+      status: 409,
+      code: 'insufficient_stock',
+      message: 'Only 2 available, 3 requested',
+    });
+  });
+
+  it('accepts the 202 an import returns, and builds query strings for stock lists', async () => {
+    const seen: Seen[] = [];
+    const job = {
+      id: '0197b0a0-0000-7000-8000-000000000001',
+      kind: 'products',
+      status: 'PENDING',
+      totalRows: null,
+      created: 0,
+      updated: 0,
+      failed: 0,
+      errors: [],
+      createdAt: '2026-01-01T00:00:00Z',
+      startedAt: null,
+      finishedAt: null,
+    };
+    const accepted = stub(202, job, seen);
+    expect(
+      (
+        await createApiClient({ baseUrl: 'http://x', fetch: accepted.fetchImpl }).imports.products(
+          'product_name,sku,price\nA,B,1',
+        )
+      ).status,
+    ).toBe('PENDING');
+    const list = stub(200, { items: [], nextCursor: null }, seen);
+    await createApiClient({ baseUrl: 'http://x', fetch: list.fetchImpl }).inventory.list({
+      lowStock: 'true',
+      limit: 10,
+    } as never);
+    expect(seen[1]!.url).toBe('http://x/v1/inventory?lowStock=true&limit=10');
+  });
+});
+
 describe('errors', () => {
   it('turns RFC 9457 problem details into an ApiError with code and field errors', async () => {
     const { fetchImpl } = stub(400, {

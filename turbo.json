@@ -20,7 +20,7 @@
       "dependsOn": ["^build"]
     },
     "test:integration": {
-      "dependsOn": ["^build", "build"],
+      "dependsOn": ["^build", "build", "@orderloop/worker#build"],
       "cache": false
     }
   }

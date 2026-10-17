@@ -50,3 +50,21 @@ test('browser-side projects cannot import the Node-only contracts subpath', () =
   assert.deepEqual(findViolations('apps/mobile', src), ['@orderloop/contracts/server']);
   assert.deepEqual(findViolations('apps/api', src), []);
 });
+
+test('catalog is server-side only', () => {
+  const src = `import { receiveStock } from '@orderloop/catalog';`;
+  assert.deepEqual(findViolations('apps/web', src), ['@orderloop/catalog']);
+  assert.deepEqual(findViolations('apps/mobile', src), ['@orderloop/catalog']);
+  assert.deepEqual(findViolations('packages/domain', src), ['@orderloop/catalog']);
+  assert.deepEqual(findViolations('apps/api', src), []);
+  assert.deepEqual(findViolations('apps/worker', src), []);
+});
+test('catalog cannot reach into the apps', () => {
+  assert.deepEqual(
+    findViolations(
+      'packages/catalog',
+      `import a from '@orderloop/api'; import b from '@orderloop/db'; import c from '@orderloop/domain'`,
+    ),
+    ['@orderloop/api'],
+  );
+});

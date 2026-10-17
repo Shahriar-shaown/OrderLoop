@@ -31,6 +31,23 @@ describe('permissions', () => {
   });
 });
 
+describe('catalog and inventory permissions', () => {
+  it('only OWNER, ADMIN and MANAGER may change the catalog', () => {
+    for (const role of ROLES)
+      expect(can(role, 'catalog:write'), role).toBe(['OWNER', 'ADMIN', 'MANAGER'].includes(role));
+  });
+  it('every role can read the catalog and stock', () => {
+    for (const role of ROLES) {
+      expect(can(role, 'catalog:read'), role).toBe(true);
+      expect(can(role, 'inventory:read'), role).toBe(true);
+    }
+  });
+  it('floor staff can move stock but accountants cannot', () => {
+    expect(can('STAFF', 'inventory:write')).toBe(true);
+    expect(can('ACCOUNTANT', 'inventory:write')).toBe(false);
+  });
+});
+
 describe('role assignment', () => {
   it('owner can assign any role', () => {
     for (const target of ROLES) expect(canAssignRole('OWNER', target)).toBe(true);

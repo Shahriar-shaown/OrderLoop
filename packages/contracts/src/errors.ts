@@ -14,6 +14,7 @@ export const ErrorCode = z.enum([
   'token_invalid',
   'email_not_verified',
   'last_owner',
+  'insufficient_stock',
   'internal_error',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;

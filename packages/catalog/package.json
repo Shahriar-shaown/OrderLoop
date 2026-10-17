@@ -1,0 +1,30 @@
+{
+  "name": "@orderloop/catalog",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "echo \"catalog is tested through apps/api integration tests\""
+  },
+  "dependencies": {
+    "@orderloop/db": "workspace:*",
+    "@orderloop/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@orderloop/config": "workspace:*",
+    "@types/node": "^22.0.0",
+    "eslint": "^10.0.0"
+  }
+}

@@ -170,6 +170,58 @@ export function createApiClient(options: ApiClientOptions) {
         call(routes.updateMember, { params: { id }, body: { role } }),
       remove: (id: string) => call(routes.removeMember, { params: { id } }),
     },
+    categories: {
+      list: () => call(routes.listCategories),
+      create: (name: string) => call(routes.createCategory, { body: { name } }),
+      rename: (id: string, name: string) =>
+        call(routes.updateCategory, { params: { id }, body: { name } }),
+      remove: (id: string) => call(routes.deleteCategory, { params: { id } }),
+    },
+    products: {
+      list: (query: RouteInput<typeof routes.listProducts>['query'] = {}) =>
+        call(routes.listProducts, { query }),
+      get: (id: string) => call(routes.getProduct, { params: { id } }),
+      create: (body: RouteInput<typeof routes.createProduct>['body']) =>
+        call(routes.createProduct, { body }),
+      update: (id: string, body: RouteInput<typeof routes.updateProduct>['body']) =>
+        call(routes.updateProduct, { params: { id }, body }),
+      addVariant: (id: string, body: RouteInput<typeof routes.addVariant>['body']) =>
+        call(routes.addVariant, { params: { id }, body }),
+      updateVariant: (id: string, body: RouteInput<typeof routes.updateVariant>['body']) =>
+        call(routes.updateVariant, { params: { id }, body }),
+    },
+    locations: {
+      list: () => call(routes.listLocations),
+      create: (body: RouteInput<typeof routes.createLocation>['body']) =>
+        call(routes.createLocation, { body }),
+      update: (id: string, body: RouteInput<typeof routes.updateLocation>['body']) =>
+        call(routes.updateLocation, { params: { id }, body }),
+    },
+    inventory: {
+      list: (query: RouteInput<typeof routes.listInventory>['query'] = {}) =>
+        call(routes.listInventory, { query }),
+      receive: (body: RouteInput<typeof routes.receiveStock>['body']) =>
+        call(routes.receiveStock, { body }),
+      adjust: (body: RouteInput<typeof routes.adjustStock>['body']) =>
+        call(routes.adjustStock, { body }),
+      movements: (query: RouteInput<typeof routes.listMovements>['query'] = {}) =>
+        call(routes.listMovements, { query }),
+      lowStock: () => call(routes.lowStock),
+    },
+    reservations: {
+      list: (query: RouteInput<typeof routes.listReservations>['query'] = {}) =>
+        call(routes.listReservations, { query }),
+      create: (body: RouteInput<typeof routes.createReservation>['body']) =>
+        call(routes.createReservation, { body }),
+      release: (id: string) => call(routes.releaseReservation, { params: { id } }),
+      fulfil: (id: string) => call(routes.fulfilReservation, { params: { id } }),
+    },
+    imports: {
+      /** Starts a background import and returns at once; poll `get` until the status is COMPLETED or FAILED. */
+      products: (csv: string) => call(routes.importProducts, { body: { csv } }),
+      get: (id: string) => call(routes.getImport, { params: { id } }),
+      list: () => call(routes.listImports),
+    },
     auditLogs: {
       list: (query: RouteInput<typeof routes.listAuditLogs>['query'] = {}) =>
         call(routes.listAuditLogs, { query }),
