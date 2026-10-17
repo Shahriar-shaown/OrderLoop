@@ -1,10 +1,12 @@
+import { failImportJob, processImportJob } from '@orderloop/catalog';
+import { loadDotEnv, loadServerEnv } from '@orderloop/contracts/server';
+import { Database } from '@orderloop/db';
 import { Worker } from 'bullmq';
 import { Redis } from 'ioredis';
-import { loadDotEnv, loadServerEnv } from '@orderloop/contracts/server';
+import { z } from 'zod';
 
-// Queues are added per phase (courier-sync, reconciliation, ...). M0 only proves
-// the process can connect to Redis and run a BullMQ worker.
-const SYSTEM_QUEUE = 'system';
+/** What the API puts on the queue: ids only. Re-validated here, because the worker must not trust what comes out of Redis. */
+const ImportJobData = z.object({ tenantId: z.string().uuid(), importId: z.string().uuid() });
 
 /** Connection failures surface as AggregateError with an empty message; fall back to the code or the errors inside. */
 function describe(err: Error & { code?: string; errors?: Error[] }): string {
@@ -20,16 +22,46 @@ function main(): void {
   loadDotEnv();
   const env = loadServerEnv();
 
+  const db = new Database(env.DATABASE_URL, { max: 5 });
   const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
   connection.on('error', (err) => console.error('[worker] redis error:', describe(err)));
 
-  const worker = new Worker(SYSTEM_QUEUE, async (job) => ({ handled: job.name }), { connection });
-  worker.on('ready', () => console.log(`[worker] ready, listening on queue "${SYSTEM_QUEUE}"`));
-  worker.on('error', (err) => console.error('[worker] error:', describe(err)));
+  // One job at a time per process keeps database load predictable; scale by running more workers.
+  const imports = new Worker(
+    'imports',
+    async (job) => {
+      const data = ImportJobData.parse(job.data);
+      // attemptsStarted > 1 means the queue is redelivering: the previous attempt crashed, stalled or threw, so no other
+      // worker holds this job and it can be taken over immediately. Rows are idempotent, so resuming is safe.
+      await processImportJob(db, data, (message) => console.log(`[worker] ${message}`), {
+        reclaim: job.attemptsStarted > 1,
+      });
+    },
+    { connection, concurrency: 1 },
+  );
+  imports.on('ready', () => console.log('[worker] ready, listening on queue "imports"'));
+  imports.on('error', (err) => console.error('[worker] error:', describe(err)));
+  imports.on('failed', (job, err) => {
+    console.error(`[worker] job ${job?.id ?? '?'} failed: ${describe(err)}`);
+    // Out of retries: mark the import FAILED and drop its stored CSV, so it never sits RUNNING forever.
+    if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
+      const parsed = ImportJobData.safeParse(job.data);
+      if (parsed.success) {
+        failImportJob(
+          db,
+          parsed.data,
+          'The import could not be completed. Try uploading it again.',
+        ).catch((e: Error) =>
+          console.error(`[worker] could not mark import failed: ${describe(e)}`),
+        );
+      }
+    }
+  });
 
   const shutdown = async (signal: string) => {
-    console.log(`[worker] ${signal} received, shutting down`);
-    await worker.close();
+    console.log(`[worker] ${signal} received, finishing the current job and shutting down`);
+    await imports.close(); // waits for the job in flight
+    await db.disconnect();
     connection.disconnect();
     process.exit(0);
   };

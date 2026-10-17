@@ -60,22 +60,23 @@ Every error is [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem detail
 `errors` appears only for validation failures; `path` is `body.*`, `query.*` or `params.*`. Unexpected failures return
 `500 internal_error` with no detail; the cause is in the server log under the same `x-request-id`.
 
-| `code`                 | Status | Meaning                                                                                           |
-| ---------------------- | ------ | ------------------------------------------------------------------------------------------------- |
-| `validation_failed`    | 400    | Body, query or path failed validation. See `errors`.                                              |
-| `invitation_invalid`   | 400    | Invitation unknown, used, expired, revoked, or its inviter lost the authority to grant it.        |
-| `token_invalid`        | 400    | Verification or reset link unknown, used, expired, or for another purpose. Deliberately uniform.  |
-| `unauthorized`         | 401    | Missing, malformed or invalid access token, or the session/membership/account is no longer valid. |
-| `token_expired`        | 401    | Access token expired (refresh it), or the refresh session has ended.                              |
-| `invalid_credentials`  | 401    | Wrong email or password. Same answer for unknown email, disabled account and wrong password.      |
-| `token_reuse_detected` | 401    | A used refresh token was presented again. The session is revoked.                                 |
-| `forbidden`            | 403    | Authenticated, but your role lacks the permission.                                                |
-| `email_not_verified`   | 403    | Verify your email address first (currently required to invite people).                            |
-| `not_found`            | 404    | Resource does not exist **or belongs to another tenant** (the two are indistinguishable).         |
-| `conflict`             | 409    | For example the email is already registered, or the person is already a member.                   |
-| `last_owner`           | 409    | The change would leave a tenant without an owner.                                                 |
-| `rate_limited`         | 429    | Too many requests or failed sign-ins. See `Retry-After`.                                          |
-| `internal_error`       | 500    | Unexpected. Quote the `x-request-id`.                                                             |
+| `code`                 | Status | Meaning                                                                                                      |
+| ---------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| `validation_failed`    | 400    | Body, query or path failed validation. See `errors`.                                                         |
+| `invitation_invalid`   | 400    | Invitation unknown, used, expired, revoked, or its inviter lost the authority to grant it.                   |
+| `token_invalid`        | 400    | Verification or reset link unknown, used, expired, or for another purpose. Deliberately uniform.             |
+| `unauthorized`         | 401    | Missing, malformed or invalid access token, or the session/membership/account is no longer valid.            |
+| `token_expired`        | 401    | Access token expired (refresh it), or the refresh session has ended.                                         |
+| `invalid_credentials`  | 401    | Wrong email or password. Same answer for unknown email, disabled account and wrong password.                 |
+| `token_reuse_detected` | 401    | A used refresh token was presented again. The session is revoked.                                            |
+| `forbidden`            | 403    | Authenticated, but your role lacks the permission.                                                           |
+| `email_not_verified`   | 403    | Verify your email address first (currently required to invite people).                                       |
+| `not_found`            | 404    | Resource does not exist **or belongs to another tenant** (the two are indistinguishable).                    |
+| `conflict`             | 409    | For example the email is already registered, or the person is already a member.                              |
+| `last_owner`           | 409    | The change would leave a tenant without an owner.                                                            |
+| `insufficient_stock`   | 409    | Not enough available stock for a reservation or a downward adjustment. `detail` says how many are available. |
+| `rate_limited`         | 429    | Too many requests or failed sign-ins. See `Retry-After`.                                                     |
+| `internal_error`       | 500    | Unexpected. Quote the `x-request-id`.                                                                        |
 
 ## Authentication endpoints
 
@@ -160,6 +161,143 @@ with a verified email; an existing account must supply its current password. Err
 
 Roles are `OWNER`, `ADMIN`, `MANAGER`, `STAFF`, `ACCOUNTANT`; the permission matrix is in
 `packages/domain/src/permissions.ts`.
+
+## Catalog, stock and imports
+
+Everything below is per tenant: you only ever see and change your own business's data, whatever ids you send. Routes need an
+access token and a permission:
+
+| Role         | Read catalog and stock | Change catalog (products, variants, categories, locations, imports) | Move stock (receive, adjust, reserve, release, fulfil) |
+| ------------ | :--------------------: | :-----------------------------------------------------------------: | :----------------------------------------------------: |
+| `OWNER`      |          yes           |                                 yes                                 |                          yes                           |
+| `ADMIN`      |          yes           |                                 yes                                 |                          yes                           |
+| `MANAGER`    |          yes           |                                 yes                                 |                          yes                           |
+| `STAFF`      |          yes           |                                 no                                  |                          yes                           |
+| `ACCOUNTANT` |          yes           |                                 no                                  |                           no                           |
+
+Permissions are `catalog:read`, `catalog:write`, `inventory:read`, `inventory:write`.
+
+### Products, variants and money
+
+A **product** (name, category, unit) has one or more **variants**; a variant is one sellable, countable SKU. Stock belongs to
+variants, never to products. Create a product with at least one variant in a single call; later add variants with
+`POST /v1/products/{id}/variants`.
+
+- **Money is integer paisa** (1 BDT = 100 paisa): `"priceMinor": 125050` is ৳1,250.50. Decimals, negatives and amounts above
+  2,000,000,000 paisa are rejected with `validation_failed`. Never send floats.
+- **SKUs** are upper-cased and trimmed on the way in (`" tee-red "` becomes `TEE-RED`), must match
+  `[A-Z0-9][A-Z0-9._-]{0,63}`, are **unique per business** (case-insensitively), and **never change** once created.
+  Two businesses may use the same SKU. A taken SKU is `409 conflict`.
+- **Units:** `pcs`, `kg`, `g`, `l`, `ml`, `m`, `pack`, `dozen`. A product has one unit; all its variants share it.
+- **Categories:** unique names per business, case-insensitively. Deleting one leaves its products uncategorised.
+- **Archiving:** set a product's `status` to `ARCHIVED`, or a variant's `archived` to `true`. Archived items stay in history but
+  cannot take stock or reservations (a variant is also refused when its **product** is archived), and imports cannot add to an
+  archived product. A variant with an active reservation cannot be archived.
+- **Search and paging:** `GET /v1/products?q=` matches names and SKUs (case-insensitive, substring). Lists are newest first with
+  an opaque `cursor` and `limit` (1 to 100, default 50); `nextCursor` is `null` on the last page. Each product carries its
+  variants with **stock totals summed across locations**.
+
+### Stock: the ledger
+
+Stock is **never edited directly**. Every change appends a row to an append-only ledger (`GET /v1/inventory/movements`), and the
+current level of each variant at each location is the running total of its ledger. The two always agree: a randomised test
+replays the ledger through the pure rules and checks it lands on the stored level.
+
+Each level has two numbers:
+
+- `onHand`: physically on the shelf.
+- `reserved`: promised to open reservations.
+- `available = onHand - reserved`. It can never be negative: `0 <= reserved <= onHand`, enforced by the database itself.
+
+| Movement type | Effect                                                         | Caused by                                       |
+| ------------- | -------------------------------------------------------------- | ----------------------------------------------- |
+| `RECEIVE`     | `onHand` up                                                    | `POST /v1/inventory/receive`, CSV opening stock |
+| `ADJUSTMENT`  | `onHand` up or down (needs a reason; cannot cut into reserved) | `POST /v1/inventory/adjust`                     |
+| `RESERVE`     | `reserved` up                                                  | `POST /v1/reservations`                         |
+| `RELEASE`     | `reserved` down                                                | `POST /v1/reservations/{id}/release`            |
+| `SHIP`        | `onHand` and `reserved` both down                              | `POST /v1/reservations/{id}/fulfil`             |
+
+Ledger rows come back newest first in the order they were applied (never re-sort by timestamp: rows in the same millisecond tie). Each carries the `reason`, an optional
+`referenceType`/`referenceId` (for example an order, in a later phase), and who did it. Quantities are whole numbers from 1 to
+1,000,000 per request; a level is capped at 1,000,000,000.
+
+**Locations.** Stock is held per location. The first time stock is used with no location named, the business's oldest active
+location becomes its default, or "Main warehouse" is created if it has none; requests that name no `locationId` use the default.
+Listing locations only reads. Concurrent first uses cannot create duplicates. Create more with `POST /v1/locations`. A location holding or promising stock
+cannot be archived, and neither can the default one. Archiving races safely with stock changes: a change in flight either
+commits first (and archiving is then refused) or finds the location archived.
+
+**Overselling is impossible, even under load.** A reservation succeeds only if `onHand - reserved >= quantity`, decided inside
+the single database statement that updates the level, so 50 simultaneous requests for the last 10 units grant exactly 10 and
+refuse 40 with `409 insufficient_stock` (`"Only 0 available, 1 requested"`). A refused request changes nothing and writes no
+ledger row. Likewise an adjustment cannot take `onHand` below `reserved`.
+
+**Reservations** hold stock for something (an order, a basket). They resolve exactly once: `release` gives the units back,
+`fulfil` ships them. A second attempt, or a simultaneous one, gets `409` (`"Reservation is already RELEASED"`); an unknown or
+another business's id is `404`.
+
+**Idempotency.** Send an `idempotencyKey` (8 to 100 characters of letters, digits and `. _ : -`) with `receive`, `adjust` or
+`POST /v1/reservations`. Retrying the same request with the same key changes nothing and returns the original result, even if
+the retries race. Reusing a key for a _different_ request (another variant, quantity or kind) is `409`, never silently ignored.
+Keys are per business.
+
+**Low stock.** `GET /v1/inventory/low-stock` lists active variants with a `reorderPoint` above 0 whose available stock, summed over
+all locations, is at or below it (including variants with no stock at all), thinnest first. `GET /v1/inventory?lowStock=true`
+applies the same test to each location separately.
+
+### Importing a catalog from CSV
+
+`POST /v1/imports/products` with `{ "csv": "..." }` returns **202 Accepted** at once with an import job; a separate worker
+process does the work. Poll `GET /v1/imports/{id}` until `status` is `COMPLETED` or `FAILED`. `GET /v1/imports` lists the 20 most
+recent.
+
+Columns (a header row is required; names are case-insensitive; **unknown columns are rejected** so a typo cannot silently drop
+data):
+
+| Column                   | Required | Notes                                                                                        |
+| ------------------------ | :------: | -------------------------------------------------------------------------------------------- |
+| `product_name`           |   yes    | Rows with the same name (any case) are variants of one product.                              |
+| `sku`                    |   yes    | Normalised like everywhere else. Repeated within the file is an error.                       |
+| `price`                  |   yes    | BDT with at most 2 decimals, for example `1250` or `1250.50`. Stored as paisa.               |
+| `category`               |    no    | Created if missing.                                                                          |
+| `unit`                   |    no    | Default `pcs`. Rows of one product must agree on unit and category.                          |
+| `variant_name`           |    no    | For example `Red / M`.                                                                       |
+| `cost`                   |    no    | Same format as `price`.                                                                      |
+| `reorder_point`          |    no    | Whole number, default 0.                                                                     |
+| `barcode`, `description` |    no    |                                                                                              |
+| `opening_stock`          |    no    | Whole number. Applied only when the variant is **new**, so re-importing never double-counts. |
+| `location`               |    no    | Where opening stock goes (created if missing); default location otherwise.                   |
+
+```csv
+product_name,sku,price,category,unit,variant_name,cost,reorder_point,opening_stock,location
+Cotton T-Shirt,TEE-R-M,1250.50,Shirts,pcs,Red / M,800,5,20,
+Cotton T-Shirt,TEE-R-L,1250.50,Shirts,pcs,Red / L,800,5,10,Dhaka outlet
+Basmati Rice,RICE-5KG,650,Grocery,kg,5 kg bag,,,40,
+```
+
+**Behaviour.**
+
+- Existing SKUs are **updated** (price, cost, name, barcode, reorder point), existing products matched by name keep their unit,
+  new ones are created. A SKU that belongs to a different product, or a unit that differs from an existing product, is a row
+  error.
+- Each row is its own transaction: **one bad row never loses the good ones.** Problems come back as `errors: [{ row, message }]`
+  (line numbers, header is line 1; at most the first 100), with `created`, `updated`, `failed` counts and `totalRows`.
+- A malformed file (missing required column, unknown column, unterminated quote, no rows) sets `status: FAILED` with one error
+  and imports nothing.
+- Limits: 2 MB and 5,000 rows per file. Larger files must be split. A business may have **3 imports waiting or running at once**
+  (a fourth is `429 rate_limited`), so one tenant's backlog cannot starve the others.
+- The raw CSV is deleted from the database when processing ends, and **only ids ever go on the queue**, never file content.
+- Safe to retry and to crash: a job is claimed by exactly one worker. If the worker dies or fails, the queue redelivers the job
+  (up to 3 attempts with backoff) and the next attempt takes over immediately; rows are idempotent and opening stock carries a
+  per-row key, so nothing is counted twice. After the last attempt the import is marked `FAILED` and its CSV deleted. After a
+  resume, rows created by the earlier attempt are reported as `updated`, so the counts of a recovered import are approximate.
+- If the queue is unreachable you get `503` and the job is marked `FAILED`, with no CSV left behind.
+
+### Request bodies
+
+JSON bodies are limited to **100 KB** on every route. The one exception is `POST /v1/imports/products` (up to 3 MB, for the 2 MB
+CSV), and only for callers who send a bearer token: anonymous requests there get `401` before the body is read. A body that
+is too large is `413`, and one that is not valid JSON is `400`, both as problem details that never echo the body back.
 
 ## Rate limiting and lockout
 

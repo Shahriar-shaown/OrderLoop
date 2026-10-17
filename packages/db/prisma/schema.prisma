@@ -48,8 +48,16 @@ model Tenant {
   name      String
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  memberships Membership[]
-  invitations Invitation[]
+  memberships    Membership[]
+  invitations    Invitation[]
+  categories     Category[]
+  products       Product[]
+  variants       ProductVariant[]
+  locations      StockLocation[]
+  stockLevels    StockLevel[]
+  stockMovements StockMovement[]
+  reservations   Reservation[]
+  importJobs     ImportJob[]
 
   @@map("tenants")
 }
@@ -109,13 +117,13 @@ model RefreshToken {
 
 /// Global. One-time emailed tokens (verification, password reset). Only the SHA-256 hash is stored.
 model UserToken {
-  id        String         @id @default(uuid(7)) @db.Uuid
-  userId    String         @map("user_id") @db.Uuid
+  id        String       @id @default(uuid(7)) @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
   purpose   TokenPurpose
-  tokenHash String         @unique @map("token_hash")
-  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  expiresAt DateTime       @map("expires_at") @db.Timestamptz(3)
-  usedAt    DateTime?      @map("used_at") @db.Timestamptz(3)
+  tokenHash String       @unique @map("token_hash")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime     @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime?    @map("used_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -157,4 +165,230 @@ model AuditLog {
 
   @@index([tenantId, createdAt])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Catalog and inventory (Phase 2). Every table below is tenant-scoped: tenant_id, forced row-level security, and
+// composite foreign keys (tenant_id, id) so a child row can never point at another tenant's parent.
+// Check constraints (not expressible in Prisma) live in the migration: non-negative stock, reserved <= on_hand, and
+// the allowed shape of each ledger movement type.
+// ---------------------------------------------------------------------------------------------------------------------
+
+enum ProductStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// RECEIVE +on_hand | ADJUSTMENT +/-on_hand | RESERVE +reserved | RELEASE -reserved | SHIP -on_hand and -reserved
+enum StockMovementType {
+  RECEIVE
+  ADJUSTMENT
+  RESERVE
+  RELEASE
+  SHIP
+}
+
+enum ReservationStatus {
+  ACTIVE
+  RELEASED
+  FULFILLED
+}
+
+enum ImportStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model Category {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  /// Lower-cased name, so "Shirts" and "shirts" cannot both exist in one tenant.
+  nameKey   String   @map("name_key")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, nameKey])
+  @@map("categories")
+}
+
+model Product {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  tenantId    String        @map("tenant_id") @db.Uuid
+  name        String
+  /// Lower-cased name. Not unique (two products may share a name); used for search and CSV import matching.
+  nameKey     String        @map("name_key")
+  description String?
+  categoryId  String?       @map("category_id") @db.Uuid
+  /// Unit of measure for every variant: pcs, kg, g, l, ml, m, pack, dozen.
+  unit        String        @default("pcs")
+  status      ProductStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Same-tenant is enforced by the application (a cross-tenant id is invisible under RLS) because Prisma cannot
+  /// express a composite foreign key whose second column is nullable.
+  category Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  variants ProductVariant[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, nameKey])
+  @@index([tenantId, status, createdAt])
+  @@map("products")
+}
+
+/// A sellable, countable unit: one SKU. Every product has at least one.
+model ProductVariant {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  productId    String    @map("product_id") @db.Uuid
+  /// Upper-case, unique per tenant. Immutable once created, because later phases reference it.
+  sku          String
+  /// Human label such as "Red / M". Empty for single-variant products.
+  name         String    @default("")
+  attributes   Json      @default("{}")
+  /// Integer paisa (1 BDT = 100 paisa). Never a float.
+  priceMinor   Int       @map("price_minor")
+  costMinor    Int?      @map("cost_minor")
+  barcode      String?
+  /// Low-stock alert threshold on available quantity (0 disables).
+  reorderPoint Int       @default(0) @map("reorder_point")
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product      Product         @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+  stockLevels  StockLevel[]
+  movements    StockMovement[]
+  reservations Reservation[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, sku])
+  @@index([tenantId, productId])
+  @@map("product_variants")
+}
+
+model StockLocation {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  name       String
+  nameKey    String    @map("name_key")
+  /// Where stock goes when a request names no location. At most one per tenant.
+  isDefault  Boolean   @default(false) @map("is_default")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stockLevels  StockLevel[]
+  movements    StockMovement[]
+  reservations Reservation[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, nameKey])
+  @@map("stock_locations")
+}
+
+/// Materialised current quantity per variant and location. Always equals the sum of that pair's ledger movements;
+/// changed only by the stock operations in packages/catalog, in the same transaction as the movement row.
+model StockLevel {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  variantId  String   @map("variant_id") @db.Uuid
+  locationId String   @map("location_id") @db.Uuid
+  /// Physically on the shelf.
+  onHand     Int      @default(0) @map("on_hand")
+  /// Promised to open reservations. Available to sell = onHand - reservedQty (never negative).
+  reserved   Int      @default(0)
+  updatedAt  DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  variant  ProductVariant @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Restrict)
+  location StockLocation  @relation(fields: [tenantId, locationId], references: [tenantId, id], onDelete: Restrict)
+
+  @@id([tenantId, variantId, locationId])
+  @@map("stock_levels")
+}
+
+/// Append-only stock ledger (app_user has INSERT and SELECT only). Each row is a signed change to on_hand and/or
+/// reserved; replaying all rows for a variant and location reproduces stock_levels exactly.
+model StockMovement {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  /// Strict, gap-tolerant total order of the ledger, assigned by the database. Use this, not created_at, to replay.
+  seq            BigInt            @unique @default(autoincrement())
+  tenantId       String            @map("tenant_id") @db.Uuid
+  variantId      String            @map("variant_id") @db.Uuid
+  locationId     String            @map("location_id") @db.Uuid
+  type           StockMovementType
+  onHandDelta    Int               @map("on_hand_delta")
+  reservedDelta  Int               @map("reserved_delta")
+  reason         String?
+  /// What caused it (for example an order in a later phase), as free references; not foreign keys.
+  referenceType  String?           @map("reference_type")
+  referenceId    String?           @map("reference_id")
+  reservationId  String?           @map("reservation_id") @db.Uuid
+  /// Client-supplied key making a retried request a no-op. Unique per tenant when present.
+  idempotencyKey String?           @map("idempotency_key")
+  createdById    String?           @map("created_by_id") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  variant  ProductVariant @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Restrict)
+  location StockLocation  @relation(fields: [tenantId, locationId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, variantId, createdAt])
+  @@index([tenantId, createdAt])
+  @@map("stock_movements")
+}
+
+model Reservation {
+  id            String            @id @default(uuid(7)) @db.Uuid
+  tenantId      String            @map("tenant_id") @db.Uuid
+  variantId     String            @map("variant_id") @db.Uuid
+  locationId    String            @map("location_id") @db.Uuid
+  quantity      Int
+  status        ReservationStatus @default(ACTIVE)
+  referenceType String?           @map("reference_type")
+  referenceId   String?           @map("reference_id")
+  createdById   String?           @map("created_by_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  resolvedAt    DateTime?         @map("resolved_at") @db.Timestamptz(3)
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  variant  ProductVariant @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Restrict)
+  location StockLocation  @relation(fields: [tenantId, locationId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, variantId])
+  @@map("reservations")
+}
+
+/// A bulk CSV import, processed by the worker. The raw CSV is kept only until processing finishes.
+model ImportJob {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  kind        String
+  status      ImportStatus @default(PENDING)
+  csv         String?
+  totalRows   Int?         @map("total_rows")
+  created     Int          @default(0)
+  updated     Int          @default(0)
+  failed      Int          @default(0)
+  /// First 100 problems: [{ row, message }]. Never contains the CSV content beyond the offending field name.
+  errors      Json         @default("[]")
+  createdById String?      @map("created_by_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  startedAt   DateTime?    @map("started_at") @db.Timestamptz(3)
+  finishedAt  DateTime?    @map("finished_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("import_jobs")
 }

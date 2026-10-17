@@ -5,12 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 /** Packages each workspace project must NOT import. */
 export const FORBIDDEN = {
-  'apps/web': ['contracts/server', 'db', 'courier-sdk', 'api', 'worker'],
-  'apps/mobile': ['contracts/server', 'db', 'courier-sdk', 'api', 'worker'],
+  'apps/web': ['contracts/server', 'db', 'catalog', 'courier-sdk', 'api', 'worker'],
+  'apps/mobile': ['contracts/server', 'db', 'catalog', 'courier-sdk', 'api', 'worker'],
   'apps/api': ['worker'],
   'apps/worker': ['api'],
   'packages/contracts': [
     'db',
+    'catalog',
     'domain',
     'courier-sdk',
     'api-client',
@@ -22,7 +23,18 @@ export const FORBIDDEN = {
   'packages/api-client': [
     'contracts/server',
     'db',
+    'catalog',
     'domain',
+    'courier-sdk',
+    'api',
+    'worker',
+    'web',
+    'mobile',
+  ],
+  // catalog is server-side stock and import logic shared by api and worker; it sits on db and domain only.
+  'packages/catalog': [
+    'contracts/server',
+    'api-client',
     'courier-sdk',
     'api',
     'worker',
@@ -32,6 +44,7 @@ export const FORBIDDEN = {
   'packages/domain': [
     'contracts/server',
     'db',
+    'catalog',
     'courier-sdk',
     'api-client',
     'api',

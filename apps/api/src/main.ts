@@ -2,14 +2,20 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { loadDotEnv, loadServerEnv } from '@orderloop/contracts/server';
 import helmet from 'helmet';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
+import { configureApp } from './app.setup.js';
 import { PinoLoggerService } from './logging/pino-logger.service.js';
 import { APP_CONFIG, type AppConfig } from './config/config.module.js';
 
 async function bootstrap() {
   loadDotEnv();
   loadServerEnv(); // fail fast with every invalid variable listed
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    bodyParser: false, // configureApp sets the parsers
+  });
+  configureApp(app);
   // Every log line, including Nest's own, goes through the structured redacting logger.
   app.useLogger(app.get(PinoLoggerService));
   const config = app.get<AppConfig>(APP_CONFIG);

@@ -59,3 +59,74 @@ describe('display names', () => {
     }
   });
 });
+
+describe('catalog schemas', () => {
+  const variant = { sku: 'tee-1', priceMinor: 1000 };
+  it('normalise SKUs and apply defaults', async () => {
+    const { ProductBody } = await import('./catalog.js');
+    const parsed = ProductBody.parse({ name: ' Mug ', variants: [variant] });
+    expect(parsed).toMatchObject({ name: 'Mug', unit: 'pcs' });
+    expect(parsed.variants[0]).toMatchObject({
+      sku: 'TEE-1',
+      name: '',
+      attributes: {},
+      reorderPoint: 0,
+    });
+  });
+  it('money is integer paisa within range', async () => {
+    const { VariantInput } = await import('./catalog.js');
+    for (const priceMinor of [1.5, -1, 2_000_000_001, Number.NaN, '100'])
+      expect(VariantInput.safeParse({ ...variant, priceMinor }).success, String(priceMinor)).toBe(
+        false,
+      );
+    expect(VariantInput.safeParse({ ...variant, priceMinor: 0 }).success).toBe(true);
+  });
+  it('a product needs 1 to 50 variants and a known unit', async () => {
+    const { ProductBody } = await import('./catalog.js');
+    expect(ProductBody.safeParse({ name: 'X', variants: [] }).success).toBe(false);
+    expect(
+      ProductBody.safeParse({
+        name: 'X',
+        variants: Array.from({ length: 51 }, (_, i) => ({ sku: `S${i}`, priceMinor: 1 })),
+      }).success,
+    ).toBe(false);
+    expect(ProductBody.safeParse({ name: 'X', unit: 'furlong', variants: [variant] }).success).toBe(
+      false,
+    );
+  });
+  it('stock bodies bound quantities, require a reason for adjustments, and reject zero deltas', async () => {
+    const { ReceiveBody, AdjustBody, ReservationBody } = await import('./catalog.js');
+    const id = '0197b0a0-0000-7000-8000-000000000001';
+    expect(ReceiveBody.safeParse({ variantId: id, quantity: 1_000_000 }).success).toBe(true);
+    for (const quantity of [0, -1, 1.5, 1_000_001])
+      expect(ReceiveBody.safeParse({ variantId: id, quantity }).success, String(quantity)).toBe(
+        false,
+      );
+    expect(AdjustBody.safeParse({ variantId: id, delta: 0, reason: 'recount' }).success).toBe(
+      false,
+    );
+    expect(AdjustBody.safeParse({ variantId: id, delta: -3 }).success).toBe(false);
+    expect(AdjustBody.safeParse({ variantId: id, delta: -3, reason: 'ok' }).success).toBe(false); // too short to be a reason
+    expect(
+      AdjustBody.safeParse({ variantId: id, delta: -3, reason: 'damaged in transit' }).success,
+    ).toBe(true);
+    expect(
+      ReservationBody.safeParse({ variantId: id, quantity: 1, idempotencyKey: 'short' }).success,
+    ).toBe(false);
+    expect(
+      ReservationBody.safeParse({
+        variantId: id,
+        quantity: 1,
+        idempotencyKey: 'order-1234-reserve',
+      }).success,
+    ).toBe(true);
+  });
+  it('every inventory and catalog route declares a permission', async () => {
+    const { routes } = await import('./routes.js');
+    const protectedPaths = Object.values(routes).filter((r) =>
+      /^\/v1\/(products|categories|variants|locations|inventory|reservations|imports)/.test(r.path),
+    );
+    expect(protectedPaths.length).toBeGreaterThan(20);
+    for (const r of protectedPaths) expect('permission' in r, r.id).toBe(true);
+  });
+});
