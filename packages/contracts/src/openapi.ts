@@ -3,6 +3,12 @@ import { Problem } from './errors.js';
 import { routes, type RouteSpec } from './routes.js';
 
 /** Build an OpenAPI 3.1 document from the route registry. Pure; no I/O. */
+/** The playground groups operations by the first path segment after /v1 (auth, products, inventory, ...). */
+function tagFor(path: string): string {
+  const parts = path.split('/').filter(Boolean);
+  return (parts[0] === 'v1' ? parts[1] : parts[0]) ?? 'other';
+}
+
 export function buildOpenApiDocument(info: { title: string; version: string }) {
   const paths: Record<string, Record<string, unknown>> = {};
   const problem = z.toJSONSchema(Problem, { io: 'output' });
@@ -55,6 +61,7 @@ export function buildOpenApiDocument(info: { title: string; version: string }) {
           content: { 'application/problem+json': { schema: problem } },
         },
       },
+      tags: [tagFor(openApiPath)],
       ...(spec.auth === 'access' ? { security: [{ bearerAuth: [] }] } : {}),
       ...(spec.permission ? { 'x-required-permission': spec.permission } : {}),
     };

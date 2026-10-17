@@ -23,7 +23,9 @@
                       "const": "ok"
                     }
                   },
-                  "required": ["status"],
+                  "required": [
+                    "status"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -83,18 +85,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
-        }
+        },
+        "tags": [
+          "health"
+        ]
       }
     },
     "/health/ready": {
@@ -112,25 +125,40 @@
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": ["ok", "degraded"]
+                      "enum": [
+                        "ok",
+                        "degraded"
+                      ]
                     },
                     "checks": {
                       "type": "object",
                       "properties": {
                         "postgres": {
                           "type": "string",
-                          "enum": ["up", "down"]
+                          "enum": [
+                            "up",
+                            "down"
+                          ]
                         },
                         "redis": {
                           "type": "string",
-                          "enum": ["up", "down"]
+                          "enum": [
+                            "up",
+                            "down"
+                          ]
                         }
                       },
-                      "required": ["postgres", "redis"],
+                      "required": [
+                        "postgres",
+                        "redis"
+                      ],
                       "additionalProperties": false
                     }
                   },
-                  "required": ["status", "checks"],
+                  "required": [
+                    "status",
+                    "checks"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -190,18 +218,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
-        }
+        },
+        "tags": [
+          "health"
+        ]
       }
     },
     "/openapi.json": {
@@ -278,18 +317,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
-        }
+        },
+        "tags": [
+          "openapi.json"
+        ]
       }
     },
     "/v1/auth/register": {
@@ -326,7 +376,12 @@
                     "maxLength": 100
                   }
                 },
-                "required": ["email", "password", "name", "tenantName"]
+                "required": [
+                  "email",
+                  "password",
+                  "name",
+                  "tenantName"
+                ]
               }
             }
           }
@@ -369,7 +424,12 @@
                           "type": "boolean"
                         }
                       },
-                      "required": ["id", "email", "name", "emailVerified"],
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "emailVerified"
+                      ],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -384,12 +444,21 @@
                           "type": "string"
                         }
                       },
-                      "required": ["id", "name"],
+                      "required": [
+                        "id",
+                        "name"
+                      ],
                       "additionalProperties": false
                     },
                     "role": {
                       "type": "string",
-                      "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                      "enum": [
+                        "OWNER",
+                        "ADMIN",
+                        "MANAGER",
+                        "STAFF",
+                        "ACCOUNTANT"
+                      ]
                     },
                     "memberships": {
                       "type": "array",
@@ -403,15 +472,31 @@
                           },
                           "role": {
                             "type": "string",
-                            "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                            "enum": [
+                              "OWNER",
+                              "ADMIN",
+                              "MANAGER",
+                              "STAFF",
+                              "ACCOUNTANT"
+                            ]
                           }
                         },
-                        "required": ["tenantId", "role"],
+                        "required": [
+                          "tenantId",
+                          "role"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["accessToken", "expiresIn", "user", "tenant", "role", "memberships"],
+                  "required": [
+                    "accessToken",
+                    "expiresIn",
+                    "user",
+                    "tenant",
+                    "role",
+                    "memberships"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -471,18 +556,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
-        }
+        },
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/v1/auth/login": {
@@ -514,7 +610,10 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   }
                 },
-                "required": ["email", "password"]
+                "required": [
+                  "email",
+                  "password"
+                ]
               }
             }
           }
@@ -557,7 +656,12 @@
                           "type": "boolean"
                         }
                       },
-                      "required": ["id", "email", "name", "emailVerified"],
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "emailVerified"
+                      ],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -572,12 +676,21 @@
                           "type": "string"
                         }
                       },
-                      "required": ["id", "name"],
+                      "required": [
+                        "id",
+                        "name"
+                      ],
                       "additionalProperties": false
                     },
                     "role": {
                       "type": "string",
-                      "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                      "enum": [
+                        "OWNER",
+                        "ADMIN",
+                        "MANAGER",
+                        "STAFF",
+                        "ACCOUNTANT"
+                      ]
                     },
                     "memberships": {
                       "type": "array",
@@ -591,15 +704,31 @@
                           },
                           "role": {
                             "type": "string",
-                            "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                            "enum": [
+                              "OWNER",
+                              "ADMIN",
+                              "MANAGER",
+                              "STAFF",
+                              "ACCOUNTANT"
+                            ]
                           }
                         },
-                        "required": ["tenantId", "role"],
+                        "required": [
+                          "tenantId",
+                          "role"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["accessToken", "expiresIn", "user", "tenant", "role", "memberships"],
+                  "required": [
+                    "accessToken",
+                    "expiresIn",
+                    "user",
+                    "tenant",
+                    "role",
+                    "memberships"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -659,18 +788,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
-        }
+        },
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/v1/auth/refresh": {
@@ -733,7 +873,12 @@
                           "type": "boolean"
                         }
                       },
-                      "required": ["id", "email", "name", "emailVerified"],
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "emailVerified"
+                      ],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -748,12 +893,21 @@
                           "type": "string"
                         }
                       },
-                      "required": ["id", "name"],
+                      "required": [
+                        "id",
+                        "name"
+                      ],
                       "additionalProperties": false
                     },
                     "role": {
                       "type": "string",
-                      "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                      "enum": [
+                        "OWNER",
+                        "ADMIN",
+                        "MANAGER",
+                        "STAFF",
+                        "ACCOUNTANT"
+                      ]
                     },
                     "memberships": {
                       "type": "array",
@@ -767,15 +921,31 @@
                           },
                           "role": {
                             "type": "string",
-                            "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                            "enum": [
+                              "OWNER",
+                              "ADMIN",
+                              "MANAGER",
+                              "STAFF",
+                              "ACCOUNTANT"
+                            ]
                           }
                         },
-                        "required": ["tenantId", "role"],
+                        "required": [
+                          "tenantId",
+                          "role"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["accessToken", "expiresIn", "user", "tenant", "role", "memberships"],
+                  "required": [
+                    "accessToken",
+                    "expiresIn",
+                    "user",
+                    "tenant",
+                    "role",
+                    "memberships"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -835,18 +1005,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
-        }
+        },
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/v1/auth/logout": {
@@ -921,18 +1102,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "auth"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -958,7 +1150,9 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   }
                 },
-                "required": ["tenantId"]
+                "required": [
+                  "tenantId"
+                ]
               }
             }
           }
@@ -1001,7 +1195,12 @@
                           "type": "boolean"
                         }
                       },
-                      "required": ["id", "email", "name", "emailVerified"],
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "emailVerified"
+                      ],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -1016,12 +1215,21 @@
                           "type": "string"
                         }
                       },
-                      "required": ["id", "name"],
+                      "required": [
+                        "id",
+                        "name"
+                      ],
                       "additionalProperties": false
                     },
                     "role": {
                       "type": "string",
-                      "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                      "enum": [
+                        "OWNER",
+                        "ADMIN",
+                        "MANAGER",
+                        "STAFF",
+                        "ACCOUNTANT"
+                      ]
                     },
                     "memberships": {
                       "type": "array",
@@ -1035,15 +1243,31 @@
                           },
                           "role": {
                             "type": "string",
-                            "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                            "enum": [
+                              "OWNER",
+                              "ADMIN",
+                              "MANAGER",
+                              "STAFF",
+                              "ACCOUNTANT"
+                            ]
                           }
                         },
-                        "required": ["tenantId", "role"],
+                        "required": [
+                          "tenantId",
+                          "role"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["accessToken", "expiresIn", "user", "tenant", "role", "memberships"],
+                  "required": [
+                    "accessToken",
+                    "expiresIn",
+                    "user",
+                    "tenant",
+                    "role",
+                    "memberships"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -1103,18 +1327,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "auth"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -1150,7 +1385,10 @@
                     "maxLength": 128
                   }
                 },
-                "required": ["token", "password"]
+                "required": [
+                  "token",
+                  "password"
+                ]
               }
             }
           }
@@ -1193,7 +1431,12 @@
                           "type": "boolean"
                         }
                       },
-                      "required": ["id", "email", "name", "emailVerified"],
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "emailVerified"
+                      ],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -1208,12 +1451,21 @@
                           "type": "string"
                         }
                       },
-                      "required": ["id", "name"],
+                      "required": [
+                        "id",
+                        "name"
+                      ],
                       "additionalProperties": false
                     },
                     "role": {
                       "type": "string",
-                      "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                      "enum": [
+                        "OWNER",
+                        "ADMIN",
+                        "MANAGER",
+                        "STAFF",
+                        "ACCOUNTANT"
+                      ]
                     },
                     "memberships": {
                       "type": "array",
@@ -1227,15 +1479,31 @@
                           },
                           "role": {
                             "type": "string",
-                            "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                            "enum": [
+                              "OWNER",
+                              "ADMIN",
+                              "MANAGER",
+                              "STAFF",
+                              "ACCOUNTANT"
+                            ]
                           }
                         },
-                        "required": ["tenantId", "role"],
+                        "required": [
+                          "tenantId",
+                          "role"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["accessToken", "expiresIn", "user", "tenant", "role", "memberships"],
+                  "required": [
+                    "accessToken",
+                    "expiresIn",
+                    "user",
+                    "tenant",
+                    "role",
+                    "memberships"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -1295,18 +1563,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
-        }
+        },
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/v1/auth/verify-email": {
@@ -1327,7 +1606,9 @@
                     "maxLength": 512
                   }
                 },
-                "required": ["token"]
+                "required": [
+                  "token"
+                ]
               }
             }
           }
@@ -1400,18 +1681,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
-        }
+        },
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/v1/auth/resend-verification": {
@@ -1486,18 +1778,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "auth"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -1524,7 +1827,9 @@
                     "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
                   }
                 },
-                "required": ["email"]
+                "required": [
+                  "email"
+                ]
               }
             }
           }
@@ -1597,18 +1902,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
-        }
+        },
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/v1/auth/reset-password": {
@@ -1634,7 +1950,10 @@
                     "maxLength": 128
                   }
                 },
-                "required": ["token", "password"]
+                "required": [
+                  "token",
+                  "password"
+                ]
               }
             }
           }
@@ -1707,18 +2026,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
-        }
+        },
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/v1/me": {
@@ -1752,7 +2082,12 @@
                           "type": "boolean"
                         }
                       },
-                      "required": ["id", "email", "name", "emailVerified"],
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "emailVerified"
+                      ],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -1767,12 +2102,21 @@
                           "type": "string"
                         }
                       },
-                      "required": ["id", "name"],
+                      "required": [
+                        "id",
+                        "name"
+                      ],
                       "additionalProperties": false
                     },
                     "role": {
                       "type": "string",
-                      "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                      "enum": [
+                        "OWNER",
+                        "ADMIN",
+                        "MANAGER",
+                        "STAFF",
+                        "ACCOUNTANT"
+                      ]
                     },
                     "permissions": {
                       "type": "array",
@@ -1804,15 +2148,30 @@
                           },
                           "role": {
                             "type": "string",
-                            "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                            "enum": [
+                              "OWNER",
+                              "ADMIN",
+                              "MANAGER",
+                              "STAFF",
+                              "ACCOUNTANT"
+                            ]
                           }
                         },
-                        "required": ["tenantId", "role"],
+                        "required": [
+                          "tenantId",
+                          "role"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["user", "tenant", "role", "permissions", "memberships"],
+                  "required": [
+                    "user",
+                    "tenant",
+                    "role",
+                    "permissions",
+                    "memberships"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -1872,18 +2231,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "me"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -1916,7 +2286,11 @@
                       "type": "string"
                     }
                   },
-                  "required": ["id", "name", "createdAt"],
+                  "required": [
+                    "id",
+                    "name",
+                    "createdAt"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -1976,18 +2350,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "tenant"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -2029,13 +2414,26 @@
                       },
                       "role": {
                         "type": "string",
-                        "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                        "enum": [
+                          "OWNER",
+                          "ADMIN",
+                          "MANAGER",
+                          "STAFF",
+                          "ACCOUNTANT"
+                        ]
                       },
                       "joinedAt": {
                         "type": "string"
                       }
                     },
-                    "required": ["id", "userId", "email", "name", "role", "joinedAt"],
+                    "required": [
+                      "id",
+                      "userId",
+                      "email",
+                      "name",
+                      "role",
+                      "joinedAt"
+                    ],
                     "additionalProperties": false
                   }
                 }
@@ -2096,18 +2494,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "members"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -2136,10 +2545,19 @@
                   },
                   "role": {
                     "type": "string",
-                    "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                    "enum": [
+                      "OWNER",
+                      "ADMIN",
+                      "MANAGER",
+                      "STAFF",
+                      "ACCOUNTANT"
+                    ]
                   }
                 },
-                "required": ["email", "role"]
+                "required": [
+                  "email",
+                  "role"
+                ]
               }
             }
           }
@@ -2163,13 +2581,24 @@
                     },
                     "role": {
                       "type": "string",
-                      "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                      "enum": [
+                        "OWNER",
+                        "ADMIN",
+                        "MANAGER",
+                        "STAFF",
+                        "ACCOUNTANT"
+                      ]
                     },
                     "expiresAt": {
                       "type": "string"
                     }
                   },
-                  "required": ["id", "email", "role", "expiresAt"],
+                  "required": [
+                    "id",
+                    "email",
+                    "role",
+                    "expiresAt"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -2229,18 +2658,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "members"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -2272,7 +2712,13 @@
                       },
                       "role": {
                         "type": "string",
-                        "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                        "enum": [
+                          "OWNER",
+                          "ADMIN",
+                          "MANAGER",
+                          "STAFF",
+                          "ACCOUNTANT"
+                        ]
                       },
                       "expiresAt": {
                         "type": "string"
@@ -2286,7 +2732,14 @@
                         "type": "string"
                       }
                     },
-                    "required": ["id", "email", "role", "expiresAt", "invitedById", "createdAt"],
+                    "required": [
+                      "id",
+                      "email",
+                      "role",
+                      "expiresAt",
+                      "invitedById",
+                      "createdAt"
+                    ],
                     "additionalProperties": false
                   }
                 }
@@ -2347,18 +2800,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "members"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -2451,18 +2915,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "members"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -2497,10 +2972,18 @@
                 "properties": {
                   "role": {
                     "type": "string",
-                    "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                    "enum": [
+                      "OWNER",
+                      "ADMIN",
+                      "MANAGER",
+                      "STAFF",
+                      "ACCOUNTANT"
+                    ]
                   }
                 },
-                "required": ["role"]
+                "required": [
+                  "role"
+                ]
               }
             }
           }
@@ -2532,13 +3015,26 @@
                     },
                     "role": {
                       "type": "string",
-                      "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                      "enum": [
+                        "OWNER",
+                        "ADMIN",
+                        "MANAGER",
+                        "STAFF",
+                        "ACCOUNTANT"
+                      ]
                     },
                     "joinedAt": {
                       "type": "string"
                     }
                   },
-                  "required": ["id", "userId", "email", "name", "role", "joinedAt"],
+                  "required": [
+                    "id",
+                    "userId",
+                    "email",
+                    "name",
+                    "role",
+                    "joinedAt"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -2598,18 +3094,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "members"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -2700,18 +3207,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "members"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -2744,7 +3262,10 @@
                         "type": "string"
                       }
                     },
-                    "required": ["id", "name"],
+                    "required": [
+                      "id",
+                      "name"
+                    ],
                     "additionalProperties": false
                   }
                 }
@@ -2805,18 +3326,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "categories"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -2841,7 +3373,9 @@
                     "maxLength": 100
                   }
                 },
-                "required": ["name"]
+                "required": [
+                  "name"
+                ]
               }
             }
           }
@@ -2864,7 +3398,10 @@
                       "type": "string"
                     }
                   },
-                  "required": ["id", "name"],
+                  "required": [
+                    "id",
+                    "name"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -2924,18 +3461,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "categories"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -2974,7 +3522,9 @@
                     "maxLength": 100
                   }
                 },
-                "required": ["name"]
+                "required": [
+                  "name"
+                ]
               }
             }
           }
@@ -2997,7 +3547,10 @@
                       "type": "string"
                     }
                   },
-                  "required": ["id", "name"],
+                  "required": [
+                    "id",
+                    "name"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -3057,18 +3610,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "categories"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -3159,18 +3723,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "categories"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -3210,7 +3785,10 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["ACTIVE", "ARCHIVED"]
+              "enum": [
+                "ACTIVE",
+                "ARCHIVED"
+              ]
             }
           },
           {
@@ -3257,7 +3835,10 @@
                             "type": "string"
                           },
                           "description": {
-                            "type": ["string", "null"]
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "categoryId": {
                             "anyOf": [
@@ -3273,11 +3854,23 @@
                           },
                           "unit": {
                             "type": "string",
-                            "enum": ["pcs", "kg", "g", "l", "ml", "m", "pack", "dozen"]
+                            "enum": [
+                              "pcs",
+                              "kg",
+                              "g",
+                              "l",
+                              "ml",
+                              "m",
+                              "pack",
+                              "dozen"
+                            ]
                           },
                           "status": {
                             "type": "string",
-                            "enum": ["ACTIVE", "ARCHIVED"]
+                            "enum": [
+                              "ACTIVE",
+                              "ARCHIVED"
+                            ]
                           },
                           "createdAt": {
                             "type": "string"
@@ -3330,7 +3923,10 @@
                                   ]
                                 },
                                 "barcode": {
-                                  "type": ["string", "null"]
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
                                 },
                                 "reorderPoint": {
                                   "type": "integer",
@@ -3359,7 +3955,11 @@
                                       "maximum": 9007199254740991
                                     }
                                   },
-                                  "required": ["onHand", "reserved", "available"],
+                                  "required": [
+                                    "onHand",
+                                    "reserved",
+                                    "available"
+                                  ],
                                   "additionalProperties": false
                                 }
                               },
@@ -3394,10 +3994,16 @@
                       }
                     },
                     "nextCursor": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
-                  "required": ["items", "nextCursor"],
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -3457,18 +4063,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "products"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -3504,7 +4121,16 @@
                   "unit": {
                     "default": "pcs",
                     "type": "string",
-                    "enum": ["pcs", "kg", "g", "l", "ml", "m", "pack", "dozen"]
+                    "enum": [
+                      "pcs",
+                      "kg",
+                      "g",
+                      "l",
+                      "ml",
+                      "m",
+                      "pack",
+                      "dozen"
+                    ]
                   },
                   "variants": {
                     "minItems": 1,
@@ -3570,11 +4196,17 @@
                           "maximum": 1000000
                         }
                       },
-                      "required": ["sku", "priceMinor"]
+                      "required": [
+                        "sku",
+                        "priceMinor"
+                      ]
                     }
                   }
                 },
-                "required": ["name", "variants"]
+                "required": [
+                  "name",
+                  "variants"
+                ]
               }
             }
           }
@@ -3597,7 +4229,10 @@
                       "type": "string"
                     },
                     "description": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "categoryId": {
                       "anyOf": [
@@ -3613,11 +4248,23 @@
                     },
                     "unit": {
                       "type": "string",
-                      "enum": ["pcs", "kg", "g", "l", "ml", "m", "pack", "dozen"]
+                      "enum": [
+                        "pcs",
+                        "kg",
+                        "g",
+                        "l",
+                        "ml",
+                        "m",
+                        "pack",
+                        "dozen"
+                      ]
                     },
                     "status": {
                       "type": "string",
-                      "enum": ["ACTIVE", "ARCHIVED"]
+                      "enum": [
+                        "ACTIVE",
+                        "ARCHIVED"
+                      ]
                     },
                     "createdAt": {
                       "type": "string"
@@ -3670,7 +4317,10 @@
                             ]
                           },
                           "barcode": {
-                            "type": ["string", "null"]
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "reorderPoint": {
                             "type": "integer",
@@ -3699,7 +4349,11 @@
                                 "maximum": 9007199254740991
                               }
                             },
-                            "required": ["onHand", "reserved", "available"],
+                            "required": [
+                              "onHand",
+                              "reserved",
+                              "available"
+                            ],
                             "additionalProperties": false
                           }
                         },
@@ -3789,18 +4443,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "products"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -3843,7 +4508,10 @@
                       "type": "string"
                     },
                     "description": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "categoryId": {
                       "anyOf": [
@@ -3859,11 +4527,23 @@
                     },
                     "unit": {
                       "type": "string",
-                      "enum": ["pcs", "kg", "g", "l", "ml", "m", "pack", "dozen"]
+                      "enum": [
+                        "pcs",
+                        "kg",
+                        "g",
+                        "l",
+                        "ml",
+                        "m",
+                        "pack",
+                        "dozen"
+                      ]
                     },
                     "status": {
                       "type": "string",
-                      "enum": ["ACTIVE", "ARCHIVED"]
+                      "enum": [
+                        "ACTIVE",
+                        "ARCHIVED"
+                      ]
                     },
                     "createdAt": {
                       "type": "string"
@@ -3916,7 +4596,10 @@
                             ]
                           },
                           "barcode": {
-                            "type": ["string", "null"]
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "reorderPoint": {
                             "type": "integer",
@@ -3945,7 +4628,11 @@
                                 "maximum": 9007199254740991
                               }
                             },
-                            "required": ["onHand", "reserved", "available"],
+                            "required": [
+                              "onHand",
+                              "reserved",
+                              "available"
+                            ],
                             "additionalProperties": false
                           }
                         },
@@ -4035,18 +4722,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "products"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -4107,11 +4805,23 @@
                   },
                   "unit": {
                     "type": "string",
-                    "enum": ["pcs", "kg", "g", "l", "ml", "m", "pack", "dozen"]
+                    "enum": [
+                      "pcs",
+                      "kg",
+                      "g",
+                      "l",
+                      "ml",
+                      "m",
+                      "pack",
+                      "dozen"
+                    ]
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["ACTIVE", "ARCHIVED"]
+                    "enum": [
+                      "ACTIVE",
+                      "ARCHIVED"
+                    ]
                   }
                 }
               }
@@ -4136,7 +4846,10 @@
                       "type": "string"
                     },
                     "description": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "categoryId": {
                       "anyOf": [
@@ -4152,11 +4865,23 @@
                     },
                     "unit": {
                       "type": "string",
-                      "enum": ["pcs", "kg", "g", "l", "ml", "m", "pack", "dozen"]
+                      "enum": [
+                        "pcs",
+                        "kg",
+                        "g",
+                        "l",
+                        "ml",
+                        "m",
+                        "pack",
+                        "dozen"
+                      ]
                     },
                     "status": {
                       "type": "string",
-                      "enum": ["ACTIVE", "ARCHIVED"]
+                      "enum": [
+                        "ACTIVE",
+                        "ARCHIVED"
+                      ]
                     },
                     "createdAt": {
                       "type": "string"
@@ -4209,7 +4934,10 @@
                             ]
                           },
                           "barcode": {
-                            "type": ["string", "null"]
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "reorderPoint": {
                             "type": "integer",
@@ -4238,7 +4966,11 @@
                                 "maximum": 9007199254740991
                               }
                             },
-                            "required": ["onHand", "reserved", "available"],
+                            "required": [
+                              "onHand",
+                              "reserved",
+                              "available"
+                            ],
                             "additionalProperties": false
                           }
                         },
@@ -4328,18 +5060,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "products"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -4429,7 +5172,10 @@
                     "maximum": 1000000
                   }
                 },
-                "required": ["sku", "priceMinor"]
+                "required": [
+                  "sku",
+                  "priceMinor"
+                ]
               }
             }
           }
@@ -4486,7 +5232,10 @@
                       ]
                     },
                     "barcode": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "reorderPoint": {
                       "type": "integer",
@@ -4515,7 +5264,11 @@
                           "maximum": 9007199254740991
                         }
                       },
-                      "required": ["onHand", "reserved", "available"],
+                      "required": [
+                        "onHand",
+                        "reserved",
+                        "available"
+                      ],
                       "additionalProperties": false
                     }
                   },
@@ -4591,18 +5344,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "products"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -4745,7 +5509,10 @@
                       ]
                     },
                     "barcode": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "reorderPoint": {
                       "type": "integer",
@@ -4774,7 +5541,11 @@
                           "maximum": 9007199254740991
                         }
                       },
-                      "required": ["onHand", "reserved", "available"],
+                      "required": [
+                        "onHand",
+                        "reserved",
+                        "available"
+                      ],
                       "additionalProperties": false
                     }
                   },
@@ -4850,18 +5621,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "variants"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -4900,7 +5682,12 @@
                         "type": "boolean"
                       }
                     },
-                    "required": ["id", "name", "isDefault", "archived"],
+                    "required": [
+                      "id",
+                      "name",
+                      "isDefault",
+                      "archived"
+                    ],
                     "additionalProperties": false
                   }
                 }
@@ -4961,18 +5748,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "locations"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -5000,7 +5798,9 @@
                     "type": "boolean"
                   }
                 },
-                "required": ["name"]
+                "required": [
+                  "name"
+                ]
               }
             }
           }
@@ -5029,7 +5829,12 @@
                       "type": "boolean"
                     }
                   },
-                  "required": ["id", "name", "isDefault", "archived"],
+                  "required": [
+                    "id",
+                    "name",
+                    "isDefault",
+                    "archived"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -5089,18 +5894,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "locations"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -5174,7 +5990,12 @@
                       "type": "boolean"
                     }
                   },
-                  "required": ["id", "name", "isDefault", "archived"],
+                  "required": [
+                    "id",
+                    "name",
+                    "isDefault",
+                    "archived"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -5234,18 +6055,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "locations"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -5285,7 +6117,10 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["true", "false"]
+              "enum": [
+                "true",
+                "false"
+              ]
             }
           },
           {
@@ -5382,10 +6217,16 @@
                       }
                     },
                     "nextCursor": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
-                  "required": ["items", "nextCursor"],
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -5445,18 +6286,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "inventory"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -5513,7 +6365,10 @@
                     "maxLength": 100
                   }
                 },
-                "required": ["variantId", "quantity"]
+                "required": [
+                  "variantId",
+                  "quantity"
+                ]
               }
             }
           }
@@ -5625,18 +6480,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "inventory"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -5684,7 +6550,11 @@
                     "pattern": "^[A-Za-z0-9._:-]+$"
                   }
                 },
-                "required": ["variantId", "delta", "reason"]
+                "required": [
+                  "variantId",
+                  "delta",
+                  "reason"
+                ]
               }
             }
           }
@@ -5796,18 +6666,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "inventory"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -5847,7 +6728,13 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["RECEIVE", "ADJUSTMENT", "RESERVE", "RELEASE", "SHIP"]
+              "enum": [
+                "RECEIVE",
+                "ADJUSTMENT",
+                "RESERVE",
+                "RELEASE",
+                "SHIP"
+              ]
             }
           },
           {
@@ -5892,7 +6779,13 @@
                           },
                           "type": {
                             "type": "string",
-                            "enum": ["RECEIVE", "ADJUSTMENT", "RESERVE", "RELEASE", "SHIP"]
+                            "enum": [
+                              "RECEIVE",
+                              "ADJUSTMENT",
+                              "RESERVE",
+                              "RELEASE",
+                              "SHIP"
+                            ]
                           },
                           "variantId": {
                             "type": "string",
@@ -5918,13 +6811,22 @@
                             "maximum": 9007199254740991
                           },
                           "reason": {
-                            "type": ["string", "null"]
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "referenceType": {
-                            "type": ["string", "null"]
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "referenceId": {
-                            "type": ["string", "null"]
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "reservationId": {
                             "anyOf": [
@@ -5973,10 +6875,16 @@
                       }
                     },
                     "nextCursor": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
-                  "required": ["items", "nextCursor"],
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -6036,18 +6944,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "inventory"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -6176,18 +7095,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "inventory"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -6207,7 +7137,11 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["ACTIVE", "RELEASED", "FULFILLED"]
+              "enum": [
+                "ACTIVE",
+                "RELEASED",
+                "FULFILLED"
+              ]
             }
           },
           {
@@ -6277,19 +7211,32 @@
                           },
                           "status": {
                             "type": "string",
-                            "enum": ["ACTIVE", "RELEASED", "FULFILLED"]
+                            "enum": [
+                              "ACTIVE",
+                              "RELEASED",
+                              "FULFILLED"
+                            ]
                           },
                           "referenceType": {
-                            "type": ["string", "null"]
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "referenceId": {
-                            "type": ["string", "null"]
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "createdAt": {
                             "type": "string"
                           },
                           "resolvedAt": {
-                            "type": ["string", "null"]
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -6307,10 +7254,16 @@
                       }
                     },
                     "nextCursor": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
-                  "required": ["items", "nextCursor"],
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -6370,18 +7323,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "reservations"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -6432,7 +7396,10 @@
                     "maxLength": 100
                   }
                 },
-                "required": ["variantId", "quantity"]
+                "required": [
+                  "variantId",
+                  "quantity"
+                ]
               }
             }
           }
@@ -6468,19 +7435,32 @@
                     },
                     "status": {
                       "type": "string",
-                      "enum": ["ACTIVE", "RELEASED", "FULFILLED"]
+                      "enum": [
+                        "ACTIVE",
+                        "RELEASED",
+                        "FULFILLED"
+                      ]
                     },
                     "referenceType": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "referenceId": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "createdAt": {
                       "type": "string"
                     },
                     "resolvedAt": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -6553,18 +7533,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "reservations"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -6620,19 +7611,32 @@
                     },
                     "status": {
                       "type": "string",
-                      "enum": ["ACTIVE", "RELEASED", "FULFILLED"]
+                      "enum": [
+                        "ACTIVE",
+                        "RELEASED",
+                        "FULFILLED"
+                      ]
                     },
                     "referenceType": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "referenceId": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "createdAt": {
                       "type": "string"
                     },
                     "resolvedAt": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -6705,18 +7709,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "reservations"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -6772,19 +7787,32 @@
                     },
                     "status": {
                       "type": "string",
-                      "enum": ["ACTIVE", "RELEASED", "FULFILLED"]
+                      "enum": [
+                        "ACTIVE",
+                        "RELEASED",
+                        "FULFILLED"
+                      ]
                     },
                     "referenceType": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "referenceId": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "createdAt": {
                       "type": "string"
                     },
                     "resolvedAt": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -6857,18 +7885,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "reservations"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -6895,7 +7934,9 @@
                     "maxLength": 2000000
                   }
                 },
-                "required": ["csv"]
+                "required": [
+                  "csv"
+                ]
               }
             }
           }
@@ -6919,7 +7960,12 @@
                     },
                     "status": {
                       "type": "string",
-                      "enum": ["PENDING", "RUNNING", "COMPLETED", "FAILED"]
+                      "enum": [
+                        "PENDING",
+                        "RUNNING",
+                        "COMPLETED",
+                        "FAILED"
+                      ]
                     },
                     "totalRows": {
                       "anyOf": [
@@ -6962,7 +8008,10 @@
                             "type": "string"
                           }
                         },
-                        "required": ["row", "message"],
+                        "required": [
+                          "row",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     },
@@ -6970,10 +8019,16 @@
                       "type": "string"
                     },
                     "startedAt": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "finishedAt": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -7048,18 +8103,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "imports"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -7103,7 +8169,12 @@
                     },
                     "status": {
                       "type": "string",
-                      "enum": ["PENDING", "RUNNING", "COMPLETED", "FAILED"]
+                      "enum": [
+                        "PENDING",
+                        "RUNNING",
+                        "COMPLETED",
+                        "FAILED"
+                      ]
                     },
                     "totalRows": {
                       "anyOf": [
@@ -7146,7 +8217,10 @@
                             "type": "string"
                           }
                         },
-                        "required": ["row", "message"],
+                        "required": [
+                          "row",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     },
@@ -7154,10 +8228,16 @@
                       "type": "string"
                     },
                     "startedAt": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "finishedAt": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -7232,18 +8312,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "imports"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -7277,7 +8368,12 @@
                       },
                       "status": {
                         "type": "string",
-                        "enum": ["PENDING", "RUNNING", "COMPLETED", "FAILED"]
+                        "enum": [
+                          "PENDING",
+                          "RUNNING",
+                          "COMPLETED",
+                          "FAILED"
+                        ]
                       },
                       "totalRows": {
                         "anyOf": [
@@ -7320,7 +8416,10 @@
                               "type": "string"
                             }
                           },
-                          "required": ["row", "message"],
+                          "required": [
+                            "row",
+                            "message"
+                          ],
                           "additionalProperties": false
                         }
                       },
@@ -7328,10 +8427,16 @@
                         "type": "string"
                       },
                       "startedAt": {
-                        "type": ["string", "null"]
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "finishedAt": {
-                        "type": ["string", "null"]
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
@@ -7407,18 +8512,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "imports"
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -7488,10 +8604,16 @@
                             ]
                           },
                           "targetType": {
-                            "type": ["string", "null"]
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "targetId": {
-                            "type": ["string", "null"]
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "createdAt": {
                             "type": "string"
@@ -7509,10 +8631,16 @@
                       }
                     },
                     "nextCursor": {
-                      "type": ["string", "null"]
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
-                  "required": ["items", "nextCursor"],
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -7572,18 +8700,29 @@
                             "type": "string"
                           }
                         },
-                        "required": ["path", "message"],
+                        "required": [
+                          "path",
+                          "message"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["type", "title", "status", "code"],
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           }
         },
+        "tags": [
+          "audit-logs"
+        ],
         "security": [
           {
             "bearerAuth": []

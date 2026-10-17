@@ -31,6 +31,10 @@ scripts/      Version-drift and import-boundary checks
 
 Import rules (enforced by `check:boundaries`): `web`/`mobile` never import `db`, `courier-sdk`, `api`, `worker` or `@orderloop/contracts/server`. `api` and `worker` never import each other.
 
+## API playground
+
+With the API running, open **http://localhost:4000/api-docs** for an interactive playground (Swagger UI, generated from the same route registry as `/openapi.json`). To call protected routes: run `POST /v1/auth/login`, copy `accessToken` from the response, click **Authorize** and paste it. It is not served when `NODE_ENV=production`.
+
 ## Web app and shared UI
 
 The screens and components are written once in `packages/ui` and `packages/features` and used by web and mobile. See [docs/web.md](docs/web.md) for how it fits together, how to add a component, and how the browser tests work.
