@@ -1,6 +1,14 @@
-import { GLOBAL_TABLES, SYSTEM_TABLES, TENANT_TABLES } from '@orderloop/db';
+import { APPEND_ONLY_TABLES, GLOBAL_TABLES, SYSTEM_TABLES, TENANT_TABLES } from '@orderloop/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { addMember, bearer, createTestApp, PASSWORD, registerTenant, type TestApp } from './app.js';
+import {
+  addMember,
+  bearer,
+  createProduct,
+  createTestApp,
+  PASSWORD,
+  registerTenant,
+  type TestApp,
+} from './app.js';
 
 /**
  * The mandatory tenant-isolation suite (architecture.md section 5). It attacks the database layer directly as the
@@ -398,5 +406,292 @@ describe('API: tenants cannot reach each other', () => {
       .post('/v1/auth/accept-invitation')
       .send({ token, name: 'Cross', password: PASSWORD });
     expect(accepted.body.tenant.id).toBe(b.tenant.id);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Phase 2 tables: catalog, stock, reservations, imports.
+// ---------------------------------------------------------------------------------------------------------------------
+describe('catalog and inventory tables', () => {
+  let aProduct: { id: string };
+  let aVariant: { id: string };
+  let bProduct: { id: string };
+  let bVariant: { id: string };
+  let aLocation: string;
+  let bLocation: string;
+  let aReservation: string;
+  let bImport: string;
+
+  beforeAll(async () => {
+    const make = async (who: typeof a) => {
+      const tok = bearer(who.accessToken);
+      const cat = (await t.http.post('/v1/categories').set(tok).send({ name: 'Isolation' })).body;
+      const { product, variant } = await createProduct(t, who.accessToken, {
+        categoryId: cat.id,
+        reorderPoint: 3,
+      });
+      await t.http
+        .post('/v1/inventory/receive')
+        .set(tok)
+        .send({ variantId: variant.id, quantity: 10 })
+        .expect(201);
+      // Receiving is what creates the default location (listing alone never does), so read it afterwards.
+      const loc = (await t.http.get('/v1/locations').set(tok)).body[0].id as string;
+      const reservation = (
+        await t.http.post('/v1/reservations').set(tok).send({ variantId: variant.id, quantity: 2 })
+      ).body.id as string;
+      const imp = (
+        await t.http
+          .post('/v1/imports/products')
+          .set(tok)
+          .send({ csv: 'product_name,sku,price\nIso,ISO-X,1' })
+      ).body.id as string;
+      return { product, variant, loc, reservation, imp };
+    };
+    const A = await make(a);
+    const B = await make(b);
+    ({ product: aProduct, variant: aVariant, loc: aLocation, reservation: aReservation } = A);
+    ({ product: bProduct, variant: bVariant, loc: bLocation, imp: bImport } = B);
+  });
+
+  it('every tenant table returns no rows without a context, and only own rows with one', async () => {
+    for (const table of TENANT_TABLES.filter((n) => n !== 'tenants')) {
+      const none = await t.db.withContext({}, (tx) =>
+        tx.$queryRawUnsafe<{ n: number }[]>(`SELECT count(*)::int AS n FROM ${table}`),
+      );
+      expect(none[0]!.n, `${table} without context`).toBe(0);
+      const mine = await t.db.withContext(ctxA(), (tx) =>
+        tx.$queryRawUnsafe<{ n: number; foreign_rows: number }[]>(
+          `SELECT count(*)::int AS n, count(*) FILTER (WHERE tenant_id <> '${a.tenant.id}')::int AS foreign_rows FROM ${table}`,
+        ),
+      );
+      expect(mine[0]!.foreign_rows, `${table} leaked another tenant's rows`).toBe(0);
+    }
+    // and the tables hold data for both tenants, so the check above was not vacuous
+    for (const table of [
+      'products',
+      'product_variants',
+      'stock_levels',
+      'stock_movements',
+      'reservations',
+      'categories',
+      'stock_locations',
+      'import_jobs',
+    ]) {
+      const a1 = await t.db.withContext(ctxA(), (tx) =>
+        tx.$queryRawUnsafe<{ n: number }[]>(`SELECT count(*)::int AS n FROM ${table}`),
+      );
+      const b1 = await t.db.withContext(ctxB(), (tx) =>
+        tx.$queryRawUnsafe<{ n: number }[]>(`SELECT count(*)::int AS n FROM ${table}`),
+      );
+      expect(a1[0]!.n, `${table} for A`).toBeGreaterThan(0);
+      expect(b1[0]!.n, `${table} for B`).toBeGreaterThan(0);
+    }
+  });
+
+  it("cannot read, update or delete another tenant's rows, by exact id", async () => {
+    const attempts: [string, string, string][] = [
+      ['products', 'id', bProduct.id],
+      ['product_variants', 'id', bVariant.id],
+      ['stock_locations', 'id', bLocation],
+      ['import_jobs', 'id', bImport],
+      ['stock_levels', 'variant_id', bVariant.id],
+      ['reservations', 'variant_id', bVariant.id],
+    ];
+    for (const [table, column, value] of attempts) {
+      const seen = await t.db.withContext(ctxA(), (tx) =>
+        tx.$queryRawUnsafe<{ n: number }[]>(
+          `SELECT count(*)::int AS n FROM ${table} WHERE ${column} = '${value}'::uuid`,
+        ),
+      );
+      expect(seen[0]!.n, `${table} read`).toBe(0);
+      const updated = await t.db.withContext(ctxA(), (tx) =>
+        tx.$executeRawUnsafe(
+          `UPDATE ${table} SET tenant_id = tenant_id WHERE ${column} = '${value}'::uuid`,
+        ),
+      );
+      expect(updated, `${table} update`).toBe(0);
+      if (table !== 'stock_levels') {
+        // (stock rows are protected by the same policy; deleting them would also be refused by foreign keys elsewhere)
+        const deleted = await t.db.withContext(ctxA(), (tx) =>
+          tx.$executeRawUnsafe(`DELETE FROM ${table} WHERE ${column} = '${value}'::uuid`),
+        );
+        expect(deleted, `${table} delete`).toBe(0);
+      }
+    }
+    const intact = await t.db.withContext(ctxB(), (tx) =>
+      tx.productVariant.count({ where: { id: bVariant.id } }),
+    );
+    expect(intact).toBe(1);
+  });
+
+  it('cannot insert into, or move a row to, another tenant (WITH CHECK)', async () => {
+    await expect(
+      t.db.withContext(ctxA(), (tx) =>
+        tx.product.create({ data: { tenantId: b.tenant.id, name: 'x', nameKey: 'x' } }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      t.db.withContext(ctxA(), (tx) =>
+        tx.stockLocation.create({ data: { tenantId: b.tenant.id, name: 'x', nameKey: 'x' } }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      t.db.withContext(
+        ctxA(),
+        (tx) =>
+          tx.$executeRaw`UPDATE products SET tenant_id = ${b.tenant.id}::uuid WHERE id = ${aProduct.id}::uuid`,
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("composite foreign keys stop a row in one tenant from referencing another tenant's parent", async () => {
+    // Even an application bug that sets a foreign id on a legitimately scoped insert is refused by the database.
+    await expect(
+      t.db.withContext(ctxA(), (tx) =>
+        tx.productVariant.create({
+          data: { tenantId: a.tenant.id, productId: bProduct.id, sku: 'CROSS-1', priceMinor: 1 },
+        }),
+      ),
+    ).rejects.toThrow(/foreign key/i);
+    await expect(
+      t.db.withContext(ctxA(), (tx) =>
+        tx.stockLevel.create({
+          data: { tenantId: a.tenant.id, variantId: bVariant.id, locationId: aLocation, onHand: 1 },
+        }),
+      ),
+    ).rejects.toThrow(/foreign key/i);
+    await expect(
+      t.db.withContext(ctxA(), (tx) =>
+        tx.stockLevel.create({
+          data: { tenantId: a.tenant.id, variantId: aVariant.id, locationId: bLocation, onHand: 1 },
+        }),
+      ),
+    ).rejects.toThrow(/foreign key/i);
+    await expect(
+      t.db.withContext(ctxA(), (tx) =>
+        tx.stockMovement.create({
+          data: {
+            tenantId: a.tenant.id,
+            variantId: bVariant.id,
+            locationId: aLocation,
+            type: 'RECEIVE',
+            onHandDelta: 1,
+            reservedDelta: 0,
+          },
+        }),
+      ),
+    ).rejects.toThrow(/foreign key/i);
+    await expect(
+      t.db.withContext(ctxA(), (tx) =>
+        tx.reservation.create({
+          data: {
+            tenantId: a.tenant.id,
+            variantId: bVariant.id,
+            locationId: aLocation,
+            quantity: 1,
+          },
+        }),
+      ),
+    ).rejects.toThrow(/foreign key/i);
+  });
+
+  it('the ledger is append-only: the runtime role cannot update, delete or truncate it', async () => {
+    for (const table of APPEND_ONLY_TABLES) {
+      const priv = await t.db.withContext({}, (tx) =>
+        tx.$queryRawUnsafe<{ u: boolean; d: boolean; i: boolean; s: boolean }[]>(
+          `SELECT has_table_privilege('${table}','UPDATE') AS u, has_table_privilege('${table}','DELETE') AS d, has_table_privilege('${table}','INSERT') AS i, has_table_privilege('${table}','SELECT') AS s`,
+        ),
+      );
+      expect(priv[0], table).toEqual({ u: false, d: false, i: true, s: true });
+    }
+    await expect(
+      t.db.withContext(ctxA(), (tx) =>
+        tx.stockMovement.updateMany({ data: { reason: 'tampered' } }),
+      ),
+    ).rejects.toThrow(/permission denied/i);
+    await expect(t.db.withContext(ctxA(), (tx) => tx.stockMovement.deleteMany({}))).rejects.toThrow(
+      /permission denied/i,
+    );
+    await expect(
+      t.db.withContext(ctxA(), (tx) => tx.$executeRawUnsafe('TRUNCATE stock_movements')),
+    ).rejects.toThrow(/permission denied/i);
+  });
+
+  it('the database itself refuses impossible stock, even if application code is wrong', async () => {
+    const bad = async (sql: string) => {
+      await expect(
+        t.db.withContext(ctxA(), (tx) => tx.$executeRawUnsafe(sql)),
+        sql,
+      ).rejects.toThrow(/check constraint|violates/i);
+    };
+    const v = aVariant.id;
+    const l = aLocation;
+    await bad(`UPDATE stock_levels SET on_hand = -1 WHERE variant_id = '${v}'::uuid`); // negative stock
+    await bad(`UPDATE stock_levels SET reserved = on_hand + 1 WHERE variant_id = '${v}'::uuid`); // overselling
+    await bad(`UPDATE stock_levels SET on_hand = 2000000000 WHERE variant_id = '${v}'::uuid`); // overflow range
+    const move = (type: string, onHand: number, reserved: number) =>
+      `INSERT INTO stock_movements (id, tenant_id, variant_id, location_id, type, on_hand_delta, reserved_delta) VALUES (gen_random_uuid(), '${a.tenant.id}'::uuid, '${v}'::uuid, '${l}'::uuid, '${type}', ${onHand}, ${reserved})`;
+    await bad(move('RECEIVE', -5, 0));
+    await bad(move('RECEIVE', 0, 0));
+    await bad(move('RESERVE', 1, 1));
+    await bad(move('SHIP', -2, -1));
+    await bad(move('RELEASE', 0, 3));
+    await bad(
+      `INSERT INTO reservations (id, tenant_id, variant_id, location_id, quantity) VALUES (gen_random_uuid(), '${a.tenant.id}'::uuid, '${v}'::uuid, '${l}'::uuid, 0)`,
+    );
+    await bad(`UPDATE product_variants SET price_minor = -1 WHERE id = '${v}'::uuid`);
+    // At most one default location: a second location exists (created here, so the statement really matches a row),
+    // and flipping it to default while the first still is must be refused.
+    const second = (
+      await t.http
+        .post('/v1/locations')
+        .set(bearer(a.accessToken))
+        .send({ name: `Second ${Date.now()}` })
+    ).body.id as string;
+    await bad(`UPDATE stock_locations SET is_default = true WHERE id = '${second}'::uuid`);
+    // The legitimate state survived every attempt above.
+    const lv = await t.db.withContext(ctxA(), (tx) =>
+      tx.stockLevel.findFirstOrThrow({ where: { variantId: v } }),
+    );
+    expect(lv).toMatchObject({ onHand: 10, reserved: 2 });
+  });
+
+  it("API: tenant B cannot reach tenant A's catalog, stock, reservations or locations by any route", async () => {
+    const tb = bearer(b.accessToken);
+    expect(
+      (await t.http.get('/v1/inventory/movements').set(tb)).body.items.every(
+        (m: { variantId: string }) => m.variantId !== aVariant.id,
+      ),
+    ).toBe(true);
+    expect(
+      (await t.http.get(`/v1/inventory?variantId=${aVariant.id}`).set(tb)).body.items,
+    ).toHaveLength(0);
+    expect(
+      (await t.http.get(`/v1/reservations?variantId=${aVariant.id}`).set(tb)).body.items,
+    ).toHaveLength(0);
+    expect((await t.http.post(`/v1/reservations/${aReservation}/release`).set(tb)).status).toBe(
+      404,
+    );
+    expect((await t.http.post(`/v1/reservations/${aReservation}/fulfil`).set(tb)).status).toBe(404);
+    expect(
+      (await t.http.patch(`/v1/locations/${aLocation}`).set(tb).send({ name: 'pwned' })).status,
+    ).toBe(404);
+    expect(
+      (await t.http.post('/v1/reservations').set(tb).send({ variantId: aVariant.id, quantity: 1 }))
+        .status,
+    ).toBe(404);
+    expect(
+      (
+        await t.http
+          .post('/v1/inventory/adjust')
+          .set(tb)
+          .send({ variantId: aVariant.id, delta: -5, reason: 'steal' })
+      ).status,
+    ).toBe(404);
+    const aStock = await t.db.withContext(ctxA(), (tx) =>
+      tx.stockLevel.findFirstOrThrow({ where: { variantId: aVariant.id } }),
+    );
+    expect(aStock).toMatchObject({ onHand: 10, reserved: 2 });
   });
 });

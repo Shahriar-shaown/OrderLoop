@@ -6,15 +6,18 @@ import { routes, type AuthResult, type RouteSpec } from '@orderloop/contracts';
 import { Database } from '@orderloop/db';
 import type { Writable } from 'node:stream';
 import request from 'supertest';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from '../src/app.module.js';
+import { configureApp } from '../src/app.setup.js';
 import { createLogger } from '../src/logging/logger.js';
 import { LOGGER } from '../src/logging/tokens.js';
+import { IMPORTS_QUEUE } from '../src/queue/queue.module.js';
 import { PinoLoggerService } from '../src/logging/pino-logger.service.js';
 import { Mailer } from '../src/mail/mailer.js';
 import { MemoryMailer } from '../src/mail/memory.mailer.js';
 
 export interface TestApp {
-  app: INestApplication;
+  app: NestExpressApplication;
   http: ReturnType<typeof request>;
   db: Database;
   /** Every email the API "sent" (in memory), with helpers to pull out the one-time tokens. */
@@ -24,7 +27,7 @@ export interface TestApp {
 
 export async function createTestApp(
   env: Record<string, string> = {},
-  options: { logDestination?: Writable } = {},
+  options: { logDestination?: Writable; queue?: object } = {},
 ): Promise<TestApp> {
   const previous = Object.fromEntries(Object.keys(env).map((k) => [k, process.env[k]]));
   Object.assign(process.env, env);
@@ -36,8 +39,10 @@ export async function createTestApp(
     ? createLogger({ level: 'debug', destination: options.logDestination })
     : undefined;
   if (logger) builder = builder.overrideProvider(LOGGER).useValue(logger);
+  if (options.queue) builder = builder.overrideProvider(IMPORTS_QUEUE).useValue(options.queue);
   const moduleRef = await builder.compile();
-  const app = moduleRef.createNestApplication();
+  const app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
+  configureApp(app);
   // Same wiring as main.ts, so tests can assert on what would really be logged.
   if (logger) app.useLogger(new PinoLoggerService(logger));
   await app.init();
@@ -116,3 +121,38 @@ export async function addMember(
 
 export type { RouteSpec };
 export { routes };
+
+/** A product with one variant, created through the API. Returns the product and its first variant. */
+export async function createProduct(
+  t: TestApp,
+  token: string,
+  overrides: Partial<{
+    name: string;
+    sku: string;
+    priceMinor: number;
+    reorderPoint: number;
+    unit: string;
+    categoryId: string;
+  }> = {},
+) {
+  const sku = overrides.sku ?? `SKU-${Date.now()}-${++counter}`;
+  const res = await t.http
+    .post('/v1/products')
+    .set(bearer(token))
+    .send({
+      name: overrides.name ?? `Product ${sku}`,
+      unit: overrides.unit ?? 'pcs',
+      ...(overrides.categoryId ? { categoryId: overrides.categoryId } : {}),
+      variants: [
+        {
+          sku,
+          priceMinor: overrides.priceMinor ?? 125_000,
+          reorderPoint: overrides.reorderPoint ?? 0,
+        },
+      ],
+    });
+  if (res.status !== 201)
+    throw new Error(`createProduct failed: ${res.status} ${JSON.stringify(res.body)}`);
+  const product = res.body as { id: string; variants: { id: string; sku: string }[] };
+  return { product, variant: product.variants[0]! };
+}

@@ -4,6 +4,10 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AccessGuard } from './auth/access.guard.js';
 import { AuthModule } from './auth/auth.module.js';
 import { AuditModule } from './audit/audit.module.js';
+import { CatalogModule } from './catalog/catalog.module.js';
+import { ImportsModule } from './imports/imports.module.js';
+import { InventoryModule } from './inventory/inventory.module.js';
+import { QueueModule } from './queue/queue.module.js';
 import { ProblemFilter } from './common/problem.filter.js';
 import { ValidationInterceptor } from './common/validation.interceptor.js';
 import { APP_CONFIG, ConfigModule, type AppConfig } from './config/config.module.js';
@@ -23,6 +27,7 @@ import { RedisModule } from './redis/redis.module.js';
     MailModule,
     DatabaseModule,
     RedisModule,
+    QueueModule,
     // Per-IP budget for everything; credential endpoints tighten it with @Throttle. In-memory per instance:
     // switch to a shared store before running more than one API replica.
     ThrottlerModule.forRootAsync({
@@ -36,6 +41,9 @@ import { RedisModule } from './redis/redis.module.js';
     AuthModule,
     AuditModule,
     MembersModule,
+    CatalogModule,
+    InventoryModule,
+    ImportsModule,
   ],
   controllers: [OpenApiController],
   providers: [

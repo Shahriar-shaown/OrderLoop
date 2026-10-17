@@ -2,6 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@n
 import type { ErrorCode, Problem } from '@orderloop/contracts';
 import type { Response } from 'express';
 import { scrubSecrets } from '../logging/scrub.js';
+import { bodyParserProblem } from './body-parser-problem.js';
 import { ApiError } from './api-error.js';
 
 const STATUS_CODE: Record<number, ErrorCode> = {
@@ -10,6 +11,7 @@ const STATUS_CODE: Record<number, ErrorCode> = {
   403: 'forbidden',
   404: 'not_found',
   409: 'conflict',
+  413: 'validation_failed',
   429: 'rate_limited',
 };
 
@@ -22,7 +24,10 @@ export class ProblemFilter implements ExceptionFilter {
     const res = host.switchToHttp().getResponse<Response>();
     let problem: Problem;
 
-    if (exception instanceof ApiError) {
+    const bodyProblem = bodyParserProblem(exception);
+    if (bodyProblem) {
+      problem = bodyProblem;
+    } else if (exception instanceof ApiError) {
       problem = {
         type: `urn:orderloop:error:${exception.code}`,
         title: exception.code,

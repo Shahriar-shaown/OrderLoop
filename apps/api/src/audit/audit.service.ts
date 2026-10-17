@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { AuditPage, AuditQuery } from '@orderloop/contracts';
 import { Database, type Prisma, type Tx } from '@orderloop/db';
+import { decodeCursor, encodeCursor } from '../common/cursor.js';
 
 export interface AuditEvent {
   tenantId: string | null;
@@ -76,20 +77,4 @@ export class AuditService {
   }
 }
 
-export function encodeCursor(createdAt: Date, id: string): string {
-  return Buffer.from(JSON.stringify({ t: createdAt.toISOString(), id })).toString('base64url');
-}
-
-export function decodeCursor(cursor: string): { createdAt: Date; id: string } | undefined {
-  try {
-    const { t, id } = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as {
-      t: string;
-      id: string;
-    };
-    const createdAt = new Date(t);
-    if (Number.isNaN(createdAt.getTime()) || !/^[0-9a-f-]{36}$/i.test(id)) return undefined;
-    return { createdAt, id };
-  } catch {
-    return undefined;
-  }
-}
+export { decodeCursor, encodeCursor };

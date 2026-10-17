@@ -13,9 +13,10 @@ function need(name: string): string {
   return v;
 }
 
+/** Point a database URL at the isolated test database. Idempotent: this module is evaluated again inside test workers, where the variables already hold test values. */
 function withDbSuffix(url: string): string {
   const u = new URL(url);
-  u.pathname = `${u.pathname}_test`;
+  if (!u.pathname.endsWith('_test')) u.pathname = `${u.pathname}_test`;
   return u.toString();
 }
 
