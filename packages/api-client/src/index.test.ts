@@ -127,7 +127,7 @@ describe('email verification and password reset', () => {
     });
     await api.auth.verifyEmail('t'.repeat(30));
     await api.auth.forgotPassword('A@B.test');
-    await api.auth.resetPassword('r'.repeat(30), 'a long enough password');
+    await api.auth.resetPassword('r'.repeat(30), 'A long enough password 1!');
     expect(seen.map((s) => s.url)).toEqual([
       'http://x/v1/auth/verify-email',
       'http://x/v1/auth/forgot-password',

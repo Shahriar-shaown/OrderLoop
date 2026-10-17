@@ -61,7 +61,7 @@ export async function createTestApp(
 
 let counter = 0;
 export const uniqueEmail = (prefix = 'user') => `${prefix}-${Date.now()}-${++counter}@example.test`;
-export const PASSWORD = 'correct horse battery staple';
+export const PASSWORD = 'Correct-horse-battery-7';
 
 export async function registerTenant(
   t: TestApp,

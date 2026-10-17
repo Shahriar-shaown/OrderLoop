@@ -41,8 +41,8 @@ describe('api-client against the live API', () => {
     const first = await api.auth.register({
       email,
       password: PASSWORD,
-      name: 'C',
-      tenantName: 'S',
+      name: 'Carol',
+      tenantName: 'Shop One',
     });
     const rotated = await api.auth.refresh({ refreshToken: first.refreshToken! });
     expect(rotated.refreshToken).not.toBe(first.refreshToken);

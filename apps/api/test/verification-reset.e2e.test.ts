@@ -32,7 +32,7 @@ describe('email verification', () => {
     const email = uniqueEmail('verify');
     const res = await t.http
       .post('/v1/auth/register')
-      .send({ email, password: PASSWORD, name: 'V', tenantName: 'V Shop' });
+      .send({ email, password: PASSWORD, name: 'Vera', tenantName: 'V Shop' });
     expect(res.status).toBe(201);
     expect(res.body.user.emailVerified).toBe(false);
     expect(t.mail.to(email, 'verify_email')).toHaveLength(1);
@@ -205,7 +205,7 @@ describe('password reset', () => {
     await settle();
     const token = t.mail.tokenFor(owner.email, 'password_reset');
 
-    const newPassword = 'a brand new long passphrase';
+    const newPassword = 'A brand new long passphrase 1!';
     expect(
       (await t.http.post('/v1/auth/reset-password').send({ token, password: newPassword })).status,
     ).toBe(200);
@@ -244,26 +244,26 @@ describe('password reset', () => {
       (
         await t.http
           .post('/v1/auth/reset-password')
-          .send({ token: first, password: 'whatever long enough 1' })
+          .send({ token: first, password: 'Whatever long enough 1!' })
       ).status,
     ).toBe(200);
     const replay = await t.http
       .post('/v1/auth/reset-password')
-      .send({ token: first, password: 'attacker chosen password' });
+      .send({ token: first, password: 'Attacker chosen password 1!' });
     expect(replay.status).toBe(400);
     expect(replay.body.code).toBe('token_invalid');
     expect(
       (
         await t.http
           .post('/v1/auth/reset-password')
-          .send({ token: second, password: 'attacker chosen password' })
+          .send({ token: second, password: 'Attacker chosen password 1!' })
       ).status,
     ).toBe(400);
     expect(
       (
         await t.http
           .post('/v1/auth/login')
-          .send({ email: owner.email, password: 'attacker chosen password' })
+          .send({ email: owner.email, password: 'Attacker chosen password 1!' })
       ).status,
     ).toBe(401);
   });
@@ -281,7 +281,7 @@ describe('password reset', () => {
       (
         await t.http
           .post('/v1/auth/reset-password')
-          .send({ token: yours, password: 'the real owner picks this' })
+          .send({ token: yours, password: 'The real owner picks this 1!' })
       ).status,
     ).toBe(200);
   });
@@ -309,7 +309,7 @@ describe('password reset', () => {
       (
         await t.http
           .post('/v1/auth/reset-password')
-          .send({ token, password: 'now a long enough one' })
+          .send({ token, password: 'Now a long enough one 1!' })
       ).status,
     ).toBe(200);
   });
@@ -322,15 +322,15 @@ describe('password reset', () => {
     await backdate(owner.email, 'PASSWORD_RESET', 'expiresAt', -1000);
     const expired = await t.http
       .post('/v1/auth/reset-password')
-      .send({ token, password: 'long enough password' });
+      .send({ token, password: 'Long enough password 1!' });
     const unknown = await t.http
       .post('/v1/auth/reset-password')
-      .send({ token: 'y'.repeat(43), password: 'long enough password' });
+      .send({ token: 'y'.repeat(43), password: 'Long enough password 1!' });
     // A verification token is not a reset token.
     const fresh = await registerTenant(t, { verify: false });
     const wrongPurpose = await t.http.post('/v1/auth/reset-password').send({
       token: t.mail.tokenFor(fresh.email, 'verify_email'),
-      password: 'long enough password',
+      password: 'Long enough password 1!',
     });
     for (const res of [expired, unknown, wrongPurpose]) {
       expect(res.status).toBe(400);
@@ -344,8 +344,8 @@ describe('password reset', () => {
     await settle();
     const token = t.mail.tokenFor(owner.email, 'password_reset');
     const results = await Promise.all(
-      ['one long passphrase', 'two long passphrase', 'three long passphrase'].map((password) =>
-        t.http.post('/v1/auth/reset-password').send({ token, password }),
+      ['One long passphrase 1!', 'Two long passphrase 1!', 'Three long passphrase 1!'].map(
+        (password) => t.http.post('/v1/auth/reset-password').send({ token, password }),
       ),
     );
     expect(results.map((r) => r.status).sort()).toEqual([200, 400, 400]);
@@ -381,10 +381,10 @@ describe('password reset', () => {
     const token = t.mail.tokenFor(owner.email, 'password_reset');
     await t.http
       .post('/v1/auth/reset-password')
-      .send({ token, password: 'audit trail passphrase' });
+      .send({ token, password: 'Audit trail passphrase 1!' });
     const login = await t.http
       .post('/v1/auth/login')
-      .send({ email: owner.email, password: 'audit trail passphrase' });
+      .send({ email: owner.email, password: 'Audit trail passphrase 1!' });
     const actions = (
       await t.http.get('/v1/audit-logs?limit=100').set(bearer(login.body.accessToken))
     ).body.items.map((i: { action: string }) => i.action);

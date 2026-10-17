@@ -260,11 +260,11 @@ describe('invitations', () => {
     const token = t.mail.tokenFor(email, 'invitation');
     await t.http
       .post('/v1/auth/accept-invitation')
-      .send({ token, name: 'A', password: PASSWORD })
+      .send({ token, name: 'Alice', password: PASSWORD })
       .expect(201);
     const again = await t.http
       .post('/v1/auth/accept-invitation')
-      .send({ token, name: 'A', password: PASSWORD });
+      .send({ token, name: 'Alice', password: PASSWORD });
     expect(again.status).toBe(400);
     expect(again.body.code).toBe('invitation_invalid');
   });
@@ -285,7 +285,7 @@ describe('invitations', () => {
       (
         await t.http
           .post('/v1/auth/accept-invitation')
-          .send({ token: old, name: 'A', password: PASSWORD })
+          .send({ token: old, name: 'Alice', password: PASSWORD })
       ).status,
     ).toBe(400);
   });
@@ -305,14 +305,14 @@ describe('invitations', () => {
       (
         await t.http
           .post('/v1/auth/accept-invitation')
-          .send({ token: swapped, name: 'A', password: PASSWORD })
+          .send({ token: swapped, name: 'Alice', password: PASSWORD })
       ).status,
     ).toBe(400);
     expect(
       (
         await t.http
           .post('/v1/auth/accept-invitation')
-          .send({ token: 'inv_nonsense', name: 'A', password: PASSWORD })
+          .send({ token: 'inv_nonsense', name: 'Alice', password: PASSWORD })
       ).status,
     ).toBe(400);
 
@@ -326,7 +326,7 @@ describe('invitations', () => {
       (
         await t.http
           .post('/v1/auth/accept-invitation')
-          .send({ token, name: 'A', password: PASSWORD })
+          .send({ token, name: 'Alice', password: PASSWORD })
       ).status,
     ).toBe(400);
   });
@@ -386,7 +386,7 @@ describe('invitations carry their inviter’s authority', () => {
       .expect(200);
     const res = await t.http
       .post('/v1/auth/accept-invitation')
-      .send({ token, name: 'S', password: PASSWORD });
+      .send({ token, name: 'Sarah', password: PASSWORD });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('invitation_invalid');
   });
@@ -404,7 +404,7 @@ describe('invitations carry their inviter’s authority', () => {
       (
         await t.http
           .post('/v1/auth/accept-invitation')
-          .send({ token, name: 'P', password: PASSWORD })
+          .send({ token, name: 'Peter', password: PASSWORD })
       ).status,
     ).toBe(400);
   });
@@ -422,7 +422,7 @@ describe('invitations carry their inviter’s authority', () => {
       (
         await t.http
           .post('/v1/auth/accept-invitation')
-          .send({ token, name: 'L', password: PASSWORD })
+          .send({ token, name: 'Laura', password: PASSWORD })
       ).status,
     ).toBe(400);
     const row = await t.db.withContext({ tenantId: owner.tenant.id }, (tx) =>
@@ -455,7 +455,7 @@ describe('invitations carry their inviter’s authority', () => {
       (
         await t.http
           .post('/v1/auth/accept-invitation')
-          .send({ token, name: 'R', password: PASSWORD })
+          .send({ token, name: 'Rahim', password: PASSWORD })
       ).status,
     ).toBe(400);
     expect(

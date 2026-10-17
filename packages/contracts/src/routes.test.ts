@@ -42,7 +42,7 @@ describe('openapi', () => {
 });
 
 describe('display names', () => {
-  const base = { email: 'a@b.test', password: 'long enough password', tenantName: 'Shop' };
+  const base = { email: 'a@b.test', password: 'Long enough password 1!', tenantName: 'Shop' };
   it('accept ordinary names, including non-Latin scripts', () => {
     for (const name of ['Ann Lee', 'আনিকা রহমান', "O'Brien-Smith"])
       expect(RegisterBody.safeParse({ ...base, name }).success, name).toBe(true);

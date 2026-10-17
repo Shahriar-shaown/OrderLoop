@@ -1,14 +1,15 @@
 import { Password } from '@orderloop/contracts';
-import { Alert, Button, Form, Link, Text, TextField } from '@orderloop/ui';
+import { Alert, Button, Form, Link, Text } from '@orderloop/ui';
 import { useState } from 'react';
 import { z } from 'zod';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormError } from '../components/FormError';
-import { useFormState } from '../forms';
+import { FormTextField } from '../components/FormTextField';
 import { useApi } from '../runtime';
+import { useZodForm } from '../zodForm';
 
 const ResetForm = z
-  .object({ password: Password, confirm: z.string() })
+  .object({ password: Password, confirm: z.string().min(1, 'Confirm your password') })
   .refine((v) => v.password === v.confirm, {
     path: ['confirm'],
     message: 'The passwords do not match',
@@ -16,14 +17,13 @@ const ResetForm = z
 
 export function ResetPasswordScreen({ token }: { token?: string | undefined }) {
   const api = useApi();
-  const form = useFormState({ password: '', confirm: '' });
+  const form = useZodForm(ResetForm, { password: '', confirm: '' });
   const [done, setDone] = useState(false);
 
-  async function submit() {
-    const data = form.check(ResetForm, form.values);
-    if (data && (await form.run(() => api.auth.resetPassword(token ?? '', data.password))))
-      setDone(true);
-  }
+  const submit = form.submit(async (data) => {
+    await api.auth.resetPassword(token ?? '', data.password);
+    setDone(true);
+  });
 
   if (!token) {
     return (
@@ -55,20 +55,22 @@ export function ResetPasswordScreen({ token }: { token?: string | undefined }) {
             <Link href="/forgot-password">Request a new link</Link>
           </Text>
         ) : null}
-        <TextField
+        <FormTextField
+          control={form.control}
+          name="password"
           label="New password"
           kind="newPassword"
           required
-          hint="At least 10 characters."
-          {...form.field('password')}
+          hint="At least 8 characters, with an uppercase letter, a number and a special character."
         />
-        <TextField
+        <FormTextField
+          control={form.control}
+          name="confirm"
           label="Confirm new password"
           kind="newPassword"
           required
-          {...form.field('confirm')}
         />
-        <Button type="submit" loading={form.busy} fullWidth>
+        <Button type="submit" loading={form.formState.isSubmitting} fullWidth>
           Change password
         </Button>
       </Form>

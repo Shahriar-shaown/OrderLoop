@@ -1,25 +1,33 @@
-import { Alert, Button, Form, Link, Text, TextField, useNavigation } from '@orderloop/ui';
+import { Alert, Button, Form, Link, Text, useNavigation } from '@orderloop/ui';
+import { z } from 'zod';
 import { useAuth } from '../auth';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormError } from '../components/FormError';
-import { useFormState } from '../forms';
+import { FormTextField } from '../components/FormTextField';
+import { useZodForm } from '../zodForm';
+
+// The name is only needed for a brand-new account, so it may be left empty; when given it follows the sign-up rule.
+const AcceptForm = z.object({
+  name: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || v.length >= 3, 'Name must be at least 3 characters'),
+  password: z.string().min(1, 'Password is required'),
+});
 
 export function AcceptInvitationScreen({ token }: { token?: string | undefined }) {
   const { acceptInvitation } = useAuth();
   const navigation = useNavigation();
-  const form = useFormState({ name: '', password: '' });
+  const form = useZodForm(AcceptForm, { name: '', password: '' });
 
-  async function submit() {
-    const name = form.values.name.trim();
-    const ok = await form.run(() =>
-      acceptInvitation({
-        token: token ?? '',
-        password: form.values.password,
-        ...(name ? { name } : {}),
-      }),
-    );
-    if (ok) navigation.replace('/products');
-  }
+  const submit = form.submit(async (data) => {
+    await acceptInvitation({
+      token: token ?? '',
+      password: data.password,
+      ...(data.name ? { name: data.name } : {}),
+    });
+    navigation.replace('/products');
+  });
 
   return (
     <AuthLayout title="Accept your invitation">
@@ -35,13 +43,20 @@ export function AcceptInvitationScreen({ token }: { token?: string | undefined }
             password.
           </Text>
           <FormError message={form.formError} />
-          <TextField
+          <FormTextField
+            control={form.control}
+            name="name"
             label="Your name (new accounts only)"
             autoComplete="name"
-            {...form.field('name')}
           />
-          <TextField label="Password" kind="password" required {...form.field('password')} />
-          <Button type="submit" loading={form.busy} fullWidth>
+          <FormTextField
+            control={form.control}
+            name="password"
+            label="Password"
+            kind="password"
+            required
+          />
+          <Button type="submit" loading={form.formState.isSubmitting} fullWidth>
             Join workspace
           </Button>
         </Form>

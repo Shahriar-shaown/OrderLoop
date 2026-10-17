@@ -48,15 +48,50 @@ test.describe('signing up, in and out', () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test('empty and malformed sign-up fields are reported next to the fields', async ({ page }) => {
+  test('sign-up says exactly what is missing, then what is too weak', async ({ page }) => {
     await page.goto('/signup');
     await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page.getByRole('alert').first()).toBeVisible();
-    await page.getByLabel('Email').fill('not-an-email');
-    await page.getByLabel('Password').fill('short');
-    await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(page.getByText('Name is required', { exact: true })).toBeVisible();
+    await expect(page.getByText('Business name is required')).toBeVisible();
+    await expect(page.getByText('Email is required')).toBeVisible();
+    await expect(page.getByText('Password is required')).toBeVisible();
     await expect(page.getByLabel('Email')).toHaveAttribute('aria-invalid', 'true');
-    await expect(page.getByLabel('Password')).toHaveAttribute('aria-invalid', 'true');
+
+    // The messages follow the rules as the person types.
+    await page.getByLabel('Your name').fill('Al');
+    await page.getByLabel('Business name').fill('Ab');
+    await page.getByLabel('Email').fill('not-an-email');
+    await expect(
+      page.getByText('Name must be at least 3 characters', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText('Business name must be at least 3 characters')).toBeVisible();
+    await expect(page.getByText('Enter a valid email address')).toBeVisible();
+
+    const password = page.getByLabel('Password');
+    for (const [typed, message] of [
+      ['Ab1!', 'Password must be at least 8 characters'],
+      ['abcdefg1!', 'Password must include an uppercase letter'],
+      ['Abcdefgh!', 'Password must include a number'],
+      ['Abcdefg12', 'Password must include a special character'],
+    ] as const) {
+      await password.fill(typed);
+      await expect(page.getByText(message)).toBeVisible();
+    }
+
+    await page.getByLabel('Your name').fill('Alice');
+    await page.getByLabel('Business name').fill('Alice Store');
+    await page.getByLabel('Email').fill(uniqueEmail('rules'));
+    await password.fill('Abcdef1!');
+    await expect(page.locator('form [role=alert]')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(page).toHaveURL(/\/products$/);
+  });
+
+  test('sign-in asks for both fields without revealing the password rule', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByText('Email is required')).toBeVisible();
+    await expect(page.getByText('Password is required')).toBeVisible();
   });
 
   test('a private page sends a visitor to sign in and brings them back afterwards', async ({

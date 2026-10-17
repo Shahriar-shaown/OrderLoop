@@ -1,47 +1,56 @@
 import { RegisterBody } from '@orderloop/contracts';
-import { Button, Form, Link, Text, TextField, useNavigation } from '@orderloop/ui';
+import { Button, Form, Link, Text, useNavigation } from '@orderloop/ui';
 import { useEffect } from 'react';
 import { useAuth } from '../auth';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormError } from '../components/FormError';
-import { useFormState } from '../forms';
+import { FormTextField } from '../components/FormTextField';
+import { useZodForm } from '../zodForm';
 
 export function SignupScreen() {
   const { status, signUp } = useAuth();
   const navigation = useNavigation();
-  const form = useFormState({ name: '', tenantName: '', email: '', password: '' });
+  const form = useZodForm(RegisterBody, { name: '', tenantName: '', email: '', password: '' });
 
   useEffect(() => {
-    if (status === 'authenticated' && !form.busy) navigation.replace('/products');
+    if (status === 'authenticated' && !form.formState.isSubmitting) navigation.replace('/products');
+    // eslint-disable-next-line
   }, [status]);
 
-  async function submit() {
-    const data = form.check(RegisterBody, form.values);
-    if (!data) return;
-    if (await form.run(() => signUp(data))) navigation.replace('/products');
-  }
+  const submit = form.submit(async (data) => {
+    await signUp(data);
+    navigation.replace('/products');
+  });
 
   return (
     <AuthLayout title="Create your account">
       <Form onSubmit={submit}>
         <FormError message={form.formError} />
-        <TextField label="Your name" autoComplete="name" required {...form.field('name')} />
-        <TextField
+        <FormTextField
+          control={form.control}
+          name="name"
+          label="Your name"
+          autoComplete="name"
+          required
+        />
+        <FormTextField
+          control={form.control}
+          name="tenantName"
           label="Business name"
           autoComplete="organization"
           required
           hint="Your shop or company. You can invite your team later."
-          {...form.field('tenantName')}
         />
-        <TextField label="Email" kind="email" required {...form.field('email')} />
-        <TextField
+        <FormTextField control={form.control} name="email" label="Email" kind="email" required />
+        <FormTextField
+          control={form.control}
+          name="password"
           label="Password"
           kind="newPassword"
           required
-          hint="At least 10 characters."
-          {...form.field('password')}
+          hint="At least 8 characters, with an uppercase letter, a number and a special character."
         />
-        <Button type="submit" loading={form.busy} fullWidth>
+        <Button type="submit" loading={form.formState.isSubmitting} fullWidth>
           Create account
         </Button>
       </Form>

@@ -1,20 +1,21 @@
 import { ForgotPasswordBody } from '@orderloop/contracts';
-import { Alert, Button, Form, Link, Text, TextField } from '@orderloop/ui';
+import { Alert, Button, Form, Link, Text } from '@orderloop/ui';
 import { useState } from 'react';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormError } from '../components/FormError';
-import { useFormState } from '../forms';
+import { FormTextField } from '../components/FormTextField';
 import { useApi } from '../runtime';
+import { useZodForm } from '../zodForm';
 
 export function ForgotPasswordScreen() {
   const api = useApi();
-  const form = useFormState({ email: '' });
+  const form = useZodForm(ForgotPasswordBody, { email: '' });
   const [sent, setSent] = useState(false);
 
-  async function submit() {
-    const data = form.check(ForgotPasswordBody, form.values);
-    if (data && (await form.run(() => api.auth.forgotPassword(data.email)))) setSent(true);
-  }
+  const submit = form.submit(async (data) => {
+    await api.auth.forgotPassword(data.email);
+    setSent(true);
+  });
 
   if (sent) {
     return (
@@ -35,8 +36,8 @@ export function ForgotPasswordScreen() {
       </Text>
       <Form onSubmit={submit}>
         <FormError message={form.formError} />
-        <TextField label="Email" kind="email" required {...form.field('email')} />
-        <Button type="submit" loading={form.busy} fullWidth>
+        <FormTextField control={form.control} name="email" label="Email" kind="email" required />
+        <Button type="submit" loading={form.formState.isSubmitting} fullWidth>
           Send reset link
         </Button>
       </Form>

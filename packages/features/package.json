@@ -15,11 +15,13 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.9.1",
     "@orderloop/api-client": "workspace:*",
     "@orderloop/contracts": "workspace:*",
     "@orderloop/domain": "workspace:*",
     "@orderloop/ui": "workspace:*",
     "@tanstack/react-query": "^5.104.3",
+    "react-hook-form": "^7.90.0",
     "zod": "4.6.7"
   },
   "peerDependencies": {

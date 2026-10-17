@@ -98,7 +98,7 @@ describe('log redaction: no credential or token ever reaches a log line', () => 
     const secrets: string[] = [];
 
     // register (password in the body), login, wrong password, refresh, logout
-    const password = 'a very distinctive log-test passphrase 8841';
+    const password = 'A very distinctive log-test passphrase 8841!';
     secrets.push(password);
     const owner = await registerTenant(t, { email, password });
     secrets.push(owner.accessToken, owner.refreshToken);
@@ -126,10 +126,10 @@ describe('log redaction: no credential or token ever reaches a log line', () => 
     // invitation token and the invitee's password
     const inviter = await registerTenant(t);
     const member = await addMember(t, inviter, 'STAFF', {
-      password: 'invitee distinctive passphrase 3391',
+      password: 'Invitee distinctive passphrase 3391!',
     });
     secrets.push(
-      'invitee distinctive passphrase 3391',
+      'Invitee distinctive passphrase 3391!',
       member.accessToken,
       member.refreshToken,
       inviter.accessToken,

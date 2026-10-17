@@ -45,9 +45,12 @@ describe('register', () => {
 
   it('rejects a duplicate email (case-insensitive) with 409', async () => {
     const owner = await registerTenant(t);
-    const res = await t.http
-      .post('/v1/auth/register')
-      .send({ email: owner.email.toUpperCase(), password: PASSWORD, name: 'X', tenantName: 'Y' });
+    const res = await t.http.post('/v1/auth/register').send({
+      email: owner.email.toUpperCase(),
+      password: PASSWORD,
+      name: 'Xavier',
+      tenantName: 'Yellow Shop',
+    });
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('conflict');
   });
