@@ -14,7 +14,6 @@ export function SignupScreen() {
 
   useEffect(() => {
     if (status === 'authenticated' && !form.formState.isSubmitting) navigation.replace('/products');
-    // eslint-disable-next-line
   }, [status]);
 
   const submit = form.submit(async (data) => {

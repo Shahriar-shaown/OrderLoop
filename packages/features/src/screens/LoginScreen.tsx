@@ -16,7 +16,6 @@ export function LoginScreen({ next }: { next?: string | undefined }) {
 
   useEffect(() => {
     if (status === 'authenticated') navigation.replace(target);
-    // eslint-disable-next-line
   }, [status, target]);
 
   const submit = form.submit(async (data) => {
