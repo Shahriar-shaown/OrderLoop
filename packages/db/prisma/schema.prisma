@@ -89,6 +89,11 @@ model Tenant {
   courierConnections   CourierConnection[]
   shipments            Shipment[]
   shipmentEvents       ShipmentEvent[]
+  settlementBatches    SettlementBatch[]
+  settlementItems      SettlementItem[]
+  settlementEvents     SettlementItemEvent[]
+  discrepancies        Discrepancy[]
+  manualCosts          ManualCost[]
 
   @@map("tenants")
 }
@@ -588,11 +593,14 @@ model Order {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer  Customer             @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
-  items     OrderItem[]
-  history   OrderStatusHistory[]
-  shipments Shipment[]
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer        Customer             @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  items           OrderItem[]
+  history         OrderStatusHistory[]
+  shipments       Shipment[]
+  settlementItems SettlementItem[]
+  discrepancies   Discrepancy[]
+  manualCosts     ManualCost[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, orderNumber])
@@ -750,10 +758,12 @@ model Shipment {
   createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  order      Order             @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
-  connection CourierConnection @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Restrict)
-  events     ShipmentEvent[]
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order           Order             @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+  connection      CourierConnection @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Restrict)
+  events          ShipmentEvent[]
+  settlementItems SettlementItem[]
+  discrepancies   Discrepancy[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, orderId, attempt])
@@ -788,4 +798,209 @@ model ShipmentEvent {
   @@unique([tenantId, shipmentId, eventKey])
   @@index([tenantId, shipmentId, createdAt])
   @@map("shipment_events")
+}
+
+enum SettlementKind {
+  cod
+  return
+  adjustment
+}
+
+enum SettlementMatchStatus {
+  /// Tied to a parcel, by a reliable identifier or by a person.
+  matched
+  /// Names a parcel we cannot find.
+  unmatched
+  /// Names more than one parcel, or identifiers disagree. Never guessed: a person decides.
+  ambiguous
+  /// A fee or adjustment that belongs to no parcel (a monthly charge). It counts as a cost and blocks nothing.
+  unallocated
+  /// The same line was already recorded. Kept for the record, never counted.
+  duplicate
+  /// A person decided the line is not ours. Excluded from every figure.
+  ignored
+}
+
+enum SettlementMatchMethod {
+  consignment_id
+  tracking_code
+  reference
+  order_number
+  manual
+}
+
+enum DiscrepancyType {
+  short_paid
+  over_paid
+  cash_before_delivery
+  cash_on_closed_order
+  fee_differs
+  file_arithmetic
+}
+
+enum DiscrepancyStatus {
+  open
+  resolved
+  /// A person accepted the difference (a shortfall written off).
+  waived
+}
+
+enum CostKind {
+  packaging
+  advertising
+  delivery_charge
+  return_charge
+  courier_deduction
+  other
+}
+
+/// One courier statement as imported. The same file can never be imported twice (its content hash is unique).
+model SettlementBatch {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  tenantId       String          @map("tenant_id") @db.Uuid
+  provider       CourierProvider
+  fileName       String?         @map("file_name")
+  fileHash       String          @map("file_hash")
+  statementRef   String?         @map("statement_ref")
+  rowCount       Int             @map("row_count")
+  createdById    String?         @map("created_by_id") @db.Uuid
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Set only by an explicit "reconcile", and only when nothing in the batch is unmatched or in doubt. Cleared if that changes.
+  reconciledAt   DateTime?       @map("reconciled_at") @db.Timestamptz(3)
+  reconciledById String?         @map("reconciled_by_id") @db.Uuid
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  SettlementItem[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, fileHash])
+  @@index([tenantId, createdAt])
+  @@map("settlement_batches")
+}
+
+/// One line of a statement. Amounts are paisa.
+model SettlementItem {
+  id                  String                 @id @default(uuid(7)) @db.Uuid
+  tenantId            String                 @map("tenant_id") @db.Uuid
+  batchId             String                 @map("batch_id") @db.Uuid
+  lineNo              Int                    @map("line_no")
+  /// Identifies what the line says, so the same line is not recorded twice (a unique index covers every non-duplicate).
+  itemKey             String                 @map("item_key")
+  kind                SettlementKind
+  transactionId       String?                @map("transaction_id")
+  consignmentId       String?                @map("consignment_id")
+  trackingCode        String?                @map("tracking_code")
+  reference           String?
+  phone               String?
+  itemDate            DateTime               @map("item_date") @db.Date
+  collectedMinor      Int                    @map("collected_minor")
+  deliveryChargeMinor Int                    @map("delivery_charge_minor")
+  codFeeMinor         Int                    @map("cod_fee_minor")
+  returnChargeMinor   Int                    @map("return_charge_minor")
+  otherDeductionMinor Int                    @map("other_deduction_minor")
+  /// collected - every charge. Worked out by us; the file's own figure (if any) is kept beside it.
+  netMinor            Int                    @map("net_minor")
+  fileNetMinor        Int?                   @map("file_net_minor")
+  note                String?
+  raw                 Json
+  matchStatus         SettlementMatchStatus  @map("match_status")
+  matchMethod         SettlementMatchMethod? @map("match_method")
+  matchNote           String?                @map("match_note")
+  shipmentId          String?                @map("shipment_id") @db.Uuid
+  orderId             String?                @map("order_id") @db.Uuid
+  duplicateOfId       String?                @map("duplicate_of_id") @db.Uuid
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch         SettlementBatch       @relation(fields: [tenantId, batchId], references: [tenantId, id], onDelete: Restrict)
+  shipment      Shipment?             @relation(fields: [tenantId, shipmentId], references: [tenantId, id], onDelete: Restrict)
+  order         Order?                @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+  events        SettlementItemEvent[]
+  discrepancies Discrepancy[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, batchId, lineNo])
+  @@index([tenantId, batchId])
+  @@index([tenantId, shipmentId])
+  @@index([tenantId, orderId])
+  @@index([tenantId, matchStatus])
+  @@index([tenantId, itemDate])
+  @@map("settlement_items")
+}
+
+/// Everything that happened to a line, who did it and why. Append-only.
+model SettlementItemEvent {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  itemId      String   @map("item_id") @db.Uuid
+  action      String
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  note        String?
+  data        Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item   SettlementItem @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, itemId, createdAt])
+  @@map("settlement_item_events")
+}
+
+/// A difference between what we expected and what a statement says. Never deleted; resolved or waived with a reason.
+model Discrepancy {
+  id                String            @id @default(uuid(7)) @db.Uuid
+  tenantId          String            @map("tenant_id") @db.Uuid
+  type              DiscrepancyType
+  /// `item:<id>` for a problem with one line, `shipment:<id>` for a problem with a parcel's total. One of each type at a time.
+  subjectKey        String            @map("subject_key")
+  itemId            String?           @map("item_id") @db.Uuid
+  shipmentId        String?           @map("shipment_id") @db.Uuid
+  orderId           String?           @map("order_id") @db.Uuid
+  status            DiscrepancyStatus @default(open)
+  expectedMinor     Int?              @map("expected_minor")
+  actualMinor       Int?              @map("actual_minor")
+  message           String
+  /// The actual amount when it was closed: a closed discrepancy reopens if the figures later change.
+  closedActualMinor Int?              @map("closed_actual_minor")
+  resolution        String?
+  resolvedById      String?           @map("resolved_by_id") @db.Uuid
+  resolvedAt        DateTime?         @map("resolved_at") @db.Timestamptz(3)
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item     SettlementItem? @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+  shipment Shipment?       @relation(fields: [tenantId, shipmentId], references: [tenantId, id], onDelete: Restrict)
+  order    Order?          @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, subjectKey, type])
+  @@index([tenantId, status])
+  @@map("discrepancies")
+}
+
+/// A cost entered by hand (packaging, advertising ...). Voided, never deleted. Courier charges come from statements, not from here.
+model ManualCost {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  kind           CostKind
+  amountMinor    Int       @map("amount_minor")
+  incurredOn     DateTime  @map("incurred_on") @db.Date
+  orderId        String?   @map("order_id") @db.Uuid
+  note           String
+  idempotencyKey String    @map("idempotency_key")
+  requestHash    String    @map("request_hash")
+  voidedAt       DateTime? @map("voided_at") @db.Timestamptz(3)
+  voidedById     String?   @map("voided_by_id") @db.Uuid
+  voidReason     String?   @map("void_reason")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order  Order? @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, incurredOn])
+  @@map("manual_costs")
 }

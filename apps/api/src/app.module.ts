@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { OrdersModule } from './orders/orders.module.js';
+import { FinanceModule } from './finance/finance.module.js';
 import { CouriersModule } from './couriers/couriers.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { ExportsModule } from './exports/exports.module.js';
@@ -53,6 +54,7 @@ import { RedisModule } from './redis/redis.module.js';
     ExportsModule,
     OrdersModule,
     CouriersModule,
+    FinanceModule,
     DashboardModule,
   ],
   controllers: [OpenApiController],

@@ -34,6 +34,9 @@ both preferences are stored and returned so the screens can use them as translat
 | `orders:write`    |  yes  |  yes  |   yes   |  yes  |     no     |
 | `couriers:read`   |  yes  |  yes  |   yes   |  yes  |    yes     |
 | `couriers:manage` |  yes  |  yes  |   no    |  no   |     no     |
+| `finance:read`    |  yes  |  yes  |   yes   |  no   |    yes     |
+| `finance:import`  |  yes  |  yes  |   no    |  no   |    yes     |
+| `finance:adjust`  |  yes  |  yes  |   no    |  no   |     no     |
 
 The brief asked for owner, admin, manager and staff. `ACCOUNTANT` (read-only finance access) was added in an earlier
 milestone and is kept.
@@ -76,6 +79,9 @@ preferences or memberships, never on business data).
 | `PATCH/DELETE /v1/couriers/:provider`, `POST /v1/couriers/:provider/test`                                                                | `couriers:manage`                                                       |
 | courier places, shipping quote, book / refresh / cancel / settle / simulate a shipment                                                   | `orders:write`                                                          |
 | `POST /v1/webhooks/couriers/:provider/:tenantId/:connectionId`                                                                           | public; the courier's own proof (see [couriers.md](couriers.md))        |
+| `GET` settlements, outstanding COD, discrepancies, costs, finance summary                                                                | `finance:read`                                                          |
+| import a settlement, re-check, reconcile a settlement                                                                                    | `finance:import`                                                        |
+| match / undo / ignore a statement line, resolve or waive a discrepancy, record or void a cost                                            | `finance:adjust`                                                        |
 | `GET /v1/audit-logs`                                                                                                                     | `audit:read`                                                            |
 | `GET` categories, products, product by id                                                                                                | `catalog:read`                                                          |
 | `POST/PATCH/DELETE` categories, `POST/PATCH` products and variants, `POST/PATCH /v1/locations`, product imports                          | `catalog:write`                                                         |
@@ -112,18 +118,19 @@ Five independent layers, so a bug in one does not open a hole:
 Audit rows are appended in the same transaction as the change (so they commit or roll back together), cannot be updated or
 deleted by the application role, and are readable only inside their own business (`GET /v1/audit-logs`, `audit:read`).
 
-| Action                                                                                                                                             | When                                                                                      |
-| -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `tenant.created`                                                                                                                                   | A business is created (sign-up, or `POST /v1/workspaces`; the latter records where from). |
-| `tenant.updated`                                                                                                                                   | Profile or regional settings changed. Records **which fields** changed, not their values. |
-| `member.invited` / `member.invitation_revoked`                                                                                                     | An invitation is sent or revoked.                                                         |
-| `member.joined`                                                                                                                                    | An invitation is accepted.                                                                |
-| `member.role_changed` / `member.removed`                                                                                                           | A role is changed or a member is removed.                                                 |
-| `auth.switch_tenant`                                                                                                                               | A person enters a business (logged in the business entered).                              |
-| `auth.register`, `auth.login`, `auth.login_failed`, `auth.logout`, `auth.token_reuse_detected`                                                     | Session events.                                                                           |
-| `order.created`, `order.updated`, `order.status_changed`, `order.cancelled`, `order.bulk_status`, `orders.imported`, `export.orders`, `customer.*` | Orders and customers (names, phones and addresses are never logged).                      |
-| `courier.connection_saved`, `courier.connection_removed`, `courier.connection_tested`, `shipment.*`                                                | Courier connections (which fields changed, never values) and shipment steps.              |
-| `category.*`, `product.created`, `variant.created`, `location.*`, `import.queued`                                                                  | Catalog administration.                                                                   |
+| Action                                                                                                                                             | When                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `tenant.created`                                                                                                                                   | A business is created (sign-up, or `POST /v1/workspaces`; the latter records where from).      |
+| `tenant.updated`                                                                                                                                   | Profile or regional settings changed. Records **which fields** changed, not their values.      |
+| `member.invited` / `member.invitation_revoked`                                                                                                     | An invitation is sent or revoked.                                                              |
+| `member.joined`                                                                                                                                    | An invitation is accepted.                                                                     |
+| `member.role_changed` / `member.removed`                                                                                                           | A role is changed or a member is removed.                                                      |
+| `auth.switch_tenant`                                                                                                                               | A person enters a business (logged in the business entered).                                   |
+| `auth.register`, `auth.login`, `auth.login_failed`, `auth.logout`, `auth.token_reuse_detected`                                                     | Session events.                                                                                |
+| `order.created`, `order.updated`, `order.status_changed`, `order.cancelled`, `order.bulk_status`, `orders.imported`, `export.orders`, `customer.*` | Orders and customers (names, phones and addresses are never logged).                           |
+| `courier.connection_saved`, `courier.connection_removed`, `courier.connection_tested`, `shipment.*`                                                | Courier connections (which fields changed, never values) and shipment steps.                   |
+| `settlement.*`, `finance.*`                                                                                                                        | Statement imports and every manual financial decision (with the reason in the line's history). |
+| `category.*`, `product.created`, `variant.created`, `location.*`, `import.queued`                                                                  | Catalog administration.                                                                        |
 
 ## What proves it
 

@@ -88,6 +88,9 @@ describe('the documented permission matrix (docs/permissions.md)', () => {
     'orders:write': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'],
     'couriers:read': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTANT'],
     'couriers:manage': ['OWNER', 'ADMIN'],
+    'finance:read': ['OWNER', 'ADMIN', 'MANAGER', 'ACCOUNTANT'],
+    'finance:import': ['OWNER', 'ADMIN', 'ACCOUNTANT'],
+    'finance:adjust': ['OWNER', 'ADMIN'],
   } as const;
 
   it('matches the table, permission by permission', () => {

@@ -432,3 +432,26 @@ without duplicates) is an automated API test and a browser scenario, both passin
 
 **Known limits:** no COD settlement (next phase); Pathao and Steadfast cannot cancel through the API; no background polling
 (status refresh is by button or webhook); bulk booking is not built.
+
+## 17. Milestone: COD reconciliation (2026-10-22)
+
+Full description, definitions and calculations: [finance.md](finance.md).
+
+**Delivered:** settlement CSV import (a documented format, refused whole on any bad line, with a check-only mode); settlement
+batches and lines in integer paisa, backed by database constraints; matching by consignment id, tracking code, our reference or
+(weakest) an order number with phone corroboration, never by phone or amount alone, and never guessed when identifiers
+disagree; idempotent imports (same file once, no line recorded twice, duplicates kept but never counted); partial and full
+matching; unmatched lines and discrepancies (shortfall, overpaid, cash before delivery, cash on a closed order, charge
+differs, file arithmetic) that open, close and reopen by the facts; manual match / undo / set aside and resolve / waive with a
+reason, line history, audit and `finance:adjust`; explicit reconcile that is refused while anything is unmatched or open;
+outstanding COD where delivery is never proof of cash; sales, revenue, cash, outstanding COD, expenses and estimated profit
+as separate figures, each with its source; manual costs; Finance screens on web and mobile.
+
+**Not verified against real data:** real Pathao and Steadfast settlement exports were not available. The importer reads
+OrderLoop's own documented CSV, and the whole flow was tested with fictional statements.
+
+**Verification:** 20 domain tests (with property tests), 14 API integration tests against a real database including the
+checkpoint, and 3 browser scenarios.
+
+**Known limits:** statements say what couriers report, not what reached a bank; no bank reconciliation, partial delivery, taxes
+or period closing.

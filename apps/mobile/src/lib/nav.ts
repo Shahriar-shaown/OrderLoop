@@ -8,6 +8,7 @@ export const NAV: ShellNavItem[] = [
   { href: '/products', label: 'Products' },
   { href: '/inventory', label: 'Stock' },
   { href: '/suppliers', label: 'Suppliers' },
+  { href: '/finance', label: 'Finance', needs: 'finance:read' },
   { href: '/team', label: 'Team', needs: 'members:read' },
   { href: '/workspaces', label: 'Businesses' },
   { href: '/settings', label: 'Settings' },

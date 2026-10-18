@@ -40,6 +40,7 @@ const WEB_NAV: ShellNavItem[] = [
   { href: '/locations', label: 'Locations' },
   { href: '/suppliers', label: 'Suppliers' },
   { href: '/imports', label: 'Import', needs: 'catalog:write' },
+  { href: '/finance', label: 'Finance', needs: 'finance:read' },
   { href: '/team', label: 'Team', needs: 'members:read' },
   { href: '/settings', label: 'Settings' },
 ];

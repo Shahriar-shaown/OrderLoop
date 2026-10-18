@@ -23,6 +23,7 @@ export const ErrorCode = z.enum([
   'courier_unavailable',
   'courier_unsupported',
   'shipment_conflict',
+  'settlement_has_issues',
   'internal_error',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;

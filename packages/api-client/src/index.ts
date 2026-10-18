@@ -313,6 +313,39 @@ export function createApiClient(options: ApiClientOptions) {
       simulate: (id: string, body: RouteInput<typeof routes.simulateShipmentEvent>['body']) =>
         call(routes.simulateShipmentEvent, { params: { id }, body }),
     },
+    finance: {
+      /** The same file is never imported twice. `dryRun` checks it and shows what would happen without recording anything. */
+      importSettlement: (body: RouteInput<typeof routes.importSettlement>['body']) =>
+        call(routes.importSettlement, { body }),
+      batches: (query: RouteInput<typeof routes.listSettlementBatches>['query'] = {}) =>
+        call(routes.listSettlementBatches, { query }),
+      batch: (id: string) => call(routes.getSettlementBatch, { params: { id } }),
+      reconcile: (id: string) => call(routes.reconcileSettlementBatch, { params: { id } }),
+      unmatched: () => call(routes.listUnmatchedSettlementItems),
+      item: (id: string) => call(routes.getSettlementItem, { params: { id } }),
+      matchItem: (id: string, body: RouteInput<typeof routes.matchSettlementItem>['body']) =>
+        call(routes.matchSettlementItem, { params: { id }, body }),
+      unmatchItem: (id: string, reason: string) =>
+        call(routes.unmatchSettlementItem, { params: { id }, body: { reason } }),
+      ignoreItem: (id: string, reason: string) =>
+        call(routes.ignoreSettlementItem, { params: { id }, body: { reason } }),
+      discrepancies: (query: RouteInput<typeof routes.listDiscrepancies>['query'] = {}) =>
+        call(routes.listDiscrepancies, { query }),
+      resolveDiscrepancy: (
+        id: string,
+        body: RouteInput<typeof routes.resolveDiscrepancy>['body'],
+      ) => call(routes.resolveDiscrepancy, { params: { id }, body }),
+      recheck: () => call(routes.recheckFinance),
+      outstanding: () => call(routes.getOutstandingCod),
+      summary: (query: RouteInput<typeof routes.getFinanceSummary>['query'] = {}) =>
+        call(routes.getFinanceSummary, { query }),
+      costs: (query: RouteInput<typeof routes.listCosts>['query'] = {}) =>
+        call(routes.listCosts, { query }),
+      createCost: (body: RouteInput<typeof routes.createCost>['body']) =>
+        call(routes.createCost, { body }),
+      voidCost: (id: string, reason: string) =>
+        call(routes.voidCost, { params: { id }, body: { reason } }),
+    },
     reservations: {
       list: (query: RouteInput<typeof routes.listReservations>['query'] = {}) =>
         call(routes.listReservations, { query }),
