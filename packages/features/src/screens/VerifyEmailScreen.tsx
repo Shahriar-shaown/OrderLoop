@@ -13,7 +13,7 @@ const attempts = new Map<string, Promise<void>>();
 type State = { kind: 'working' } | { kind: 'done' } | { kind: 'failed'; message: string };
 
 export function VerifyEmailScreen({ token }: { token?: string | undefined }) {
-  const { api, session } = useRuntime();
+  const { api, session, home } = useRuntime();
   const [state, setState] = useState<State>({ kind: 'working' });
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export function VerifyEmailScreen({ token }: { token?: string | undefined }) {
       ) : (
         <>
           <Alert tone="success">Your email address is verified. Thank you.</Alert>
-          <Link href="/products">Continue to OrderLoop</Link>
+          <Link href={home}>Continue to OrderLoop</Link>
         </>
       )}
     </AuthLayout>

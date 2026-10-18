@@ -46,8 +46,9 @@ test.describe('roles shape the screens', () => {
     await guest.getByLabel('Your name (new accounts only)').fill('Anwar Hossain');
     await guest.getByLabel('Password').fill(PASSWORD);
     await guest.getByRole('button', { name: 'Join workspace' }).click();
-    await expect(guest).toHaveURL(/\/products$/);
+    await expect(guest).toHaveURL(/\/dashboard$/);
     await expect(guest.getByTestId('tenant-name')).toHaveText(owner.shop);
+    await guest.goto('/products');
 
     await expect(guest.getByRole('link', { name: 'Ledger tee' })).toBeVisible();
     await expect(guest.getByRole('link', { name: 'New product' })).toHaveCount(0);

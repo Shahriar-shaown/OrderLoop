@@ -13,13 +13,21 @@ export const PASSWORD = 'Orderloop-e2e-2026!';
  */
 const EXPECTED = [/Failed to load resource: the server responded with a status of 4\d\d/];
 
-export const test = base.extend({
+const allowed = new WeakMap<Page, RegExp[]>();
+
+export const test = base.extend<{ tolerate: (pattern: RegExp) => void }>({
+  /** Allow one more kind of console error in this test, when the test provokes it on purpose (for example a server error). */
+  tolerate: async ({ page }, use) => {
+    await use((pattern) => allowed.get(page)?.push(pattern));
+  },
   page: async ({ page }, use) => {
+    const extra: RegExp[] = [];
+    allowed.set(page, extra);
     const problems: string[] = [];
     page.on('console', (message) => {
       if (message.type() !== 'error' && message.type() !== 'warning') return;
       const text = message.text();
-      if (!EXPECTED.some((pattern) => pattern.test(text)))
+      if (![...EXPECTED, ...extra].some((pattern) => pattern.test(text)))
         problems.push(`${message.type()}: ${text}`);
     });
     page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));

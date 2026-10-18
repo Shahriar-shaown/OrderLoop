@@ -6,5 +6,6 @@ export * from './auth.js';
 export * from './catalog.js';
 export * from './phone.js';
 export * from './orders.js';
+export * from './dashboard.js';
 export * from './routes.js';
 export * from './openapi.js';

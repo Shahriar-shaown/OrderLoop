@@ -35,6 +35,8 @@ describe('mobile routes', () => {
       '/',
       '/login',
       '/signup',
+      '/dashboard',
+      '/team',
       '/orders',
       '/orders/new',
       '/orders/import',

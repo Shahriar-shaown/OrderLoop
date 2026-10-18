@@ -52,6 +52,9 @@ test.describe('the catalog', () => {
   test.beforeEach(async ({ page, request }) => {
     const { email } = await createAccount(request);
     await signInToApp(page, email);
+    await page.goto('/products');
+    // Let the reload finish restoring the session before the test navigates again (see docs/web.md, known limits).
+    await expect(page.getByRole('heading', { level: 1, name: 'Products' })).toBeVisible();
   });
 
   test('an empty catalog invites the first product, and a bad form is reported field by field', async ({
@@ -268,6 +271,8 @@ test.describe('accessibility and small screens of the signed-in screens', () => 
       '/locations',
       '/imports',
       '/suppliers',
+      '/dashboard',
+      '/team',
       '/settings',
       '/workspaces/new',
       detail,
@@ -298,7 +303,7 @@ test.describe('accessibility and small screens of the signed-in screens', () => 
     await page.keyboard.press('Tab');
     await page.keyboard.type('Orderloop-e2e-2026!');
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/products$/);
+    await expect(page).toHaveURL(/\/dashboard$/);
     // The skip link is the first stop and jumps past the menu.
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();

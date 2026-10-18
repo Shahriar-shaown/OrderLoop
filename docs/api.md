@@ -353,6 +353,14 @@ Full behaviour (status machine, when stock moves, totals, idempotency, duplicate
   returns `total` and takes `q`, `status`, `source` (comma-separated), `from`/`to`, amount bounds, `sort` and `dir`.
 - **Phone numbers** may be sent in any common Bangladeshi form and come back as `+8801XXXXXXXXX`.
 
+## Dashboard
+
+`GET /v1/dashboard?period=today|7d|30d` (default `7d`, permission `orders:read`) returns everything the dashboard shows, worked out
+by the server: order counts by status, delivery figures, sales, a daily series, low-stock products, open work (`attention`,
+over all orders), recent status changes, and `profit`. `profit` is a union: `{ available: true, kind: "estimate", ... }` only when
+every delivered line in the period has a recorded cost, otherwise `{ available: false, reason, linesWithCost, lines }`. Periods
+are whole calendar days in the business's time zone. Definitions are in [dashboard.md](dashboard.md).
+
 ## Rate limiting and lockout
 
 Limits are per client IP and apply to every route unless stated. Exceeding one returns `429 rate_limited` with a

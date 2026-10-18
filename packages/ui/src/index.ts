@@ -24,6 +24,8 @@ export { Container } from './Container';
 export { Screen } from './Screen';
 export { PageHeader } from './PageHeader';
 export { Divider } from './Divider';
+export { StatCard } from './StatCard';
+export { BarChart, type Bar } from './BarChart';
 export { KeyValueList } from './KeyValue';
 export { SkipLink } from './SkipLink';
 

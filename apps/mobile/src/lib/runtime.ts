@@ -9,5 +9,5 @@ import { secureTokenStore } from './secureTokenStore';
 export const runtime = createRuntime({
   baseUrl: env.API_URL,
   refreshTokenStore: secureTokenStore,
-  home: '/orders',
+  home: '/dashboard',
 });

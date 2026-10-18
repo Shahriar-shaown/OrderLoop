@@ -3,6 +3,7 @@ import {
   addMember,
   bearer,
   createTestApp,
+  PASSWORD,
   registerTenant,
   uniqueEmail,
   type TestApp,
@@ -247,6 +248,46 @@ describe('workspaces', () => {
     await t.http.get('/v1/tenant').set(bearer(staff.accessToken)).expect(401);
     const list = await t.http.get('/v1/workspaces').set(bearer(staff.accessToken));
     expect(list.status).toBe(401);
+  });
+});
+
+describe('signing in again', () => {
+  it('returns to the business that was in use, and falls back to the newest membership if it is gone', async () => {
+    const a = await registerTenant(t, { tenantName: 'First Shop' });
+    const second = (
+      await t.http
+        .post('/v1/workspaces')
+        .set(bearer(a.accessToken))
+        .send({ name: 'Second Shop' })
+        .expect(201)
+    ).body;
+    const third = (
+      await t.http
+        .post('/v1/workspaces')
+        .set(bearer(a.accessToken))
+        .send({ name: 'Third Shop' })
+        .expect(201)
+    ).body;
+    const signIn = async () =>
+      (await t.http.post('/v1/auth/login').send({ email: a.email, password: PASSWORD }).expect(200))
+        .body;
+    // no switch yet: the session still points at the first business, which is where they last worked
+    expect((await signIn()).tenant.id).toBe(a.tenant.id);
+    // work in the second business, then sign in again
+    const s = await signIn();
+    await t.http
+      .post('/v1/auth/switch-tenant')
+      .set(bearer(s.accessToken))
+      .send({ tenantId: second.id })
+      .expect(200);
+    expect((await signIn()).tenant.name).toBe('Second Shop');
+    // asking for a business explicitly still wins
+    const named = await t.http
+      .post('/v1/auth/login')
+      .send({ email: a.email, password: PASSWORD, tenantId: third.id })
+      .expect(200);
+    expect(named.body.tenant.name).toBe('Third Shop');
+    expect((await signIn()).tenant.name).toBe('Third Shop');
   });
 });
 

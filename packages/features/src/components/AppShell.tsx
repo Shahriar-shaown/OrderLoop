@@ -16,8 +16,8 @@ import {
   useTheme,
   useToast,
 } from '@orderloop/ui';
-import { useState, type ReactNode } from 'react';
-import { View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useWindowDimensions, View } from 'react-native';
 import { useAuth, useRequireAuth } from '../auth';
 import { messageFor } from '../errors';
 import { useCan } from '../permissions';
@@ -31,6 +31,7 @@ export interface ShellNavItem {
 }
 
 const WEB_NAV: ShellNavItem[] = [
+  { href: '/dashboard', label: 'Dashboard' },
   { href: '/orders', label: 'Orders' },
   { href: '/customers', label: 'Customers' },
   { href: '/products', label: 'Products' },
@@ -39,6 +40,7 @@ const WEB_NAV: ShellNavItem[] = [
   { href: '/locations', label: 'Locations' },
   { href: '/suppliers', label: 'Suppliers' },
   { href: '/imports', label: 'Import', needs: 'catalog:write' },
+  { href: '/team', label: 'Team', needs: 'members:read' },
   { href: '/settings', label: 'Settings' },
 ];
 
@@ -109,6 +111,12 @@ export function AppShell({
   const { colors } = useTheme();
   const { home } = useRuntime();
   const [leaving, setLeaving] = useState(false);
+  // On a phone the menu folds behind a button instead of wrapping into six rows.
+  const { width } = useWindowDimensions();
+  const narrow = width < 720;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = navigation;
+  useEffect(() => setMenuOpen(false), [pathname]);
 
   // While restoring the session (or being sent to sign in) show nothing from the app: no flash of private screens.
   if (status !== 'authenticated' || !current) {
@@ -162,7 +170,25 @@ export function AppShell({
               </Button>
             </Row>
           </Stack>
-          <View role="navigation" aria-label="Main" style={{ marginTop: 8 }}>
+          {narrow && (
+            <View style={{ marginTop: 8, alignItems: 'flex-start' }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-expanded={menuOpen}
+                aria-controls="main-menu"
+                onPress={() => setMenuOpen((o) => !o)}
+              >
+                {menuOpen ? 'Close menu' : 'Menu'}
+              </Button>
+            </View>
+          )}
+          <View
+            role="navigation"
+            aria-label="Main"
+            nativeID="main-menu"
+            style={{ marginTop: 8, display: narrow && !menuOpen ? 'none' : 'flex' }}
+          >
             <Row gap={1} wrap>
               {nav
                 .filter((item) => !item.needs || can(item.needs))

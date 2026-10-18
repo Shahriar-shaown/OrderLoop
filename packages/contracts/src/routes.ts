@@ -64,6 +64,7 @@ import {
   VariantUpdate,
 } from './catalog.js';
 import { LiveResponse, ReadyResponse } from './health.js';
+import { Dashboard, DashboardQuery } from './dashboard.js';
 import {
   AddressBody,
   AddressParams,
@@ -731,6 +732,18 @@ export const routes = {
     permission: 'audit:read',
     query: AuditQuery,
     response: AuditPage,
+  }),
+
+  getDashboard: route({
+    id: 'getDashboard',
+    method: 'GET',
+    path: '/v1/dashboard',
+    summary:
+      'Order counts, delivery status, sales, low stock, an estimated profit (only when every cost is known) and recent activity for one period, all worked out by the server',
+    auth: 'access',
+    permission: 'orders:read',
+    query: DashboardQuery,
+    response: Dashboard,
   }),
 
   // ---- customers and orders ----------------------------------------------------------------------------------------

@@ -238,6 +238,10 @@ export function createApiClient(options: ApiClientOptions) {
       orders: (filters: RouteInput<typeof routes.exportOrders>['query'] = {}) =>
         call(routes.exportOrders, { query: filters }),
     },
+    dashboard: {
+      get: (period: RouteInput<typeof routes.getDashboard>['query']['period'] = '7d') =>
+        call(routes.getDashboard, { query: { period } }),
+    },
     customers: {
       list: (query: RouteInput<typeof routes.listCustomers>['query'] = {}) =>
         call(routes.listCustomers, { query }),

@@ -74,7 +74,8 @@ test.describe('business workspaces', () => {
     const switcher = page.getByLabel('Business', { exact: true });
     await expect(switcher).toHaveValue(/.+/);
     await switcher.selectOption({ label: owner.shop });
-    await expect(page).toHaveURL(/\/products$/);
+    await expect(page).toHaveURL(/\/dashboard$/); // switching lands on the dashboard of the business you chose
+    await page.goto('/products');
     await expect(page.getByRole('link', { name: 'First shop tee' })).toBeVisible();
   });
 
@@ -103,7 +104,7 @@ test.describe('business workspaces', () => {
     await guest.getByLabel('Your name (new accounts only)').fill('Anwar Hossain');
     await guest.getByLabel('Password').fill(PASSWORD);
     await guest.getByRole('button', { name: 'Join workspace' }).click();
-    await expect(guest).toHaveURL(/\/products$/);
+    await expect(guest).toHaveURL(/\/dashboard$/);
     await guest.goto('/settings');
     await expect(guest.getByLabel('Business name')).toHaveValue(owner.shop);
     await expect(

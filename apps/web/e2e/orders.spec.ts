@@ -435,7 +435,7 @@ test.describe('orders', () => {
     await guest.getByLabel('Your name (new accounts only)').fill('Anwar Hossain');
     await guest.getByLabel('Password').fill(PASSWORD);
     await guest.getByRole('button', { name: 'Join workspace' }).click();
-    await expect(guest).toHaveURL(/\/products$/);
+    await expect(guest).toHaveURL(/\/dashboard$/);
     await guest.goto('/orders');
     await expect(guest.getByRole('cell', { name: /Seen Only/ })).toBeVisible();
     await expect(guest.getByRole('link', { name: 'New order' })).toHaveCount(0);

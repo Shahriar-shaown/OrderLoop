@@ -231,9 +231,20 @@ export class AuthService {
     const memberships = await this.db.withContext({ userId: user.id }, (tx) =>
       tx.membership.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } }),
     );
+    // With no business named, return to the one used last (the latest session's active business, if the person still
+    // belongs to it); otherwise the most recently joined. So signing out and back in lands where the work was.
+    const lastUsed = body.tenantId
+      ? undefined
+      : (
+          await this.db.global.session.findFirst({
+            where: { userId: user.id },
+            orderBy: { createdAt: 'desc' },
+            select: { activeTenantId: true },
+          })
+        )?.activeTenantId;
     const chosen = body.tenantId
       ? memberships.find((m) => m.tenantId === body.tenantId)
-      : memberships[0];
+      : (memberships.find((m) => m.tenantId === lastUsed) ?? memberships[0]);
     if (!chosen)
       throw ApiError.forbidden(
         body.tenantId ? 'You are not a member of that tenant' : 'This account has no active tenant',

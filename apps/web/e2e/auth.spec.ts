@@ -24,7 +24,7 @@ test.describe('signing up, in and out', () => {
     await page.getByLabel('Password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Create account' }).click();
 
-    await expect(page).toHaveURL(/\/products$/);
+    await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByTestId('tenant-name')).toHaveText('Rina Fashion');
     await expect(page.getByText('Please verify your email address')).toBeVisible();
 
@@ -32,8 +32,8 @@ test.describe('signing up, in and out', () => {
     await page.goto(await mailLink(email, 'verify-email'));
     await expect(page.getByText('Your email address is verified')).toBeVisible();
     await page.getByRole('link', { name: 'Continue to OrderLoop' }).click();
-    await expect(page).toHaveURL(/\/products$/);
-    await expect(page.getByRole('heading', { name: 'Products' })).toBeVisible();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByText('Please verify your email address')).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Sign out' }).click();
@@ -84,7 +84,7 @@ test.describe('signing up, in and out', () => {
     await password.fill('Abcdef1!');
     await expect(page.locator('form [role=alert]')).toHaveCount(0);
     await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page).toHaveURL(/\/products$/);
+    await expect(page).toHaveURL(/\/dashboard$/);
   });
 
   test('sign-in asks for both fields without revealing the password rule', async ({ page }) => {
@@ -113,7 +113,7 @@ test.describe('signing up, in and out', () => {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL(/\/products$/);
+    await expect(page).toHaveURL(/\/dashboard$/);
   });
 
   test('the Enter key submits the sign-in form', async ({ page, request }) => {
@@ -122,7 +122,7 @@ test.describe('signing up, in and out', () => {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(PASSWORD);
     await page.getByLabel('Password').press('Enter');
-    await expect(page).toHaveURL(/\/products$/);
+    await expect(page).toHaveURL(/\/dashboard$/);
   });
 });
 
@@ -147,7 +147,7 @@ test.describe('password reset', () => {
     await signIn(page, email, PASSWORD);
     await expect(page.getByText('Incorrect email or password.')).toBeVisible();
     await signIn(page, email, 'A-brand-new-pass-2027');
-    await expect(page).toHaveURL(/\/products$/);
+    await expect(page).toHaveURL(/\/dashboard$/);
 
     // Reusing the same link fails clearly.
     await page.goto(link);

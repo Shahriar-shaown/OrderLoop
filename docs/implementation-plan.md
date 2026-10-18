@@ -391,3 +391,20 @@ tests that pass.
 **Known limits:** no couriers, shipments or COD reconciliation (next phases); no partial returns or exchanges; order import is
 synchronous and capped at 500 orders; the mobile app has no file picker for CSV import; the mobile screens were type-checked,
 bundled for iOS and rendered in tests through the shared components, but not driven on a simulator or device.
+
+## 15. Milestone: web dashboard (2026-10-21)
+
+Full description: [dashboard.md](dashboard.md).
+
+**Delivered:** `GET /v1/dashboard` (counts by status, delivery, sales, daily series, low stock, all-time open work, recent
+activity, and an estimated profit shown only when every delivered line has a recorded cost); the Dashboard screen (period tabs,
+KPI cards that link to their lists, two real daily bar charts with spoken summaries, welcome/loading/error states); the Team and
+permissions screen (people, invitations, role changes, removals and revocations with confirmations, and the real permission
+matrix); a folding menu on phones; Dashboard as the first page after sign-in; sign-in returning to the business last used.
+
+**Verification:** 15 dashboard API tests (including time zones, period edges, profit rules, isolation), screen tests for the
+dashboard and team pages, 9 new browser scenarios including the end-to-end "seller's day" checkpoint run only through the UI
+against the real API, accessibility and phone-width scans of the new pages.
+
+**Known limits:** only today / 7 / 30-day periods; no courier fees, so profit is a labelled estimate of gross profit on item
+revenue; no notifications; the mobile screens were not driven on a device.

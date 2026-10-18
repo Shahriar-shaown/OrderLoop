@@ -58,16 +58,26 @@ const BULK: { status: OrderStatus; label: string; reason?: boolean }[] = [
   { status: 'cancelled', label: 'Cancel…', reason: true },
 ];
 
-export function OrdersScreen() {
+export function OrdersScreen({
+  initialStatus,
+  initialFrom,
+  initialTo,
+}: {
+  initialStatus?: string | undefined;
+  initialFrom?: string | undefined;
+  initialTo?: string | undefined;
+} = {}) {
   const api = useApi();
   const can = useCan();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(
+    STATUS_OPTIONS.some((o) => o.value === initialStatus) ? (initialStatus as string) : '',
+  );
   const [source, setSource] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [from, setFrom] = useState(initialFrom && DATE_RE.test(initialFrom) ? initialFrom : '');
+  const [to, setTo] = useState(initialTo && DATE_RE.test(initialTo) ? initialTo : '');
   const [sortKey, setSortKey] = useState('new');
   const q = useDebounced(search.trim());
   const sort = SORTS.find((s) => s.value === sortKey)!;

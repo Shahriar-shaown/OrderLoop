@@ -60,7 +60,7 @@ export function createRuntime(
     getAccessToken: session.getAccessToken,
     fetch: withTokenRetry((...args) => fetch(...args), session),
   });
-  return { api, session, home: options.home ?? '/products' };
+  return { api, session, home: options.home ?? '/dashboard' };
 }
 
 const RuntimeContext = createContext<Runtime | null>(null);
