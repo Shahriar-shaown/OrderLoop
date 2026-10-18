@@ -63,7 +63,7 @@ describe('variantToValues', () => {
       productId: 'p',
       attributes: {},
       archived: false,
-      stock: { onHand: 0, reserved: 0, available: 0 },
+      stock: { onHand: 0, reserved: 0, available: 0, damaged: 0 },
     } as Variant;
     expect(variantToValues(v)).toEqual({
       key: 'abc',
@@ -73,6 +73,47 @@ describe('variantToValues', () => {
       cost: '',
       reorderPoint: '',
       barcode: '',
+      size: '',
+      colour: '',
+      otherAttributes: {},
     });
+  });
+
+  it('splits size and colour out, and keeps any other attributes untouched on save', () => {
+    const v = {
+      id: 'abc',
+      sku: 'TEE-1',
+      name: 'Red / M',
+      priceMinor: 100,
+      costMinor: null,
+      barcode: null,
+      reorderPoint: 0,
+      productId: 'p',
+      attributes: { size: 'M', colour: 'Red', material: 'Cotton' },
+      archived: false,
+      stock: { onHand: 0, reserved: 0, available: 0, damaged: 0 },
+    } as Variant;
+    const form = variantToValues(v);
+    expect(form).toMatchObject({
+      size: 'M',
+      colour: 'Red',
+      otherAttributes: { material: 'Cotton' },
+    });
+    const { value } = toVariantInput({ ...form, size: 'L' }, 'v');
+    expect(value.attributes).toEqual({ size: 'L', colour: 'Red', material: 'Cotton' });
+  });
+});
+
+describe('size and colour in the form', () => {
+  it('names an unnamed variant "Colour / Size" and omits blank attributes', () => {
+    const { value } = toVariantInput(values({ size: ' M ', colour: 'Red' }), 'v');
+    expect(value).toMatchObject({ name: 'Red / M', attributes: { size: 'M', colour: 'Red' } });
+    const plain = toVariantInput(values(), 'v').value;
+    expect(plain.attributes).toEqual({});
+    expect(plain.name).toBe('');
+  });
+  it('keeps a name the person typed', () => {
+    const { value } = toVariantInput(values({ name: 'Eid special', size: 'M' }), 'v');
+    expect(value.name).toBe('Eid special');
   });
 });

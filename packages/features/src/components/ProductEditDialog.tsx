@@ -3,7 +3,7 @@ import { FormDialog, useToast } from '@orderloop/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFormState } from '../forms';
 import { useApi } from '../runtime';
-import { ProductDetailsFields } from './ProductDetailsFields';
+import { parseImageLinks, ProductDetailsFields } from './ProductDetailsFields';
 
 function EditForm({ product, onClose }: { product: Product; onClose: () => void }) {
   const api = useApi();
@@ -13,6 +13,8 @@ function EditForm({ product, onClose }: { product: Product; onClose: () => void 
     name: product.name,
     description: product.description ?? '',
     categoryId: product.categoryId ?? '',
+    supplierId: product.supplierId ?? '',
+    imageUrls: product.imageUrls.join('\n'),
     unit: product.unit as string,
   });
 
@@ -22,6 +24,8 @@ function EditForm({ product, onClose }: { product: Product; onClose: () => void 
         name: form.values.name,
         description: form.values.description.trim() || null,
         categoryId: form.values.categoryId || null,
+        supplierId: form.values.supplierId || null,
+        imageUrls: parseImageLinks(form.values.imageUrls),
         unit: form.values.unit as Product['unit'],
       });
       await queryClient.invalidateQueries({ queryKey: ['product'] });

@@ -27,7 +27,8 @@
     "@types/react": "~19.2.2",
     "eslint": "^9",
     "eslint-config-expo": "~57.0.0",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^3.0.0"
   },
   "scripts": {
     "start": "node scripts/with-root-env.mjs expo start",
@@ -37,7 +38,7 @@
     "build": "node scripts/with-root-env.mjs expo export --platform ios --output-dir dist",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
-    "test": "echo \"no tests yet\""
+    "test": "vitest run"
   },
   "private": true
 }

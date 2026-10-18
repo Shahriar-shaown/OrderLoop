@@ -1,5 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { ImportBody, ImportJob } from '@orderloop/contracts';
+import type { ImportBody, ImportJob, ImportPreview } from '@orderloop/contracts';
+import { previewImportRows } from '@orderloop/catalog';
+import { IMPORT_LIMITS, parseCatalogCsv } from '@orderloop/domain';
 import { Database } from '@orderloop/db';
 import type { Queue } from 'bullmq';
 import { AuditService } from '../audit/audit.service.js';
@@ -49,6 +51,37 @@ export class ImportsService {
     private readonly audit: AuditService,
     @Inject(IMPORTS_QUEUE) private readonly queue: Queue<ImportJobData>,
   ) {}
+
+  /**
+   * Work out what an import would do, without changing anything: the file's own problems plus the ones the existing
+   * catalog would cause (an archived product, a SKU that belongs elsewhere). Shown before the person starts the import.
+   */
+  async validate(auth: AuthContext, body: ImportBody): Promise<ImportPreview> {
+    const parsed = parseCatalogCsv(body.csv);
+    if (parsed.fatal)
+      return {
+        fatal: parsed.fatal,
+        totalRows: 0,
+        validRows: 0,
+        willCreate: 0,
+        willUpdate: 0,
+        errorCount: 0,
+        errors: [],
+      };
+    const preview = await this.db.withContext({ tenantId: auth.tenantId }, (tx) =>
+      previewImportRows(tx, auth.tenantId, parsed.rows),
+    );
+    const errors = [...parsed.errors, ...preview.problems].sort((a, b) => a.row - b.row);
+    return {
+      fatal: null,
+      totalRows: parsed.totalRows,
+      validRows: parsed.rows.length - preview.problems.length,
+      willCreate: preview.willCreate,
+      willUpdate: preview.willUpdate,
+      errorCount: errors.length,
+      errors: errors.slice(0, IMPORT_LIMITS.maxErrors),
+    };
+  }
 
   /** Record the job, then hand its id to the worker. The request returns at once; the file is processed in the background. */
   async create(auth: AuthContext, body: ImportBody): Promise<ImportJob> {

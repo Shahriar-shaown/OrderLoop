@@ -29,7 +29,7 @@ async function createProduct(
 
 const variantRow = (page: Page, sku: string) =>
   page.getByRole('row', { name: new RegExp(sku, 'i') });
-// Variant table columns: SKU, Price, On hand, Reserved, Available, Actions
+// Variant table columns: SKU, Price, On hand, Reserved, Available, Damaged, Actions
 const cell = (page: Page, sku: string, index: number) =>
   variantRow(page, sku).getByRole('cell').nth(index);
 
@@ -231,7 +231,9 @@ test.describe('the catalog', () => {
   test('a CSV import runs in the background and its products appear', async ({ page }) => {
     await page.getByRole('link', { name: 'Import', exact: true }).click();
     await page.getByRole('button', { name: 'Use the example' }).click();
-    await page.getByRole('button', { name: 'Start import' }).click();
+    await page.getByRole('button', { name: 'Check file' }).click();
+    await expect(page.getByText('Nothing has been changed yet.')).toBeVisible();
+    await page.getByRole('button', { name: 'Import 1 rows' }).click();
     await expect(page.getByText(/1 created, 0 updated, 0 failed/).first()).toBeVisible({
       timeout: 30_000,
     });
@@ -265,6 +267,7 @@ test.describe('accessibility and small screens of the signed-in screens', () => 
       '/categories',
       '/locations',
       '/imports',
+      '/suppliers',
       '/settings',
       '/workspaces/new',
       detail,

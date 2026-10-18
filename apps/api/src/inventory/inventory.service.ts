@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type {
   AdjustBody,
+  DamageBody,
+  ReturnBody,
+  WriteOffBody,
   InventoryPage,
   InventoryQuery,
   LowStockItem,
@@ -9,7 +12,15 @@ import type {
   ReceiveBody,
   StockChange,
 } from '@orderloop/contracts';
-import { adjustStock, receiveStock, resolveLocation, type Level } from '@orderloop/catalog';
+import {
+  adjustStock,
+  markDamaged,
+  receiveStock,
+  resolveLocation,
+  returnStock,
+  writeOffDamaged,
+  type Level,
+} from '@orderloop/catalog';
 import { Database, isUniqueViolation, Prisma, type Tx } from '@orderloop/db';
 import { ApiError } from '../common/api-error.js';
 import {
@@ -24,9 +35,10 @@ import { mapStockError } from '../common/stock-errors.js';
 type Expected = {
   variantId: string;
   locationId?: string | undefined;
-  type: 'RECEIVE' | 'ADJUSTMENT' | 'RESERVE';
+  type: 'RECEIVE' | 'ADJUSTMENT' | 'RESERVE' | 'DAMAGE' | 'WRITE_OFF' | 'RETURN';
   onHandDelta?: number;
   reservedDelta?: number;
+  damagedDelta?: number;
 };
 type PriorMovement = {
   id: string;
@@ -35,6 +47,7 @@ type PriorMovement = {
   type: string;
   onHandDelta: number;
   reservedDelta: number;
+  damagedDelta: number;
   reservationId: string | null;
 };
 
@@ -50,6 +63,7 @@ const change = (
   onHand: level.onHand,
   reserved: level.reserved,
   available: level.available,
+  damaged: level.damaged,
 });
 
 /** Shared by inventory and reservations: run a stock mutation at most once per idempotency key. */
@@ -96,7 +110,8 @@ export class StockRunner {
               (expected.locationId === undefined || prior.locationId === expected.locationId) &&
               (expected.onHandDelta === undefined || prior.onHandDelta === expected.onHandDelta) &&
               (expected.reservedDelta === undefined ||
-                prior.reservedDelta === expected.reservedDelta);
+                prior.reservedDelta === expected.reservedDelta) &&
+              (expected.damagedDelta === undefined || prior.damagedDelta === expected.damagedDelta);
             if (!same)
               throw ApiError.conflict(
                 'This idempotency key was already used for a different request',
@@ -182,6 +197,91 @@ export class InventoryService {
     );
   }
 
+  damage(auth: AuthContext, body: DamageBody): Promise<StockChange> {
+    return this.runner.run(
+      auth,
+      body.idempotencyKey,
+      {
+        variantId: body.variantId,
+        locationId: body.locationId,
+        type: 'DAMAGE',
+        onHandDelta: -body.quantity,
+        damagedDelta: body.quantity,
+      },
+      async (tx) => {
+        await this.runner.requireActiveVariant(tx, auth.tenantId, body.variantId);
+        const locationId = await resolveLocation(tx, auth.tenantId, body.locationId);
+        const r = await markDamaged(
+          tx,
+          { tenantId: auth.tenantId, variantId: body.variantId, locationId },
+          body.quantity,
+          { createdById: auth.userId, reason: body.reason, idempotencyKey: body.idempotencyKey },
+        );
+        return change(r.movementId, body.variantId, locationId, r.level);
+      },
+      (tx, prior) => this.replayChange(tx, auth.tenantId, prior),
+    );
+  }
+
+  writeOff(auth: AuthContext, body: WriteOffBody): Promise<StockChange> {
+    return this.runner.run(
+      auth,
+      body.idempotencyKey,
+      {
+        variantId: body.variantId,
+        locationId: body.locationId,
+        type: 'WRITE_OFF',
+        damagedDelta: -body.quantity,
+      },
+      async (tx) => {
+        await this.runner.requireActiveVariant(tx, auth.tenantId, body.variantId);
+        const locationId = await resolveLocation(tx, auth.tenantId, body.locationId);
+        const r = await writeOffDamaged(
+          tx,
+          { tenantId: auth.tenantId, variantId: body.variantId, locationId },
+          body.quantity,
+          { createdById: auth.userId, reason: body.reason, idempotencyKey: body.idempotencyKey },
+        );
+        return change(r.movementId, body.variantId, locationId, r.level);
+      },
+      (tx, prior) => this.replayChange(tx, auth.tenantId, prior),
+    );
+  }
+
+  returnStock(auth: AuthContext, body: ReturnBody): Promise<StockChange> {
+    const resaleable = body.condition === 'RESALEABLE';
+    return this.runner.run(
+      auth,
+      body.idempotencyKey,
+      {
+        variantId: body.variantId,
+        locationId: body.locationId,
+        type: 'RETURN',
+        onHandDelta: resaleable ? body.quantity : 0,
+        damagedDelta: resaleable ? 0 : body.quantity,
+      },
+      async (tx) => {
+        await this.runner.requireActiveVariant(tx, auth.tenantId, body.variantId);
+        const locationId = await resolveLocation(tx, auth.tenantId, body.locationId);
+        const r = await returnStock(
+          tx,
+          { tenantId: auth.tenantId, variantId: body.variantId, locationId },
+          body.quantity,
+          body.condition,
+          {
+            createdById: auth.userId,
+            reason: body.reason,
+            referenceType: body.referenceType,
+            referenceId: body.referenceId,
+            idempotencyKey: body.idempotencyKey,
+          },
+        );
+        return change(r.movementId, body.variantId, locationId, r.level);
+      },
+      (tx, prior) => this.replayChange(tx, auth.tenantId, prior),
+    );
+  }
+
   private async replayChange(tx: Tx, tenantId: string, prior: PriorMovement): Promise<StockChange> {
     const level = await tx.stockLevel.findUnique({
       where: {
@@ -198,6 +298,7 @@ export class InventoryService {
       onHand,
       reserved,
       available: onHand - reserved,
+      damaged: level?.damaged ?? 0,
     });
   }
 
@@ -214,11 +315,12 @@ export class InventoryService {
           location_name: string;
           on_hand: number;
           reserved: number;
+          damaged: number;
           reorder_point: number;
         }[]
       >(Prisma.sql`
         SELECT l.variant_id, v.sku, p.name AS product_name, v.name AS variant_name, l.location_id, loc.name AS location_name,
-               l.on_hand, l.reserved, v.reorder_point
+               l.on_hand, l.reserved, l.damaged, v.reorder_point
         FROM stock_levels l
         JOIN product_variants v ON v.tenant_id = l.tenant_id AND v.id = l.variant_id
         JOIN products p ON p.tenant_id = v.tenant_id AND p.id = v.product_id
@@ -243,6 +345,7 @@ export class InventoryService {
           onHand: r.on_hand,
           reserved: r.reserved,
           available: r.on_hand - r.reserved,
+          damaged: r.damaged,
           reorderPoint: r.reorder_point,
         })),
         nextCursor:
@@ -279,6 +382,7 @@ export class InventoryService {
           locationId: m.locationId,
           onHandDelta: m.onHandDelta,
           reservedDelta: m.reservedDelta,
+          damagedDelta: m.damagedDelta,
           reason: m.reason,
           referenceType: m.referenceType,
           referenceId: m.referenceId,
@@ -302,10 +406,12 @@ export class InventoryService {
           reorder_point: number;
           on_hand: bigint;
           reserved: bigint;
+          damaged: bigint;
         }[]
       >`
         SELECT v.id AS variant_id, v.sku, p.name AS product_name, v.name AS variant_name, v.reorder_point,
-               COALESCE(SUM(l.on_hand), 0) AS on_hand, COALESCE(SUM(l.reserved), 0) AS reserved
+               COALESCE(SUM(l.on_hand), 0) AS on_hand, COALESCE(SUM(l.reserved), 0) AS reserved,
+               COALESCE(SUM(l.damaged), 0) AS damaged
         FROM product_variants v
         JOIN products p ON p.tenant_id = v.tenant_id AND p.id = v.product_id
         LEFT JOIN stock_levels l ON l.tenant_id = v.tenant_id AND l.variant_id = v.id
@@ -323,6 +429,7 @@ export class InventoryService {
         onHand: Number(r.on_hand),
         reserved: Number(r.reserved),
         available: Number(r.on_hand) - Number(r.reserved),
+        damaged: Number(r.damaged),
       }));
     });
   }

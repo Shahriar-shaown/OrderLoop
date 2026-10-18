@@ -17,6 +17,7 @@ import {
 } from '@orderloop/ui';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { ExportButtons } from '../components/ExportButtons';
 import { QueryBoundary } from '../components/QueryBoundary';
 import {
   invalidateStock,
@@ -46,6 +47,9 @@ const MOVEMENT_TONE = {
   RESERVE: 'warning',
   RELEASE: 'neutral',
   SHIP: 'neutral',
+  DAMAGE: 'error',
+  WRITE_OFF: 'neutral',
+  RETURN: 'success',
 } as const;
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 
@@ -53,10 +57,12 @@ function StockActions({
   canWrite,
   onPick,
   receiveOnly = false,
+  hasDamaged = false,
 }: {
   canWrite: boolean;
   onPick: (mode: StockMode) => void;
   receiveOnly?: boolean;
+  hasDamaged?: boolean;
 }) {
   if (!canWrite) return null;
   return (
@@ -72,6 +78,21 @@ function StockActions({
       {!receiveOnly && (
         <Button size="sm" variant="secondary" onPress={() => onPick('reserve')}>
           Reserve
+        </Button>
+      )}
+      {!receiveOnly && (
+        <Button size="sm" variant="secondary" onPress={() => onPick('damage')}>
+          Damaged
+        </Button>
+      )}
+      {!receiveOnly && hasDamaged && (
+        <Button size="sm" variant="secondary" onPress={() => onPick('writeOff')}>
+          Write off
+        </Button>
+      )}
+      {!receiveOnly && (
+        <Button size="sm" variant="secondary" onPress={() => onPick('return')}>
+          Return
         </Button>
       )}
     </Row>
@@ -145,13 +166,21 @@ function Levels({ ask }: { ask: (r: NonNullable<Request>) => void }) {
         ),
     },
     {
+      key: 'damaged',
+      header: 'Damaged',
+      align: 'right',
+      minWidth: 90,
+      render: (r) => String(r.damaged),
+    },
+    {
       key: 'actions',
       header: 'Actions',
       flex: 2,
-      minWidth: 260,
+      minWidth: 420,
       render: (r) => (
         <StockActions
           canWrite={can('inventory:write')}
+          hasDamaged={r.damaged > 0}
           onPick={(mode) =>
             ask({
               mode,
@@ -291,7 +320,9 @@ function Movements() {
       key: 'type',
       header: 'Type',
       minWidth: 120,
-      render: (m) => <Badge tone={MOVEMENT_TONE[m.type]}>{m.type.toLowerCase()}</Badge>,
+      render: (m) => (
+        <Badge tone={MOVEMENT_TONE[m.type]}>{m.type.toLowerCase().replace('_', ' ')}</Badge>
+      ),
     },
     { key: 'sku', header: 'SKU', flex: 2, render: (m) => m.sku },
     {
@@ -307,6 +338,13 @@ function Movements() {
       align: 'right',
       minWidth: 90,
       render: (m) => (m.reservedDelta ? signed(m.reservedDelta) : '—'),
+    },
+    {
+      key: 'damaged',
+      header: 'Damaged',
+      align: 'right',
+      minWidth: 90,
+      render: (m) => (m.damagedDelta ? signed(m.damagedDelta) : '—'),
     },
     {
       key: 'reason',
@@ -474,6 +512,7 @@ export function InventoryScreen() {
       <PageHeader
         title="Stock"
         description="How much of everything you have, where it is, and how it moved."
+        actions={<ExportButtons kinds={['stock']} />}
       />
       <Tabs label="Stock views" items={TABS} value={tab} onChange={(v) => setTab(v as Tab)} />
       {tab === 'levels' && <Levels ask={setRequest} />}

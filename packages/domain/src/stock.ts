@@ -3,24 +3,29 @@
  * UPDATEs (packages/catalog); this module is the executable specification both are tested against: replaying a ledger
  * with `replay` must always reproduce the stored stock level.
  *
- * Two quantities per variant and location:
- *   onHand   - physically on the shelf
+ * Three quantities per variant and location:
+ *   onHand   - sellable units physically on the shelf
  *   reserved - promised to open reservations
- * Available to sell = onHand - reserved. Invariants: 0 <= reserved <= onHand <= MAX_ON_HAND.
+ *   damaged  - physically here but unsellable (not part of onHand)
+ * Available to sell = onHand - reserved. Invariants: 0 <= reserved <= onHand <= MAX_ON_HAND and 0 <= damaged <= MAX_ON_HAND.
  */
 export const MAX_ON_HAND = 1_000_000_000;
 
 export interface StockLevel {
   onHand: number;
   reserved: number;
+  damaged: number;
 }
 
-export type MovementType = 'RECEIVE' | 'ADJUSTMENT' | 'RESERVE' | 'RELEASE' | 'SHIP';
+export type MovementType =
+  'RECEIVE' | 'ADJUSTMENT' | 'RESERVE' | 'RELEASE' | 'SHIP' | 'DAMAGE' | 'WRITE_OFF' | 'RETURN';
 
 export interface Movement {
   type: MovementType;
   onHandDelta: number;
   reservedDelta: number;
+  /** Omitted means 0. */
+  damagedDelta?: number;
 }
 
 export class StockInvariantError extends Error {
@@ -34,18 +39,32 @@ export const available = (level: StockLevel): number => level.onHand - level.res
 
 /** The allowed shape of each movement type. Mirrors the `stock_movements_shape` CHECK constraint in the database. */
 export function hasValidShape(m: Movement): boolean {
-  if (!Number.isSafeInteger(m.onHandDelta) || !Number.isSafeInteger(m.reservedDelta)) return false;
+  const d = m.damagedDelta ?? 0;
+  if (
+    !Number.isSafeInteger(m.onHandDelta) ||
+    !Number.isSafeInteger(m.reservedDelta) ||
+    !Number.isSafeInteger(d)
+  )
+    return false;
   switch (m.type) {
     case 'RECEIVE':
-      return m.onHandDelta > 0 && m.reservedDelta === 0;
+      return m.onHandDelta > 0 && m.reservedDelta === 0 && d === 0;
     case 'ADJUSTMENT':
-      return m.onHandDelta !== 0 && m.reservedDelta === 0;
+      return m.onHandDelta !== 0 && m.reservedDelta === 0 && d === 0;
     case 'RESERVE':
-      return m.onHandDelta === 0 && m.reservedDelta > 0;
+      return m.onHandDelta === 0 && m.reservedDelta > 0 && d === 0;
     case 'RELEASE':
-      return m.onHandDelta === 0 && m.reservedDelta < 0;
+      return m.onHandDelta === 0 && m.reservedDelta < 0 && d === 0;
     case 'SHIP':
-      return m.onHandDelta < 0 && m.reservedDelta === m.onHandDelta;
+      return m.onHandDelta < 0 && m.reservedDelta === m.onHandDelta && d === 0;
+    case 'DAMAGE':
+      return m.onHandDelta < 0 && m.reservedDelta === 0 && d === -m.onHandDelta;
+    case 'WRITE_OFF':
+      return m.onHandDelta === 0 && m.reservedDelta === 0 && d < 0;
+    case 'RETURN':
+      return (
+        m.reservedDelta === 0 && ((m.onHandDelta > 0 && d === 0) || (m.onHandDelta === 0 && d > 0))
+      );
   }
 }
 
@@ -55,17 +74,24 @@ export function isValidLevel(level: StockLevel): boolean {
     Number.isSafeInteger(level.reserved) &&
     level.reserved >= 0 &&
     level.reserved <= level.onHand &&
-    level.onHand <= MAX_ON_HAND
+    level.onHand <= MAX_ON_HAND &&
+    Number.isSafeInteger(level.damaged) &&
+    level.damaged >= 0 &&
+    level.damaged <= MAX_ON_HAND
   );
 }
 
 /** Apply one movement. Throws if the movement is malformed or would break an invariant (for example overselling). */
 export function applyMovement(level: StockLevel, m: Movement): StockLevel {
   if (!hasValidShape(m)) throw new StockInvariantError(`Malformed ${m.type} movement`);
-  const next = { onHand: level.onHand + m.onHandDelta, reserved: level.reserved + m.reservedDelta };
+  const next = {
+    onHand: level.onHand + m.onHandDelta,
+    reserved: level.reserved + m.reservedDelta,
+    damaged: level.damaged + (m.damagedDelta ?? 0),
+  };
   if (!isValidLevel(next)) {
     throw new StockInvariantError(
-      `${m.type} would leave onHand=${next.onHand}, reserved=${next.reserved}`,
+      `${m.type} would leave onHand=${next.onHand}, reserved=${next.reserved}, damaged=${next.damaged}`,
     );
   }
   return next;
@@ -74,7 +100,7 @@ export function applyMovement(level: StockLevel, m: Movement): StockLevel {
 /** Reproduce a stock level from its ledger. */
 export function replay(
   movements: readonly Movement[],
-  start: StockLevel = { onHand: 0, reserved: 0 },
+  start: StockLevel = { onHand: 0, reserved: 0, damaged: 0 },
 ): StockLevel {
   return movements.reduce(applyMovement, start);
 }
@@ -105,5 +131,28 @@ export const movement = {
     type: 'SHIP',
     onHandDelta: -quantity,
     reservedDelta: -quantity,
+  }),
+  damage: (quantity: number): Movement => ({
+    type: 'DAMAGE',
+    onHandDelta: -quantity,
+    reservedDelta: 0,
+    damagedDelta: quantity,
+  }),
+  writeOff: (quantity: number): Movement => ({
+    type: 'WRITE_OFF',
+    onHandDelta: 0,
+    reservedDelta: 0,
+    damagedDelta: -quantity,
+  }),
+  returnResaleable: (quantity: number): Movement => ({
+    type: 'RETURN',
+    onHandDelta: quantity,
+    reservedDelta: 0,
+  }),
+  returnDamaged: (quantity: number): Movement => ({
+    type: 'RETURN',
+    onHandDelta: 0,
+    reservedDelta: 0,
+    damagedDelta: quantity,
   }),
 };

@@ -207,6 +207,13 @@ export function createApiClient(options: ApiClientOptions) {
       update: (id: string, body: RouteInput<typeof routes.updateLocation>['body']) =>
         call(routes.updateLocation, { params: { id }, body }),
     },
+    suppliers: {
+      list: () => call(routes.listSuppliers),
+      create: (body: RouteInput<typeof routes.createSupplier>['body']) =>
+        call(routes.createSupplier, { body }),
+      update: (id: string, body: RouteInput<typeof routes.updateSupplier>['body']) =>
+        call(routes.updateSupplier, { params: { id }, body }),
+    },
     inventory: {
       list: (query: RouteInput<typeof routes.listInventory>['query'] = {}) =>
         call(routes.listInventory, { query }),
@@ -216,7 +223,18 @@ export function createApiClient(options: ApiClientOptions) {
         call(routes.adjustStock, { body }),
       movements: (query: RouteInput<typeof routes.listMovements>['query'] = {}) =>
         call(routes.listMovements, { query }),
+      damage: (body: RouteInput<typeof routes.damageStock>['body']) =>
+        call(routes.damageStock, { body }),
+      writeOff: (body: RouteInput<typeof routes.writeOffStock>['body']) =>
+        call(routes.writeOffStock, { body }),
+      /** For the returns workflow: `idempotencyKey` makes processing the same return twice add the units once. */
+      return: (body: RouteInput<typeof routes.returnStock>['body']) =>
+        call(routes.returnStock, { body }),
       lowStock: () => call(routes.lowStock),
+    },
+    exports: {
+      products: () => call(routes.exportProducts),
+      stock: () => call(routes.exportStock),
     },
     reservations: {
       list: (query: RouteInput<typeof routes.listReservations>['query'] = {}) =>
@@ -229,6 +247,8 @@ export function createApiClient(options: ApiClientOptions) {
     imports: {
       /** Starts a background import and returns at once; poll `get` until the status is COMPLETED or FAILED. */
       products: (csv: string) => call(routes.importProducts, { body: { csv } }),
+      /** What the import would do, without changing anything. */
+      validateProducts: (csv: string) => call(routes.validateProductImport, { body: { csv } }),
       get: (id: string) => call(routes.getImport, { params: { id } }),
       list: () => call(routes.listImports),
     },

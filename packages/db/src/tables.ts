@@ -8,6 +8,7 @@ export const TENANT_TABLES = [
   'invitations',
   'audit_logs',
   'categories',
+  'suppliers',
   'products',
   'product_variants',
   'stock_locations',

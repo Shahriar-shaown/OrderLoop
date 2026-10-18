@@ -16,6 +16,7 @@ export { NewProductScreen } from './screens/NewProductScreen';
 export { ProductDetailScreen } from './screens/ProductDetailScreen';
 export { InventoryScreen } from './screens/InventoryScreen';
 export { CategoriesScreen } from './screens/CategoriesScreen';
+export { SuppliersScreen } from './screens/SuppliersScreen';
 export { LocationsScreen } from './screens/LocationsScreen';
 export { ImportsScreen } from './screens/ImportsScreen';
 export { HomeScreen } from './screens/HomeScreen';

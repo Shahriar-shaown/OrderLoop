@@ -45,6 +45,43 @@ export type CategoryBody = z.infer<typeof CategoryBody>;
 export const Category = z.object({ id: Uuid, name: z.string() });
 export type Category = z.infer<typeof Category>;
 
+// ---- suppliers ------------------------------------------------------------------------------------------------------
+const OptionalText = (max: number) => z.string().trim().min(1).max(max).nullable().optional();
+export const SupplierBody = z.object({
+  name: Name(150),
+  contactName: OptionalText(100),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9][0-9 ()-]{5,19}$/, 'Enter a valid phone number')
+    .nullable()
+    .optional(),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email('Enter a valid email address')
+    .max(254)
+    .nullable()
+    .optional(),
+  address: OptionalText(300),
+  notes: OptionalText(1000),
+});
+export type SupplierBody = z.infer<typeof SupplierBody>;
+export const SupplierUpdate = SupplierBody.partial().extend({ archived: z.boolean().optional() });
+export type SupplierUpdate = z.infer<typeof SupplierUpdate>;
+export const Supplier = z.object({
+  id: Uuid,
+  name: z.string(),
+  contactName: z.string().nullable(),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  address: z.string().nullable(),
+  notes: z.string().nullable(),
+  archived: z.boolean(),
+});
+export type Supplier = z.infer<typeof Supplier>;
+
 // ---- products and variants ------------------------------------------------------------------------------------------
 const Attributes = z
   .record(z.string().min(1).max(40), z.string().max(100))
@@ -76,7 +113,9 @@ export type VariantUpdate = z.infer<typeof VariantUpdate>;
 export const StockTotals = z.object({
   onHand: z.number().int(),
   reserved: z.number().int(),
+  /** onHand - reserved. Damaged stock is separate and never available. */
   available: z.number().int(),
+  damaged: z.number().int(),
 });
 export type StockTotals = z.infer<typeof StockTotals>;
 
@@ -99,10 +138,24 @@ export type Variant = z.infer<typeof Variant>;
 export const ProductStatus = z.enum(['ACTIVE', 'ARCHIVED']);
 export type ProductStatus = z.infer<typeof ProductStatus>;
 
+/** Picture links. Only https, so a page served over https never loads mixed content. Pictures are not uploaded yet. */
+export const ImageUrls = z
+  .array(
+    z
+      .string()
+      .trim()
+      .max(2048, 'Link is too long')
+      .url('Enter a valid link')
+      .refine((v) => v.startsWith('https://'), 'Picture links must start with https://'),
+  )
+  .max(8, 'At most 8 pictures');
+
 export const ProductBody = z.object({
   name: Name(200),
   description: z.string().trim().max(2000).optional(),
   categoryId: Uuid.optional(),
+  supplierId: Uuid.optional(),
+  imageUrls: ImageUrls.default([]),
   unit: Unit.default('pcs'),
   variants: z.array(VariantInput).min(1, 'A product needs at least one variant').max(50),
 });
@@ -112,6 +165,8 @@ export const ProductUpdate = z.object({
   name: Name(200).optional(),
   description: z.string().trim().max(2000).nullable().optional(),
   categoryId: Uuid.nullable().optional(),
+  supplierId: Uuid.nullable().optional(),
+  imageUrls: ImageUrls.optional(),
   unit: Unit.optional(),
   status: ProductStatus.optional(),
 });
@@ -122,6 +177,8 @@ export const Product = z.object({
   name: z.string(),
   description: z.string().nullable(),
   categoryId: Uuid.nullable(),
+  supplierId: Uuid.nullable(),
+  imageUrls: z.array(z.string()),
   unit: Unit,
   status: ProductStatus,
   createdAt: z.string(),
@@ -168,6 +225,7 @@ export const StockLine = z.object({
   onHand: z.number().int(),
   reserved: z.number().int(),
   available: z.number().int(),
+  damaged: z.number().int(),
   reorderPoint: z.number().int(),
 });
 export type StockLine = z.infer<typeof StockLine>;
@@ -213,6 +271,36 @@ export const AdjustBody = z.object({
 });
 export type AdjustBody = z.infer<typeof AdjustBody>;
 
+/** Move sellable units to the damaged bucket (broken, spoiled, water-damaged). Needs a reason; cannot cut into reserved stock. */
+export const DamageBody = z.object({
+  variantId: Uuid,
+  locationId: Uuid.optional(),
+  quantity: Quantity,
+  reason: z.string().trim().min(3, 'Say what happened').max(200),
+  idempotencyKey: IdempotencyKey.optional(),
+});
+export type DamageBody = z.infer<typeof DamageBody>;
+
+/** Dispose of damaged units for good. */
+export const WriteOffBody = DamageBody;
+export type WriteOffBody = z.infer<typeof WriteOffBody>;
+
+/**
+ * Units coming back from a customer, for the returns workflow. `idempotencyKey` is required: the same return processed
+ * twice (a retry, a duplicate webhook) must add the units once. Use a key derived from the return, such as
+ * `return:<returnId>:<variantId>`.
+ */
+export const ReturnBody = z.object({
+  variantId: Uuid,
+  locationId: Uuid.optional(),
+  quantity: Quantity,
+  condition: z.enum(['RESALEABLE', 'DAMAGED']),
+  reason: z.string().trim().max(200).optional(),
+  idempotencyKey: IdempotencyKey,
+  ...Reference,
+});
+export type ReturnBody = z.infer<typeof ReturnBody>;
+
 export const StockChange = z.object({
   movementId: Uuid,
   variantId: Uuid,
@@ -220,10 +308,20 @@ export const StockChange = z.object({
   onHand: z.number().int(),
   reserved: z.number().int(),
   available: z.number().int(),
+  damaged: z.number().int(),
 });
 export type StockChange = z.infer<typeof StockChange>;
 
-export const MovementType = z.enum(['RECEIVE', 'ADJUSTMENT', 'RESERVE', 'RELEASE', 'SHIP']);
+export const MovementType = z.enum([
+  'RECEIVE',
+  'ADJUSTMENT',
+  'RESERVE',
+  'RELEASE',
+  'SHIP',
+  'DAMAGE',
+  'WRITE_OFF',
+  'RETURN',
+]);
 export type MovementType = z.infer<typeof MovementType>;
 export const Movement = z.object({
   id: Uuid,
@@ -233,6 +331,7 @@ export const Movement = z.object({
   locationId: Uuid,
   onHandDelta: z.number().int(),
   reservedDelta: z.number().int(),
+  damagedDelta: z.number().int(),
   reason: z.string().nullable(),
   referenceType: z.string().nullable(),
   referenceId: z.string().nullable(),
@@ -264,6 +363,7 @@ export const LowStockItem = z.object({
   onHand: z.number().int(),
   reserved: z.number().int(),
   available: z.number().int(),
+  damaged: z.number().int(),
 });
 export type LowStockItem = z.infer<typeof LowStockItem>;
 
@@ -305,7 +405,7 @@ export type ReservationPage = z.infer<typeof ReservationPage>;
 
 // ---- imports --------------------------------------------------------------------------------------------------------
 export const ImportBody = z.object({
-  /** The CSV text. Columns: product_name, sku, price (required); category, unit, variant_name, cost, reorder_point, barcode, description, opening_stock, location. */
+  /** The CSV text. Columns: product_name, sku, price (required); category, unit, variant_name, size, colour, cost, reorder_point, barcode, description, supplier, opening_stock, location. */
   csv: z.string().min(1).max(2_000_000),
 });
 export type ImportBody = z.infer<typeof ImportBody>;
@@ -325,3 +425,28 @@ export const ImportJob = z.object({
   finishedAt: z.string().nullable(),
 });
 export type ImportJob = z.infer<typeof ImportJob>;
+
+/**
+ * What an import would do, worked out without changing anything. Show it, let the person fix the file, and only then
+ * start the import. `errors` lists the first 100 problems; `errorCount` is the real total.
+ */
+export const ImportPreview = z.object({
+  /** Set when the file cannot be used at all (bad header, too large). Then the other counts are zero. */
+  fatal: z.string().nullable(),
+  totalRows: z.number().int(),
+  /** Rows that would be applied. */
+  validRows: z.number().int(),
+  willCreate: z.number().int(),
+  willUpdate: z.number().int(),
+  errorCount: z.number().int(),
+  errors: z.array(z.object({ row: z.number().int(), message: z.string() })),
+});
+export type ImportPreview = z.infer<typeof ImportPreview>;
+
+/** A CSV file produced by the API; the client saves it. */
+export const CsvExport = z.object({
+  filename: z.string(),
+  rowCount: z.number().int(),
+  csv: z.string(),
+});
+export type CsvExport = z.infer<typeof CsvExport>;

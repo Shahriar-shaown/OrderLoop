@@ -19,12 +19,21 @@ export const invalidateStock = (client: QueryClient) =>
     ),
   );
 
-export type StockMode = 'receive' | 'adjust' | 'reserve';
+export type StockMode = 'receive' | 'adjust' | 'reserve' | 'damage' | 'writeOff' | 'return';
 const TITLES: Record<StockMode, string> = {
   receive: 'Receive stock',
   adjust: 'Adjust stock',
   reserve: 'Reserve stock',
+  damage: 'Mark as damaged',
+  writeOff: 'Write off damaged',
+  return: 'Record a return',
 };
+/** Modes that must say why: every change to stock is explained in the ledger. */
+const NEEDS_REASON: StockMode[] = ['adjust', 'damage', 'writeOff'];
+const CONDITIONS = [
+  { value: 'RESALEABLE', label: 'Resaleable: goes back on the shelf' },
+  { value: 'DAMAGED', label: 'Damaged: goes to the damaged bucket' },
+];
 
 function StockForm({
   mode,
@@ -47,6 +56,7 @@ function StockForm({
     amount: '',
     reason: '',
     reference: '',
+    condition: 'RESALEABLE',
   });
 
   const locationOptions = useMemo(
@@ -72,7 +82,8 @@ function StockForm({
           : 'Enter 1 or more';
     else if (Math.abs(amount) > 1_000_000) found.amount = 'That is more than 1,000,000';
     const reason = form.values.reason.trim();
-    if (mode === 'adjust' && reason.length < 3) found.reason = 'Say why (at least 3 characters)';
+    if (NEEDS_REASON.includes(mode) && reason.length < 3)
+      found.reason = 'Say why (at least 3 characters)';
     form.setFormError('');
     if (Object.keys(found).length) return form.setErrors(found);
 
@@ -94,7 +105,34 @@ function StockForm({
           ...(locationId ? { locationId } : {}),
           idempotencyKey: key,
         });
-      else {
+      else if (mode === 'damage')
+        await api.inventory.damage({
+          variantId: variant.id,
+          quantity: amount,
+          reason,
+          ...(locationId ? { locationId } : {}),
+          idempotencyKey: key,
+        });
+      else if (mode === 'writeOff')
+        await api.inventory.writeOff({
+          variantId: variant.id,
+          quantity: amount,
+          reason,
+          ...(locationId ? { locationId } : {}),
+          idempotencyKey: key,
+        });
+      else if (mode === 'return') {
+        const reference = form.values.reference.trim();
+        await api.inventory.return({
+          variantId: variant.id,
+          quantity: amount,
+          condition: form.values.condition as 'RESALEABLE' | 'DAMAGED',
+          ...(reason ? { reason } : {}),
+          ...(locationId ? { locationId } : {}),
+          ...(reference ? { referenceType: 'return', referenceId: reference } : {}),
+          idempotencyKey: key,
+        });
+      } else {
         const reference = form.values.reference.trim();
         await api.reservations.create({
           variantId: variant.id,
@@ -147,18 +185,35 @@ function StockForm({
             : undefined
         }
       />
+      {mode === 'return' && (
+        <SelectField
+          label="Condition"
+          options={CONDITIONS}
+          value={form.values.condition}
+          onChange={(v) => form.set('condition', v)}
+          error={form.errors.condition}
+        />
+      )}
       {mode !== 'reserve' && (
         <TextField
-          label={mode === 'adjust' ? 'Reason' : 'Note (optional)'}
-          required={mode === 'adjust'}
-          placeholder={mode === 'adjust' ? 'Stock take, damaged, lost…' : 'Supplier delivery…'}
+          label={NEEDS_REASON.includes(mode) ? 'Reason' : 'Note (optional)'}
+          required={NEEDS_REASON.includes(mode)}
+          placeholder={
+            mode === 'adjust'
+              ? 'Stock take, lost…'
+              : mode === 'damage'
+                ? 'Broken, water damage, expired…'
+                : mode === 'writeOff'
+                  ? 'Thrown away, returned to supplier…'
+                  : 'Supplier delivery…'
+          }
           {...form.field('reason')}
         />
       )}
-      {mode === 'reserve' && (
+      {(mode === 'reserve' || mode === 'return') && (
         <TextField
           label="Reference (optional)"
-          placeholder="Order or basket number"
+          placeholder={mode === 'return' ? 'Return or order number' : 'Order or basket number'}
           value={form.values.reference}
           onChangeText={(t) => form.set('reference', t)}
           error={form.errors.referenceId}

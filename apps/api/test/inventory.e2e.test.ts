@@ -33,10 +33,37 @@ const reserve = (variantId: string, quantity: number, extra: object = {}) =>
     .post('/v1/reservations')
     .set(auth())
     .send({ variantId, quantity, ...extra });
+const damage = (variantId: string, quantity: number, extra: object = {}) =>
+  t.http
+    .post('/v1/inventory/damage')
+    .set(auth())
+    .send({ variantId, quantity, reason: 'broken in storage', ...extra });
+const writeOff = (variantId: string, quantity: number, extra: object = {}) =>
+  t.http
+    .post('/v1/inventory/write-off')
+    .set(auth())
+    .send({ variantId, quantity, reason: 'thrown away', ...extra });
+let returnSeq = 0;
+const giveBack = (
+  variantId: string,
+  quantity: number,
+  condition: 'RESALEABLE' | 'DAMAGED',
+  extra: object = {},
+) =>
+  t.http
+    .post('/v1/inventory/return')
+    .set(auth())
+    .send({
+      variantId,
+      quantity,
+      condition,
+      idempotencyKey: `return-test-${Date.now()}-${++returnSeq}`,
+      ...extra,
+    });
 const level = async (variantId: string) => {
   const rows = (await t.http.get(`/v1/inventory?variantId=${variantId}`).set(auth())).body
-    .items as { onHand: number; reserved: number; available: number }[];
-  return rows[0] ?? { onHand: 0, reserved: 0, available: 0 };
+    .items as { onHand: number; reserved: number; available: number; damaged: number }[];
+  return rows[0] ?? { onHand: 0, reserved: 0, available: 0, damaged: 0 };
 };
 const newVariant = async (extra: Parameters<typeof createProduct>[2] = {}) =>
   (await createProduct(t, owner.accessToken, extra)).variant.id;
@@ -59,6 +86,7 @@ async function assertBooksBalance(variantId: string) {
       const mine = movements.filter((m) => m.locationId === lv.locationId);
       expect(lv.onHand).toBe(mine.reduce((n, m) => n + m.onHandDelta, 0));
       expect(lv.reserved).toBe(mine.reduce((n, m) => n + m.reservedDelta, 0));
+      expect(lv.damaged).toBe(mine.reduce((n, m) => n + m.damagedDelta, 0));
       expect(lv.reserved).toBeGreaterThanOrEqual(0);
       expect(lv.reserved).toBeLessThanOrEqual(lv.onHand);
       let replayed: StockLevel;
@@ -68,12 +96,13 @@ async function assertBooksBalance(variantId: string) {
             type: m.type,
             onHandDelta: m.onHandDelta,
             reservedDelta: m.reservedDelta,
+            damagedDelta: m.damagedDelta,
           })),
         );
       } catch (error) {
         throw new Error(`ledger replay hit an invariant violation: ${(error as Error).message}`);
       }
-      expect(replayed).toEqual({ onHand: lv.onHand, reserved: lv.reserved });
+      expect(replayed).toEqual({ onHand: lv.onHand, reserved: lv.reserved, damaged: lv.damaged });
       const active = await tx.reservation.aggregate({
         where: {
           tenantId: owner.tenant.id,
@@ -614,7 +643,10 @@ type Op =
   | { kind: 'adjust'; d: number }
   | { kind: 'reserve'; q: number }
   | { kind: 'release'; pick: number }
-  | { kind: 'fulfil'; pick: number };
+  | { kind: 'fulfil'; pick: number }
+  | { kind: 'damage'; q: number }
+  | { kind: 'writeoff'; q: number }
+  | { kind: 'return'; q: number; ok: boolean };
 
 const opArb: fc.Arbitrary<Op> = fc.oneof(
   {
@@ -634,6 +666,17 @@ const opArb: fc.Arbitrary<Op> = fc.oneof(
   },
   { weight: 2, arbitrary: fc.nat(1000).map((pick): Op => ({ kind: 'release', pick })) },
   { weight: 2, arbitrary: fc.nat(1000).map((pick): Op => ({ kind: 'fulfil', pick })) },
+  { weight: 2, arbitrary: fc.integer({ min: 1, max: 30 }).map((q): Op => ({ kind: 'damage', q })) },
+  {
+    weight: 1,
+    arbitrary: fc.integer({ min: 1, max: 30 }).map((q): Op => ({ kind: 'writeoff', q })),
+  },
+  {
+    weight: 1,
+    arbitrary: fc
+      .tuple(fc.integer({ min: 1, max: 30 }), fc.boolean())
+      .map(([q, ok]): Op => ({ kind: 'return', q, ok })),
+  },
 );
 
 describe('property tests: the real system agrees with the pure ledger rules', () => {
@@ -641,17 +684,32 @@ describe('property tests: the real system agrees with the pure ledger rules', ()
     await fc.assert(
       fc.asyncProperty(fc.array(opArb, { minLength: 5, maxLength: 40 }), async (ops) => {
         const variantId = await newVariant();
-        let model: StockLevel = { onHand: 0, reserved: 0 };
+        let model: StockLevel = { onHand: 0, reserved: 0, damaged: 0 };
         const active: { id: string; q: number }[] = [];
 
         for (const op of ops) {
-          if (op.kind === 'receive' || op.kind === 'adjust' || op.kind === 'reserve') {
+          if (
+            op.kind === 'receive' ||
+            op.kind === 'adjust' ||
+            op.kind === 'reserve' ||
+            op.kind === 'damage' ||
+            op.kind === 'writeoff' ||
+            op.kind === 'return'
+          ) {
             const m =
               op.kind === 'receive'
                 ? movement.receive(op.q)
                 : op.kind === 'adjust'
                   ? movement.adjust(op.d)
-                  : movement.reserve(op.q);
+                  : op.kind === 'damage'
+                    ? movement.damage(op.q)
+                    : op.kind === 'writeoff'
+                      ? movement.writeOff(op.q)
+                      : op.kind === 'return'
+                        ? op.ok
+                          ? movement.returnResaleable(op.q)
+                          : movement.returnDamaged(op.q)
+                        : movement.reserve(op.q);
             let expected: StockLevel | null;
             try {
               expected = applyMovement(model, m);
@@ -664,7 +722,13 @@ describe('property tests: the real system agrees with the pure ledger rules', ()
                 ? await receive(variantId, op.q)
                 : op.kind === 'adjust'
                   ? await adjust(variantId, op.d)
-                  : await reserve(variantId, op.q);
+                  : op.kind === 'damage'
+                    ? await damage(variantId, op.q)
+                    : op.kind === 'writeoff'
+                      ? await writeOff(variantId, op.q)
+                      : op.kind === 'return'
+                        ? await giveBack(variantId, op.q, op.ok ? 'RESALEABLE' : 'DAMAGED')
+                        : await reserve(variantId, op.q);
             if (expected) {
               expect(res.status, `${JSON.stringify(op)} on ${JSON.stringify(model)}`).toBe(201);
               model = expected;
@@ -687,7 +751,11 @@ describe('property tests: the real system agrees with the pure ledger rules', ()
             );
           }
           const actual = await level(variantId);
-          expect({ onHand: actual.onHand, reserved: actual.reserved }).toEqual(model);
+          expect({
+            onHand: actual.onHand,
+            reserved: actual.reserved,
+            damaged: actual.damaged,
+          }).toEqual(model);
           expect(actual.available).toBeGreaterThanOrEqual(0);
         }
         await assertBooksBalance(variantId);
@@ -709,6 +777,10 @@ describe('property tests: the real system agrees with the pure ledger rules', ()
               burst.map(async (op) => {
                 if (op.kind === 'receive') return receive(variantId, op.q);
                 if (op.kind === 'adjust') return adjust(variantId, op.d);
+                if (op.kind === 'damage') return damage(variantId, op.q);
+                if (op.kind === 'writeoff') return writeOff(variantId, op.q);
+                if (op.kind === 'return')
+                  return giveBack(variantId, op.q, op.ok ? 'RESALEABLE' : 'DAMAGED');
                 if (op.kind === 'reserve') {
                   const res = await reserve(variantId, op.q);
                   if (res.status === 201) active.push(res.body.id);

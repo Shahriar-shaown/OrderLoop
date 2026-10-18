@@ -337,3 +337,28 @@ settings; unit tests for the contract rules, the permission matrix and the nativ
 **Known limits:** the logo is a link, not an upload (no file storage yet); screens are not translated into Bangla yet (the
 preferences are stored and returned); the mobile app has no catalog screens yet; a person can own at most 10 businesses;
 the mobile screens were type-checked and bundled for iOS but not driven on a simulator or device in this session.
+
+## 13. Milestone: products and inventory module (2026-10-19)
+
+Full design and the contract for orders and returns: [inventory.md](inventory.md).
+
+**Found already in place (not rebuilt):** products with variants, SKU, description, cost and selling price in whole paisa,
+reorder threshold, archiving and search, locations, the append-only ledger, reservations, low-stock alerts, receive and adjust
+with reasons, background CSV import, and the concurrency tests behind "no overselling".
+
+**Delivered:** suppliers; picture links; size and colour on variants (form and CSV); a **damaged** stock bucket with `DAMAGE`,
+`WRITE_OFF` and `RETURN` ledger movements (database constraints, pure model, API, screens); returns that require an
+idempotency key so a return processed twice adds units once; CSV **check before apply** (what would be created, updated or
+skipped, with every problem row) and CSV **export** (catalog in the import columns, stock per location) with formula-injection
+protection and auditing; web screens for all of it; the mobile app now has products, product page, stock and suppliers screens
+built from the same shared screens.
+
+**Verification:** inventory-module suite (25 API tests: product fields, suppliers incl. cross-business, damage / write-off /
+return, idempotent returns and cancellations, exports, import preview), the existing property tests now mixing damaged stock
+and returns into random sequential and concurrent runs, import through the real worker with the new columns, tenant-isolation
+suite (now including `suppliers`), domain model and CSV tests, shared-screen render tests, web Playwright flows, mobile route
+and storage tests.
+
+**Known limits:** a supplier is a label on a product (no purchase orders yet); no transfers between locations; pictures are
+links; mobile has no file import, categories or locations screens; the mobile screens were type-checked, bundled for iOS and
+rendered in tests through the shared components, but not driven on a simulator or device.

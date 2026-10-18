@@ -16,7 +16,10 @@ export function VariantFields({
   prefix: string;
   lockSku?: boolean;
 }) {
-  const bind = (field: keyof VariantValues, errorKey: string) => ({
+  const bind = (
+    field: Exclude<keyof VariantValues, 'otherAttributes' | 'key'>,
+    errorKey: string,
+  ) => ({
     value: value[field],
     onChangeText: (text: string) => onChange({ ...value, [field]: text }),
     error: errors[`${prefix}.${errorKey}`],
@@ -37,6 +40,8 @@ export function VariantFields({
         placeholder="e.g. Red / M"
         hint="Optional for single-variant products."
       />
+      <TextField label="Size" {...bind('size', 'attributes')} placeholder="e.g. M, 42, 1 kg" />
+      <TextField label="Colour" {...bind('colour', 'attributes')} placeholder="e.g. Red" />
       <TextField
         label="Price (৳)"
         {...bind('price', 'priceMinor')}

@@ -11,6 +11,10 @@ export interface VariantValues {
   cost: string;
   reorderPoint: string;
   barcode: string;
+  size: string;
+  colour: string;
+  /** Attributes the form does not show (set elsewhere, for example by an import); kept as they are on save. */
+  otherAttributes: Record<string, string>;
 }
 
 let counter = 0;
@@ -22,9 +26,13 @@ export const emptyVariant = (): VariantValues => ({
   cost: '',
   reorderPoint: '',
   barcode: '',
+  size: '',
+  colour: '',
+  otherAttributes: {},
 });
 
 export function variantToValues(v: Variant): VariantValues {
+  const { size = '', colour = '', ...otherAttributes } = v.attributes;
   return {
     key: v.id,
     sku: v.sku,
@@ -33,6 +41,9 @@ export function variantToValues(v: Variant): VariantValues {
     cost: v.costMinor === null ? '' : priceToInput(v.costMinor),
     reorderPoint: v.reorderPoint ? String(v.reorderPoint) : '',
     barcode: v.barcode ?? '',
+    size,
+    colour,
+    otherAttributes,
   };
 }
 
@@ -59,10 +70,16 @@ export function toVariantInput(
   return {
     value: {
       sku: v.sku,
-      name: v.name.trim(),
+      // Left blank, a variant with a size or colour is called "Red / M" (the import does the same).
+      name: v.name.trim() || [v.colour.trim(), v.size.trim()].filter(Boolean).join(' / '),
       priceMinor: price ?? 0,
       costMinor: cost,
       barcode: v.barcode.trim() === '' ? null : v.barcode.trim(),
+      attributes: {
+        ...v.otherAttributes,
+        ...(v.size.trim() ? { size: v.size.trim() } : {}),
+        ...(v.colour.trim() ? { colour: v.colour.trim() } : {}),
+      },
       reorderPoint: Number.isInteger(reorder) && reorder >= 0 ? reorder : 0,
     } as never,
     errors,

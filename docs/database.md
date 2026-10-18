@@ -33,6 +33,7 @@ identity or unguessable secrets.
 | `refresh_tokens` | global | `session_id`, `token_hash` (unique), `expires_at`, `used_at` (set when exchanged; presenting a used token is theft), `replaced_by_id` (rotation chain).                                                                                                                                                                                                                            |
 | `user_tokens`    | global | One-time emailed tokens. `user_id`, `purpose` (`EMAIL_VERIFICATION` or `PASSWORD_RESET`), `token_hash` (unique), `expires_at`, `used_at`.                                                                                                                                                                                                                                          |
 | `tenants`        | tenant | The business: `name`, `logo_url`, `contact_email`, `contact_phone`, address (`address_line1/2`, `city`, `district`, `postal_code`, `country` default `BD`), `currency` (default `BDT`), `timezone` (default `Asia/Dhaka`), `default_language` (`en`/`bn`). RLS: a row is visible when its `id` is the current tenant, and also (read-only) to a person who has a membership in it. |
+| `suppliers`      | tenant | Who a business buys from: `name` (unique per tenant by `name_key`), `contact_name`, `phone`, `email`, `address`, `notes`, `archived_at`. Products point at one with `supplier_id` (same tenant, checked by the application like the category).                                                                                                                                     |
 | `memberships`    | tenant | `tenant_id`, `user_id`, `role` (`OWNER`, `ADMIN`, `MANAGER`, `STAFF`, `ACCOUNTANT`). Unique on (`tenant_id`, `user_id`).                                                                                                                                                                                                                                                           |
 | `invitations`    | tenant | `tenant_id`, `email`, `role`, `token_hash` (unique), `invited_by_id`, `expires_at`, `accepted_at`, `revoked_at`.                                                                                                                                                                                                                                                                   |
 | `audit_logs`     | tenant | Append-only security and administration trail. `tenant_id` (null for events with no tenant, such as a failed sign-in for an unknown address), `actor_user_id`, `action`, `target_type`, `target_id`, `metadata`, `ip`.                                                                                                                                                             |
@@ -52,16 +53,16 @@ users 1──* memberships *──1 tenants 1──* invitations
 Eight more tenant tables, all with `tenant_id`, forced row-level security and composite foreign keys `(tenant_id, id)`, so a
 child row can never point at another business's parent even if application code tried.
 
-| Table              | Purpose                                                                                                                                                                                                                         |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `categories`       | `name`, `name_key` (lower-cased; unique per tenant).                                                                                                                                                                            |
-| `products`         | `name`, `name_key`, `description`, `category_id` (optional), `unit`, `status` (`ACTIVE`/`ARCHIVED`).                                                                                                                            |
-| `product_variants` | One SKU. `sku` (upper-case, unique per tenant, immutable), `name`, `attributes` (JSON), `price_minor` and `cost_minor` (integer paisa), `barcode`, `reorder_point`, `archived_at`.                                              |
-| `stock_locations`  | `name`, `name_key` (unique per tenant), `is_default` (at most one per tenant, by a partial unique index), `archived_at`.                                                                                                        |
-| `stock_levels`     | Current `on_hand` and `reserved` per (`variant_id`, `location_id`). Primary key is (`tenant_id`, `variant_id`, `location_id`).                                                                                                  |
-| `stock_movements`  | The **append-only ledger**: `type`, signed `on_hand_delta` and `reserved_delta`, `reason`, `reference_type`/`reference_id`, `reservation_id`, `idempotency_key` (unique per tenant), `created_by_id`, and `seq` (strict order). |
-| `reservations`     | Held stock: `quantity`, `status` (`ACTIVE`/`RELEASED`/`FULFILLED`), optional reference, `resolved_at`.                                                                                                                          |
-| `import_jobs`      | A CSV import: `status`, counts, first 100 row `errors`, and the raw `csv` only until processing ends.                                                                                                                           |
+| Table              | Purpose                                                                                                                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `categories`       | `name`, `name_key` (lower-cased; unique per tenant).                                                                                                                                                                                             |
+| `products`         | `name`, `name_key`, `description`, `category_id` and `supplier_id` (optional), `image_urls` (https links), `unit`, `status` (`ACTIVE`/`ARCHIVED`).                                                                                               |
+| `product_variants` | One SKU. `sku` (upper-case, unique per tenant, immutable), `name`, `attributes` (JSON), `price_minor` and `cost_minor` (integer paisa), `barcode`, `reorder_point`, `archived_at`.                                                               |
+| `stock_locations`  | `name`, `name_key` (unique per tenant), `is_default` (at most one per tenant, by a partial unique index), `archived_at`.                                                                                                                         |
+| `stock_levels`     | Current `on_hand`, `reserved` and `damaged` per (`variant_id`, `location_id`). Primary key is (`tenant_id`, `variant_id`, `location_id`).                                                                                                        |
+| `stock_movements`  | The **append-only ledger**: `type`, signed `on_hand_delta`, `reserved_delta` and `damaged_delta`, `reason`, `reference_type`/`reference_id`, `reservation_id`, `idempotency_key` (unique per tenant), `created_by_id`, and `seq` (strict order). |
+| `reservations`     | Held stock: `quantity`, `status` (`ACTIVE`/`RELEASED`/`FULFILLED`), optional reference, `resolved_at`.                                                                                                                                           |
+| `import_jobs`      | A CSV import: `status`, counts, first 100 row `errors`, and the raw `csv` only until processing ends.                                                                                                                                            |
 
 `products.category_id` is a plain foreign key rather than a composite one (Prisma cannot express a composite key whose second
 column is nullable); the application checks that the category belongs to the same tenant, and a category from another tenant
@@ -71,11 +72,12 @@ is invisible under RLS anyway.
 
 These are `CHECK` constraints and indexes, so they hold even if application code has a bug:
 
-- `stock_levels`: `on_hand >= 0`, `reserved >= 0`, **`reserved <= on_hand`** (this is what makes overselling impossible), and
-  `on_hand <= 1,000,000,000`.
+- `stock_levels`: `on_hand >= 0`, `reserved >= 0`, **`reserved <= on_hand`** (this is what makes overselling impossible), `damaged >= 0`, and
+  `on_hand`, `damaged` `<= 1,000,000,000`. Damaged units are outside `on_hand`, so they can never be reserved or sold.
 - `stock_movements` must have the shape of its type: `RECEIVE` has `on_hand_delta > 0` and no reserved change; `ADJUSTMENT` a
   non-zero `on_hand_delta`; `RESERVE` a positive `reserved_delta`; `RELEASE` a negative one; `SHIP` equal negative changes to
-  both. The ledger cannot describe an impossible event.
+  both; `DAMAGE` moves exactly as many units out of `on_hand` as into `damaged`; `WRITE_OFF` only lowers `damaged`; `RETURN`
+  adds to `on_hand` or to `damaged`, never both. The ledger cannot describe an impossible event.
 - `reservations.quantity > 0`; `price_minor`, `cost_minor`, `reorder_point` are never negative.
 - The runtime role has **no `UPDATE`, `DELETE` or `TRUNCATE` on `stock_movements`** (like `audit_logs`): history cannot be rewritten.
 

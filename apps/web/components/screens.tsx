@@ -16,6 +16,7 @@ export {
   ProductsScreen,
   ResetPasswordScreen,
   SignupScreen,
+  SuppliersScreen,
   VerifyEmailScreen,
   WorkspaceCreateScreen,
   WorkspaceSettingsScreen,

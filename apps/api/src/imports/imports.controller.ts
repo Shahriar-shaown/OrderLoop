@@ -1,11 +1,19 @@
 import { Controller } from '@nestjs/common';
-import { routes, type ImportJob, type ParsedInput } from '@orderloop/contracts';
+import { routes, type ImportJob, type ImportPreview, type ParsedInput } from '@orderloop/contracts';
 import { Auth, Endpoint, Input, type AuthContext } from '../common/endpoint.js';
 import { ImportsService } from './imports.service.js';
 
 @Controller()
 export class ImportsController {
   constructor(private readonly imports: ImportsService) {}
+
+  @Endpoint(routes.validateProductImport)
+  validate(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.validateProductImport>,
+  ): Promise<ImportPreview> {
+    return this.imports.validate(auth, input.body);
+  }
 
   @Endpoint(routes.importProducts)
   create(

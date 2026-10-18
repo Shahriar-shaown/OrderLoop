@@ -1,4 +1,4 @@
-import type { ImportJob } from '@orderloop/contracts';
+import type { ImportJob, ImportPreview } from '@orderloop/contracts';
 import {
   Alert,
   Badge,
@@ -6,6 +6,7 @@ import {
   DataTable,
   Form,
   PageHeader,
+  Row,
   Section,
   Stack,
   Text,
@@ -15,6 +16,7 @@ import {
 } from '@orderloop/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { ExportButtons } from '../components/ExportButtons';
 import { FormError } from '../components/FormError';
 import { QueryBoundary } from '../components/QueryBoundary';
 import { formatWhen } from '../format';
@@ -23,7 +25,7 @@ import { useCan } from '../permissions';
 import { useApi } from '../runtime';
 
 const TEMPLATE =
-  'product_name,sku,price,category,unit,variant_name,cost,reorder_point,opening_stock\nCotton tee,TEE-RED-M,850,Clothing,pcs,Red / M,500,5,20\n';
+  'product_name,sku,price,category,unit,size,colour,cost,reorder_point,supplier,opening_stock\nCotton tee,TEE-RED-M,850,Clothing,pcs,M,Red,500,5,Dhaka Weavers,20\n';
 const TONE = {
   PENDING: 'neutral',
   RUNNING: 'info',
@@ -84,6 +86,44 @@ function JobStatus({ id }: { id: string }) {
   );
 }
 
+function Preview({ preview }: { preview: ImportPreview }) {
+  if (preview.fatal)
+    return (
+      <Alert tone="error" title="This file cannot be imported">
+        {preview.fatal}
+      </Alert>
+    );
+  return (
+    <Stack gap={3}>
+      <Row gap={2} wrap>
+        <Badge tone="success">{`${preview.willCreate} to create`}</Badge>
+        <Badge tone="info">{`${preview.willUpdate} to update`}</Badge>
+        <Badge tone={preview.errorCount ? 'error' : 'neutral'}>
+          {`${preview.errorCount} with problems`}
+        </Badge>
+      </Row>
+      <Text>
+        {preview.totalRows} rows checked. Nothing has been changed yet.
+        {preview.errorCount > 0
+          ? ' Fix the problems below and check again, or import only the rows that are fine.'
+          : ' Every row is fine.'}
+      </Text>
+      {preview.errors.length > 0 && (
+        <Alert tone="warning" title="Rows that would be skipped">
+          <Stack gap={1}>
+            {preview.errors.slice(0, 20).map((e) => (
+              <Text key={`${e.row}:${e.message}`}>
+                Row {e.row}: {e.message}
+              </Text>
+            ))}
+            {preview.errorCount > 20 && <Text>…and {preview.errorCount - 20} more.</Text>}
+          </Stack>
+        </Alert>
+      )}
+    </Stack>
+  );
+}
+
 export function ImportsScreen() {
   const api = useApi();
   const can = useCan();
@@ -91,13 +131,27 @@ export function ImportsScreen() {
   const queryClient = useQueryClient();
   const form = useFormState({ csv: '' });
   const [jobId, setJobId] = useState<string | null>(null);
+  // The check belongs to the exact text it was run on: edit the text and it no longer counts.
+  const [checked, setChecked] = useState<{ csv: string; preview: ImportPreview } | null>(null);
   const history = useQuery({ queryKey: ['imports'], queryFn: () => api.imports.list() });
 
   if (!can('catalog:write'))
     return <Alert tone="warning">Your role can view the catalog but not import into it.</Alert>;
 
-  async function submit() {
+  const current = checked && checked.csv === form.values.csv ? checked.preview : null;
+
+  async function check() {
     if (!form.values.csv.trim()) return form.setErrors({ csv: 'Paste your CSV first' });
+    const csv = form.values.csv;
+    let preview: ImportPreview | null = null;
+    const ok = await form.run(async () => {
+      preview = await api.imports.validateProducts(csv);
+    });
+    if (ok && preview) setChecked({ csv, preview });
+  }
+
+  async function start() {
+    if (!current || current.fatal || current.validRows === 0) return;
     let id = '';
     const ok = await form.run(async () => {
       const job = await api.imports.products(form.values.csv);
@@ -106,6 +160,7 @@ export function ImportsScreen() {
     });
     if (ok) {
       setJobId(id);
+      setChecked(null);
       toast.info('Import started');
     }
   }
@@ -137,13 +192,14 @@ export function ImportsScreen() {
     <Stack gap={5}>
       <PageHeader
         title="Import products"
-        description="Add or update many products at once from a CSV. Rows with the same SKU update the existing variant."
+        description="Add or update many products at once from a CSV. Rows with the same SKU update the existing variant. You see what would happen before anything changes."
+        actions={<ExportButtons kinds={['products']} />}
       />
       <Section
         title="Paste your CSV"
-        description="Required columns: product_name, sku, price. Optional: category, unit, variant_name, cost, reorder_point, barcode, description, opening_stock, location."
+        description="Required columns: product_name, sku, price. Optional: category, unit, variant_name, size, colour, cost, reorder_point, barcode, description, supplier, opening_stock, location. An exported catalog file can be edited and imported back."
       >
-        <Form onSubmit={submit}>
+        <Form onSubmit={check}>
           <FormError message={form.formError} />
           <TextField
             label="CSV"
@@ -155,8 +211,8 @@ export function ImportsScreen() {
             {...form.field('csv')}
           />
           <Stack direction="row" gap={2} wrap>
-            <Button type="submit" loading={form.busy}>
-              Start import
+            <Button type="submit" loading={form.busy && !current}>
+              Check file
             </Button>
             <Button variant="secondary" onPress={() => form.set('csv', TEMPLATE)}>
               Use the example
@@ -164,6 +220,20 @@ export function ImportsScreen() {
           </Stack>
         </Form>
       </Section>
+      {current && (
+        <Section title="Check result">
+          <Preview preview={current} />
+          {!current.fatal && current.validRows > 0 && (
+            <Stack align="start">
+              <Button loading={form.busy} onPress={start}>
+                {current.errorCount > 0
+                  ? `Import ${current.validRows} fine rows, skip ${current.errorCount}`
+                  : `Import ${current.validRows} rows`}
+              </Button>
+            </Stack>
+          )}
+        </Section>
+      )}
       {jobId && (
         <Section title="This import">
           <JobStatus id={jobId} />

@@ -5,6 +5,7 @@ import { AccessGuard } from './auth/access.guard.js';
 import { AuthModule } from './auth/auth.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
+import { ExportsModule } from './exports/exports.module.js';
 import { ImportsModule } from './imports/imports.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { QueueModule } from './queue/queue.module.js';
@@ -46,6 +47,7 @@ import { RedisModule } from './redis/redis.module.js';
     CatalogModule,
     InventoryModule,
     ImportsModule,
+    ExportsModule,
   ],
   controllers: [OpenApiController],
   providers: [

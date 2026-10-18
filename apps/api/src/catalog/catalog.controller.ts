@@ -6,12 +6,14 @@ import {
   type ParsedInput,
   type Product,
   type ProductPage,
+  type Supplier,
   type Variant,
 } from '@orderloop/contracts';
 import { Auth, Endpoint, Input, type AuthContext } from '../common/endpoint.js';
 import { CategoriesService } from './categories.service.js';
 import { LocationsService } from './locations.service.js';
 import { ProductsService } from './products.service.js';
+import { SuppliersService } from './suppliers.service.js';
 
 @Controller()
 export class CatalogController {
@@ -19,7 +21,29 @@ export class CatalogController {
     private readonly categories: CategoriesService,
     private readonly products: ProductsService,
     private readonly locations: LocationsService,
+    private readonly suppliers: SuppliersService,
   ) {}
+
+  @Endpoint(routes.listSuppliers)
+  listSuppliers(@Auth() auth: AuthContext): Promise<Supplier[]> {
+    return this.suppliers.list(auth);
+  }
+
+  @Endpoint(routes.createSupplier)
+  createSupplier(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.createSupplier>,
+  ): Promise<Supplier> {
+    return this.suppliers.create(auth, input.body);
+  }
+
+  @Endpoint(routes.updateSupplier)
+  updateSupplier(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.updateSupplier>,
+  ): Promise<Supplier> {
+    return this.suppliers.update(auth, input.params.id, input.body);
+  }
 
   @Endpoint(routes.listCategories)
   listCategories(@Auth() auth: AuthContext): Promise<Category[]> {

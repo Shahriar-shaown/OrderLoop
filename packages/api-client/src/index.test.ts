@@ -178,6 +178,8 @@ describe('catalog and inventory calls', () => {
         name: 'Mug',
         description: null,
         categoryId: null,
+        supplierId: null,
+        imageUrls: [],
         unit: 'pcs',
         status: 'ACTIVE',
         createdAt: '2026-01-01T00:00:00Z',
@@ -299,5 +301,101 @@ describe('errors', () => {
       status: 502,
       code: 'unexpected_response',
     });
+  });
+});
+
+describe('inventory module calls', () => {
+  const client = (status: number, body: unknown, seen: Seen[]) =>
+    createApiClient({
+      baseUrl: 'http://x',
+      fetch: stub(status, body, seen).fetchImpl,
+      getAccessToken: () => 't',
+    });
+  const change = {
+    movementId: '0197b0a0-0000-7000-8000-000000000001',
+    variantId: '0197b0a0-0000-7000-8000-000000000002',
+    locationId: '0197b0a0-0000-7000-8000-000000000003',
+    onHand: 7,
+    reserved: 0,
+    available: 7,
+    damaged: 3,
+  };
+
+  it('sends damage, write-off and return to their own endpoints with the key', async () => {
+    const seen: Seen[] = [];
+    const api = client(201, change, seen);
+    const variantId = change.variantId;
+    await api.inventory.damage({ variantId, quantity: 3, reason: 'cracked' });
+    await api.inventory.writeOff({ variantId, quantity: 3, reason: 'thrown away' });
+    await api.inventory.return({
+      variantId,
+      quantity: 1,
+      condition: 'DAMAGED',
+      idempotencyKey: 'return:r1:v1',
+    });
+    expect(seen.map((s) => s.url)).toEqual([
+      'http://x/v1/inventory/damage',
+      'http://x/v1/inventory/write-off',
+      'http://x/v1/inventory/return',
+    ]);
+    expect(JSON.parse(seen[2]!.init.body as string)).toMatchObject({
+      condition: 'DAMAGED',
+      idempotencyKey: 'return:r1:v1',
+    });
+  });
+
+  it('refuses a return without an idempotency key before sending anything', async () => {
+    const seen: Seen[] = [];
+    const api = client(201, change, seen);
+    await expect(
+      api.inventory.return({
+        variantId: change.variantId,
+        quantity: 1,
+        condition: 'RESALEABLE',
+      } as never),
+    ).rejects.toBeTruthy();
+    expect(seen).toHaveLength(0);
+  });
+
+  it('manages suppliers, exports CSV and checks an import without applying it', async () => {
+    const seen: Seen[] = [];
+    const supplier = {
+      id: '0197b0a0-0000-7000-8000-000000000009',
+      name: 'Dhaka Weavers',
+      contactName: null,
+      phone: null,
+      email: null,
+      address: null,
+      notes: null,
+      archived: false,
+    };
+    await client(201, supplier, seen).suppliers.create({ name: 'Dhaka Weavers' });
+    await client(200, [supplier], seen).suppliers.list();
+    await client(200, supplier, seen).suppliers.update(supplier.id, { archived: true });
+    await client(
+      200,
+      { filename: 'products-2026-10-19.csv', rowCount: 0, csv: 'a\r\n' },
+      seen,
+    ).exports.products();
+    await client(
+      200,
+      {
+        fatal: null,
+        totalRows: 1,
+        validRows: 1,
+        willCreate: 1,
+        willUpdate: 0,
+        errorCount: 0,
+        errors: [],
+      },
+      seen,
+    ).imports.validateProducts('product_name,sku,price\nA,B,1\n');
+    expect(seen.map((s) => `${s.init.method} ${s.url}`)).toEqual([
+      'POST http://x/v1/suppliers',
+      'GET http://x/v1/suppliers',
+      `PATCH http://x/v1/suppliers/${supplier.id}`,
+      'GET http://x/v1/exports/products',
+      'POST http://x/v1/imports/products/validate',
+    ]);
   });
 });

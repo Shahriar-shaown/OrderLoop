@@ -18,6 +18,17 @@ export class InsufficientStockError extends Error {
   }
 }
 
+/** Fewer units are recorded as damaged than a write-off asked for. */
+export class InsufficientDamagedError extends Error {
+  constructor(
+    readonly damaged: number,
+    readonly requested: number,
+  ) {
+    super(`Only ${damaged} damaged, ${requested} requested`);
+    this.name = 'InsufficientDamagedError';
+  }
+}
+
 /** A request named a variant or location that does not exist (or is archived) in this tenant. */
 export class StockTargetError extends Error {
   constructor(message: string) {
@@ -52,7 +63,9 @@ export interface MovementMeta {
 export interface Level {
   onHand: number;
   reserved: number;
+  /** onHand - reserved: what can still be sold or promised. Damaged stock is not part of on-hand, so never counted. */
   available: number;
+  damaged: number;
 }
 
 export interface StockResult {
@@ -60,10 +73,10 @@ export interface StockResult {
   level: Level;
 }
 
-const toLevel = (row: { onHand: number; reserved: number } | null): Level => {
+const toLevel = (row: { onHand: number; reserved: number; damaged: number } | null): Level => {
   const onHand = row?.onHand ?? 0;
   const reserved = row?.reserved ?? 0;
-  return { onHand, reserved, available: onHand - reserved };
+  return { onHand, reserved, available: onHand - reserved, damaged: row?.damaged ?? 0 };
 };
 
 export async function readLevel(tx: Tx, t: StockTarget): Promise<Level> {
@@ -75,7 +88,7 @@ export async function readLevel(tx: Tx, t: StockTarget): Promise<Level> {
         locationId: t.locationId,
       },
     },
-    select: { onHand: true, reserved: true },
+    select: { onHand: true, reserved: true, damaged: true },
   });
   return toLevel(row);
 }
@@ -88,6 +101,7 @@ async function appendMovement(
   reservedDelta: number,
   meta: MovementMeta,
   reservationId?: string,
+  damagedDelta = 0,
 ): Promise<string> {
   const movement = await tx.stockMovement.create({
     data: {
@@ -97,6 +111,7 @@ async function appendMovement(
       type,
       onHandDelta,
       reservedDelta,
+      damagedDelta,
       reason: meta.reason ?? null,
       referenceType: meta.referenceType ?? null,
       referenceId: meta.referenceId ?? null,
@@ -122,6 +137,103 @@ async function addOnHand(tx: Tx, t: StockTarget, quantity: number): Promise<void
       throw new StockLimitError();
     throw error;
   }
+}
+
+/** Add to damaged, creating the level row on first use (a return can bring back a variant never stocked here). */
+async function addDamaged(tx: Tx, t: StockTarget, quantity: number): Promise<void> {
+  try {
+    await tx.$executeRaw`
+      INSERT INTO stock_levels (tenant_id, variant_id, location_id, on_hand, reserved, damaged, updated_at)
+      VALUES (${t.tenantId}::uuid, ${t.variantId}::uuid, ${t.locationId}::uuid, 0, 0, ${quantity}::int, now())
+      ON CONFLICT (tenant_id, variant_id, location_id)
+      DO UPDATE SET damaged = stock_levels.damaged + EXCLUDED.damaged, updated_at = now()`;
+  } catch (error) {
+    if (String((error as Error).message).includes('stock_levels_damaged_max'))
+      throw new StockLimitError();
+    throw error;
+  }
+}
+
+/**
+ * Move sellable stock to the damaged bucket. Like any decrease it may not cut into reserved units: only what is
+ * available can be written down, so a promised order is never silently left short.
+ */
+export async function markDamaged(
+  tx: Tx,
+  t: StockTarget,
+  quantity: number,
+  meta: MovementMeta = {},
+): Promise<StockResult> {
+  const changed = await tx.$executeRaw`
+    UPDATE stock_levels SET on_hand = on_hand - ${quantity}::int, damaged = damaged + ${quantity}::int, updated_at = now()
+    WHERE tenant_id = ${t.tenantId}::uuid AND variant_id = ${t.variantId}::uuid AND location_id = ${t.locationId}::uuid
+      AND on_hand - reserved >= ${quantity}::int`;
+  if (changed === 0) {
+    const level = await readLevel(tx, t);
+    throw new InsufficientStockError(level.available, quantity);
+  }
+  const movementId = await appendMovement(
+    tx,
+    t,
+    StockMovementType.DAMAGE,
+    -quantity,
+    0,
+    meta,
+    undefined,
+    quantity,
+  );
+  return { movementId, level: await readLevel(tx, t) };
+}
+
+/** Dispose of damaged stock. Fails when fewer than `quantity` are recorded as damaged. */
+export async function writeOffDamaged(
+  tx: Tx,
+  t: StockTarget,
+  quantity: number,
+  meta: MovementMeta = {},
+): Promise<StockResult> {
+  const changed = await tx.$executeRaw`
+    UPDATE stock_levels SET damaged = damaged - ${quantity}::int, updated_at = now()
+    WHERE tenant_id = ${t.tenantId}::uuid AND variant_id = ${t.variantId}::uuid AND location_id = ${t.locationId}::uuid
+      AND damaged >= ${quantity}::int`;
+  if (changed === 0) {
+    const level = await readLevel(tx, t);
+    throw new InsufficientDamagedError(level.damaged, quantity);
+  }
+  const movementId = await appendMovement(
+    tx,
+    t,
+    StockMovementType.WRITE_OFF,
+    0,
+    0,
+    meta,
+    undefined,
+    -quantity,
+  );
+  return { movementId, level: await readLevel(tx, t) };
+}
+
+/** Stock coming back from a customer: resaleable units rejoin on-hand, damaged ones go to the damaged bucket. */
+export async function returnStock(
+  tx: Tx,
+  t: StockTarget,
+  quantity: number,
+  condition: 'RESALEABLE' | 'DAMAGED',
+  meta: MovementMeta = {},
+): Promise<StockResult> {
+  if (condition === 'RESALEABLE') await addOnHand(tx, t, quantity);
+  else await addDamaged(tx, t, quantity);
+  const movementId = await appendMovement(
+    tx,
+    t,
+    StockMovementType.RETURN,
+    condition === 'RESALEABLE' ? quantity : 0,
+    0,
+    meta,
+    undefined,
+    condition === 'DAMAGED' ? quantity : 0,
+  );
+  return { movementId, level: await readLevel(tx, t) };
 }
 
 export async function receiveStock(

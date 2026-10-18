@@ -16,6 +16,10 @@ export function useCategories() {
   const api = useApi();
   return useQuery({ queryKey: ['categories'], queryFn: () => api.categories.list() });
 }
+export function useSuppliers() {
+  const api = useApi();
+  return useQuery({ queryKey: ['suppliers'], queryFn: () => api.suppliers.list() });
+}
 export function useLocations() {
   const api = useApi();
   return useQuery({ queryKey: ['locations'], queryFn: () => api.locations.list() });

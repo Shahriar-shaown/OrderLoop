@@ -176,11 +176,15 @@ access token and a permission:
 | `STAFF`      |          yes           |                                 no                                  |                          yes                           |
 | `ACCOUNTANT` |          yes           |                                 no                                  |                           no                           |
 
-Permissions are `catalog:read`, `catalog:write`, `inventory:read`, `inventory:write`.
+Permissions are `catalog:read`, `catalog:write`, `inventory:read`, `inventory:write`. Suppliers and CSV export of the catalog follow
+`catalog:read` / `catalog:write`; the stock export follows `inventory:read`; damage, write-off and return follow `inventory:write`.
+The full inventory design, including the contract for the future orders and returns workflows, is in
+[inventory.md](inventory.md).
 
 ### Products, variants and money
 
-A **product** (name, category, unit) has one or more **variants**; a variant is one sellable, countable SKU. Stock belongs to
+A **product** (name, description, category, supplier, picture links, unit) has one or more **variants** (SKU, name, size and colour
+attributes, price, cost, barcode, reorder threshold); a variant is one sellable, countable SKU. Stock belongs to
 variants, never to products. Create a product with at least one variant in a single call; later add variants with
 `POST /v1/products/{id}/variants`.
 
@@ -190,6 +194,12 @@ variants, never to products. Create a product with at least one variant in a sin
   `[A-Z0-9][A-Z0-9._-]{0,63}`, are **unique per business** (case-insensitively), and **never change** once created.
   Two businesses may use the same SKU. A taken SKU is `409 conflict`.
 - **Units:** `pcs`, `kg`, `g`, `l`, `ml`, `m`, `pack`, `dozen`. A product has one unit; all its variants share it.
+- **Pictures** are `imageUrls`: up to 8 `https://` links, the first is the main one. Pictures are links, not uploads; there is no
+  file storage yet. **Size and colour** are variant `attributes` (`{ "size": "M", "colour": "Red" }`), and a variant
+  created with them but no name is shown as `Red / M`.
+- **Suppliers** (`GET/POST /v1/suppliers`, `PATCH /v1/suppliers/{id}`): name (unique per business, case-insensitively), contact
+  person, phone, email, address, notes. A product may name one (`supplierId`); an archived or another business's supplier
+  is `400 validation_failed`. Archiving a supplier keeps the history.
 - **Categories:** unique names per business, case-insensitively. Deleting one leaves its products uncategorised.
 - **Archiving:** set a product's `status` to `ARCHIVED`, or a variant's `archived` to `true`. Archived items stay in history but
   cannot take stock or reservations (a variant is also refused when its **product** is archived), and imports cannot add to an
@@ -204,19 +214,23 @@ Stock is **never edited directly**. Every change appends a row to an append-only
 current level of each variant at each location is the running total of its ledger. The two always agree: a randomised test
 replays the ledger through the pure rules and checks it lands on the stored level.
 
-Each level has two numbers:
+Each level has these numbers:
 
-- `onHand`: physically on the shelf.
+- `onHand`: sellable units physically on the shelf.
 - `reserved`: promised to open reservations.
 - `available = onHand - reserved`. It can never be negative: `0 <= reserved <= onHand`, enforced by the database itself.
+- `damaged`: physically here but unsellable. It is **not part of `onHand`**, so damaged units can never be sold or reserved.
 
-| Movement type | Effect                                                         | Caused by                                       |
-| ------------- | -------------------------------------------------------------- | ----------------------------------------------- |
-| `RECEIVE`     | `onHand` up                                                    | `POST /v1/inventory/receive`, CSV opening stock |
-| `ADJUSTMENT`  | `onHand` up or down (needs a reason; cannot cut into reserved) | `POST /v1/inventory/adjust`                     |
-| `RESERVE`     | `reserved` up                                                  | `POST /v1/reservations`                         |
-| `RELEASE`     | `reserved` down                                                | `POST /v1/reservations/{id}/release`            |
-| `SHIP`        | `onHand` and `reserved` both down                              | `POST /v1/reservations/{id}/fulfil`             |
+| Movement type | Effect                                                             | Caused by                                       |
+| ------------- | ------------------------------------------------------------------ | ----------------------------------------------- |
+| `RECEIVE`     | `onHand` up                                                        | `POST /v1/inventory/receive`, CSV opening stock |
+| `ADJUSTMENT`  | `onHand` up or down (needs a reason; cannot cut into reserved)     | `POST /v1/inventory/adjust`                     |
+| `RESERVE`     | `reserved` up                                                      | `POST /v1/reservations`                         |
+| `RELEASE`     | `reserved` down                                                    | `POST /v1/reservations/{id}/release`            |
+| `SHIP`        | `onHand` and `reserved` both down                                  | `POST /v1/reservations/{id}/fulfil`             |
+| `DAMAGE`      | `onHand` down, `damaged` up (needs a reason; only available units) | `POST /v1/inventory/damage`                     |
+| `WRITE_OFF`   | `damaged` down (needs a reason; never more than are damaged)       | `POST /v1/inventory/write-off`                  |
+| `RETURN`      | `onHand` up (resaleable) or `damaged` up (damaged)                 | `POST /v1/inventory/return`                     |
 
 Ledger rows come back newest first in the order they were applied (never re-sort by timestamp: rows in the same millisecond tie). Each carries the `reason`, an optional
 `referenceType`/`referenceId` (for example an order, in a later phase), and who did it. Quantities are whole numbers from 1 to
@@ -237,8 +251,9 @@ ledger row. Likewise an adjustment cannot take `onHand` below `reserved`.
 `fulfil` ships them. A second attempt, or a simultaneous one, gets `409` (`"Reservation is already RELEASED"`); an unknown or
 another business's id is `404`.
 
-**Idempotency.** Send an `idempotencyKey` (8 to 100 characters of letters, digits and `. _ : -`) with `receive`, `adjust` or
-`POST /v1/reservations`. Retrying the same request with the same key changes nothing and returns the original result, even if
+**Idempotency.** Send an `idempotencyKey` (8 to 100 characters of letters, digits and `. _ : -`) with `receive`, `adjust`,
+`damage`, `write-off` or `POST /v1/reservations`; it is **required** for `POST /v1/inventory/return`, because a return processed
+twice must add the units once. Retrying the same request with the same key changes nothing and returns the original result, even if
 the retries race. Reusing a key for a _different_ request (another variant, quantity or kind) is `409`, never silently ignored.
 Keys are per business.
 
@@ -247,6 +262,12 @@ all locations, is at or below it (including variants with no stock at all), thin
 applies the same test to each location separately.
 
 ### Importing a catalog from CSV
+
+Check first: `POST /v1/imports/products/validate` takes the same body and returns what the import _would_ do without changing
+anything: `willCreate`, `willUpdate`, `validRows`, `errorCount` and the first 100 `errors: [{ row, message }]` (the file's own
+problems plus conflicts with existing data: an archived product, a SKU that belongs to another product, a different unit, an
+archived supplier or location). A file that cannot be read at all comes back with `fatal` set. The web app always shows this
+before it lets a person start the import. The apply step re-checks everything, since data can change in between.
 
 `POST /v1/imports/products` with `{ "csv": "..." }` returns **202 Accepted** at once with an import job; a separate worker
 process does the work. Poll `GET /v1/imports/{id}` until `status` is `COMPLETED` or `FAILED`. `GET /v1/imports` lists the 20 most
@@ -262,7 +283,9 @@ data):
 | `price`                  |   yes    | BDT with at most 2 decimals, for example `1250` or `1250.50`. Stored as paisa.               |
 | `category`               |    no    | Created if missing.                                                                          |
 | `unit`                   |    no    | Default `pcs`. Rows of one product must agree on unit and category.                          |
-| `variant_name`           |    no    | For example `Red / M`.                                                                       |
+| `variant_name`           |    no    | For example `Red / M`. Defaults to `colour / size` when those are given.                     |
+| `size`, `colour`         |    no    | Stored as variant attributes; `color` is accepted as a spelling of `colour`.                 |
+| `supplier`               |    no    | Created if missing; an archived supplier is a row error.                                     |
 | `cost`                   |    no    | Same format as `price`.                                                                      |
 | `reorder_point`          |    no    | Whole number, default 0.                                                                     |
 | `barcode`, `description` |    no    |                                                                                              |
@@ -293,6 +316,16 @@ Basmati Rice,RICE-5KG,650,Grocery,kg,5 kg bag,,,40,
   per-row key, so nothing is counted twice. After the last attempt the import is marked `FAILED` and its CSV deleted. After a
   resume, rows created by the earlier attempt are reported as `updated`, so the counts of a recovered import are approximate.
 - If the queue is unreachable you get `503` and the job is marked `FAILED`, with no CSV left behind.
+
+### Exporting to CSV
+
+`GET /v1/exports/products` (`catalog:read`) returns `{ filename, rowCount, csv }`: the active catalog in **exactly the import
+columns**, so a file can be exported, edited and imported back (`opening_stock` and `location` are left empty on purpose: opening
+stock only applies to new variants, so a re-import never double-counts). Prices are decimal strings (`1250.50`) produced from
+whole paisa. `GET /v1/exports/stock` (`inventory:read`) returns one row per variant and location with `on_hand`, `reserved`,
+`damaged`, `available` and `reorder_point`. Cells that would be run as a formula by a spreadsheet (starting with `=`, `+`, `-`
+or `@`) get a leading apostrophe. Archived products and variants are left out of the catalog export. Each export is audited
+(`export.products`, `export.stock`) and only ever contains the caller's own business (capped at 50,000 rows).
 
 ### Request bodies
 

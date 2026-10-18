@@ -16,12 +16,13 @@ import {
 } from '@orderloop/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Image } from 'react-native';
 import { ProductEditDialog } from '../components/ProductEditDialog';
 import { QueryBoundary } from '../components/QueryBoundary';
 import { StockDialog, type StockMode, type VariantRef } from '../components/StockDialog';
 import { VariantDialog } from '../components/VariantDialog';
 import { messageFor } from '../errors';
-import { useCategories, useProduct } from '../hooks';
+import { useCategories, useProduct, useSuppliers } from '../hooks';
 import { formatPrice } from '../money';
 import { useCan } from '../permissions';
 import { useApi } from '../runtime';
@@ -36,6 +37,7 @@ export function ProductDetailScreen({ id }: { id: string }) {
   const queryClient = useQueryClient();
   const query = useProduct(id);
   const categories = useCategories();
+  const suppliers = useSuppliers();
   const [editing, setEditing] = useState(false);
   const [variantDialog, setVariantDialog] = useState<{ variant: Variant | null } | null>(null);
   const [stock, setStock] = useState<{ mode: StockMode; variant: VariantRef } | null>(null);
@@ -115,10 +117,17 @@ export function ProductDetailScreen({ id }: { id: string }) {
         ),
     },
     {
+      key: 'damaged',
+      header: 'Damaged',
+      align: 'right',
+      minWidth: 90,
+      render: (v) => String(v.stock.damaged),
+    },
+    {
       key: 'actions',
       header: 'Actions',
       flex: 3,
-      minWidth: 440,
+      minWidth: 600,
       render: (v) => (
         <Row gap={1} wrap>
           {can('inventory:write') && !v.archived && (
@@ -143,6 +152,29 @@ export function ProductDetailScreen({ id }: { id: string }) {
                 onPress={() => setStock({ mode: 'reserve', variant: ref(p, v) })}
               >
                 Reserve
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onPress={() => setStock({ mode: 'damage', variant: ref(p, v) })}
+              >
+                Damaged
+              </Button>
+              {v.stock.damaged > 0 && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onPress={() => setStock({ mode: 'writeOff', variant: ref(p, v) })}
+                >
+                  Write off
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                onPress={() => setStock({ mode: 'return', variant: ref(p, v) })}
+              >
+                Return
               </Button>
             </>
           )}
@@ -220,8 +252,27 @@ export function ProductDetailScreen({ id }: { id: string }) {
                     : 'None',
                 },
                 { label: 'Unit of measure', value: product.unit },
+                {
+                  label: 'Supplier',
+                  value: product.supplierId
+                    ? (suppliers.data?.find((s) => s.id === product.supplierId)?.name ?? '—')
+                    : 'None',
+                },
               ]}
             />
+            {product.imageUrls.length > 0 && (
+              <Row gap={2} wrap>
+                {product.imageUrls.map((url, i) => (
+                  <Image
+                    key={url}
+                    source={{ uri: url }}
+                    accessibilityLabel={`${product.name}, picture ${i + 1}`}
+                    style={{ width: 96, height: 96, borderRadius: 8 }}
+                    resizeMode="cover"
+                  />
+                ))}
+              </Row>
+            )}
           </Section>
           <Section
             title="Variants"

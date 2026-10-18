@@ -15,10 +15,13 @@ export const IMPORT_COLUMNS = [
   'category',
   'unit',
   'variant_name',
+  'size',
+  'colour',
   'cost',
   'reorder_point',
   'barcode',
   'description',
+  'supplier',
   'opening_stock',
   'location',
 ] as const;
@@ -37,6 +40,9 @@ export interface ImportRow {
   reorderPoint: number;
   barcode: string | null;
   description: string | null;
+  size: string | null;
+  colour: string | null;
+  supplier: string | null;
   openingStock: number;
   location: string | null;
 }
@@ -102,7 +108,11 @@ export function parseCatalogCsv(input: string): ParsedImport {
   }
   if (table.length === 0) return fail('The file is empty');
 
-  const header = table[0]!.map((h) => h.trim().toLowerCase());
+  // American spelling is accepted for the colour column.
+  const header = table[0]!.map((h) => {
+    const name = h.trim().toLowerCase();
+    return name === 'color' ? 'colour' : name;
+  });
   const unknown = header.filter(
     (h) => h !== '' && !(IMPORT_COLUMNS as readonly string[]).includes(h),
   );
@@ -140,6 +150,12 @@ export function parseCatalogCsv(input: string): ParsedImport {
       if (firstRow !== undefined)
         throw new RangeError(`sku ${sku} is repeated (first on line ${firstRow})`);
 
+      const size = text(col(record, 'size'), 'size', 100);
+      const colour = text(col(record, 'colour'), 'colour', 100);
+      // A variant with a size or colour but no label is called "Red / M", as the product form does.
+      const variantName =
+        text(col(record, 'variant_name'), 'variant_name', 100) ??
+        [colour, size].filter(Boolean).join(' / ');
       const unitRaw = (text(col(record, 'unit'), 'unit', 20) ?? 'pcs').toLowerCase();
       if (!(UNITS as readonly string[]).includes(unitRaw))
         throw new RangeError(`unit must be one of ${UNITS.join(', ')}`);
@@ -157,7 +173,10 @@ export function parseCatalogCsv(input: string): ParsedImport {
         category,
         unit: unitRaw as Unit,
         sku,
-        variantName: text(col(record, 'variant_name'), 'variant_name', 100) ?? '',
+        variantName: variantName,
+        size,
+        colour,
+        supplier: text(col(record, 'supplier'), 'supplier', 150),
         priceMinor: parseMoney(priceRaw, 'price'),
         costMinor: costRaw === '' ? null : parseMoney(costRaw, 'cost'),
         reorderPoint: reorderRaw === '' ? 0 : parseCount(reorderRaw, 'reorder_point', 1_000_000),

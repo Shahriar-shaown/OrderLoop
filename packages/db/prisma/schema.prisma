@@ -80,6 +80,7 @@ model Tenant {
   stockMovements StockMovement[]
   reservations   Reservation[]
   importJobs     ImportJob[]
+  suppliers      Supplier[]
 
   @@map("tenants")
 }
@@ -202,12 +203,19 @@ enum ProductStatus {
 }
 
 /// RECEIVE +on_hand | ADJUSTMENT +/-on_hand | RESERVE +reserved | RELEASE -reserved | SHIP -on_hand and -reserved
+/// DAMAGE -on_hand +damaged | WRITE_OFF -damaged | RETURN +on_hand or +damaged
 enum StockMovementType {
   RECEIVE
   ADJUSTMENT
   RESERVE
   RELEASE
   SHIP
+  /// Sellable stock found or made unsellable: -on_hand, +damaged.
+  DAMAGE
+  /// Damaged stock disposed of: -damaged.
+  WRITE_OFF
+  /// Stock coming back from a customer: +on_hand (resaleable) or +damaged.
+  RETURN
 }
 
 enum ReservationStatus {
@@ -247,6 +255,10 @@ model Product {
   nameKey     String        @map("name_key")
   description String?
   categoryId  String?       @map("category_id") @db.Uuid
+  /// Who the product is bought from (optional). Same-tenant is enforced by the application, like the category.
+  supplierId  String?       @map("supplier_id") @db.Uuid
+  /// Links (https) to product pictures, first is the main one. Pictures are not uploaded to OrderLoop yet.
+  imageUrls   String[]      @default([]) @map("image_urls")
   /// Unit of measure for every variant: pcs, kg, g, l, ml, m, pack, dozen.
   unit        String        @default("pcs")
   status      ProductStatus @default(ACTIVE)
@@ -257,6 +269,7 @@ model Product {
   /// Same-tenant is enforced by the application (a cross-tenant id is invisible under RLS) because Prisma cannot
   /// express a composite foreign key whose second column is nullable.
   category Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplier Supplier?        @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   variants ProductVariant[]
 
   @@unique([tenantId, id])
@@ -297,6 +310,30 @@ model ProductVariant {
   @@map("product_variants")
 }
 
+/// Who products are bought from. Tenant-scoped.
+model Supplier {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  name        String
+  /// Lower-cased name, unique per tenant.
+  nameKey     String    @map("name_key")
+  contactName String?   @map("contact_name")
+  phone       String?
+  email       String?
+  address     String?
+  notes       String?
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, nameKey])
+  @@map("suppliers")
+}
+
 model StockLocation {
   id         String    @id @default(uuid(7)) @db.Uuid
   tenantId   String    @map("tenant_id") @db.Uuid
@@ -325,6 +362,8 @@ model StockLevel {
   locationId String   @map("location_id") @db.Uuid
   /// Physically on the shelf.
   onHand     Int      @default(0) @map("on_hand")
+  /// Physically here but unsellable. Not part of on_hand, so it is never available to sell or reserve.
+  damaged    Int      @default(0)
   /// Promised to open reservations. Available to sell = onHand - reservedQty (never negative).
   reserved   Int      @default(0)
   updatedAt  DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
@@ -349,6 +388,7 @@ model StockMovement {
   type           StockMovementType
   onHandDelta    Int               @map("on_hand_delta")
   reservedDelta  Int               @map("reserved_delta")
+  damagedDelta   Int               @default(0) @map("damaged_delta")
   reason         String?
   /// What caused it (for example an order in a later phase), as free references; not foreign keys.
   referenceType  String?           @map("reference_type")

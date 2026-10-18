@@ -13,7 +13,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FormError } from '../components/FormError';
-import { ProductDetailsFields } from '../components/ProductDetailsFields';
+import { parseImageLinks, ProductDetailsFields } from '../components/ProductDetailsFields';
 import { VariantFields } from '../components/VariantFields';
 import { validate, type FormErrors } from '../errors';
 import { useFormState } from '../forms';
@@ -27,7 +27,14 @@ export function NewProductScreen() {
   const navigation = useNavigation();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const form = useFormState({ name: '', description: '', categoryId: '', unit: 'pcs' });
+  const form = useFormState({
+    name: '',
+    description: '',
+    categoryId: '',
+    supplierId: '',
+    imageUrls: '',
+    unit: 'pcs',
+  });
   const [variants, setVariants] = useState<VariantValues[]>(() => [emptyVariant()]);
 
   if (!can('catalog:write'))
@@ -46,6 +53,8 @@ export function NewProductScreen() {
       unit: form.values.unit,
       ...(description ? { description } : {}),
       ...(form.values.categoryId ? { categoryId: form.values.categoryId } : {}),
+      ...(form.values.supplierId ? { supplierId: form.values.supplierId } : {}),
+      imageUrls: parseImageLinks(form.values.imageUrls),
       variants: items,
     });
     form.setFormError('');

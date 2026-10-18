@@ -426,3 +426,79 @@ describe('queueing', () => {
     }
   });
 });
+
+describe('size, colour and supplier columns', () => {
+  it('creates variants with attributes and a supplier, and a second import merges instead of erasing', async () => {
+    const own = await registerTenant(t);
+    const csv =
+      'product_name,sku,price,size,colour,supplier,opening_stock\n' +
+      'Kurta,KUR-R-M,1500.50,M,Red,Dhaka Weavers,4\n' +
+      'Kurta,KUR-B-L,1500.50,L,Blue,Dhaka Weavers,0\n';
+    const job = await finished(
+      (await submit(csv, own.accessToken).expect(202)).body.id,
+      own.accessToken,
+    );
+    expect(job).toMatchObject({ status: 'COMPLETED', created: 2, failed: 0 });
+
+    const products = (await t.http.get('/v1/products').set(bearer(own.accessToken))).body.items as {
+      supplierId: string | null;
+      variants: {
+        sku: string;
+        name: string;
+        attributes: Record<string, string>;
+        priceMinor: number;
+        stock: { onHand: number };
+      }[];
+    }[];
+    expect(products).toHaveLength(1);
+    const kurta = products[0]!;
+    expect(kurta.supplierId).toBeTruthy();
+    const red = kurta.variants.find((v) => v.sku === 'KUR-R-M')!;
+    expect(red).toMatchObject({
+      name: 'Red / M',
+      attributes: { colour: 'Red', size: 'M' },
+      priceMinor: 150050,
+      stock: { onHand: 4 },
+    });
+    const suppliers = (await t.http.get('/v1/suppliers').set(bearer(own.accessToken))).body as {
+      name: string;
+    }[];
+    expect(suppliers.map((s) => s.name)).toEqual(['Dhaka Weavers']);
+
+    // re-import with only a size: the colour set before is kept, and opening stock is not added twice
+    const again = await finished(
+      (
+        await submit(
+          'product_name,sku,price,size,opening_stock\nKurta,KUR-R-M,1600,XL,9\n',
+          own.accessToken,
+        ).expect(202)
+      ).body.id,
+      own.accessToken,
+    );
+    expect(again).toMatchObject({ status: 'COMPLETED', updated: 1, created: 0 });
+    const after = (
+      await t.http.get('/v1/products').set(bearer(own.accessToken))
+    ).body.items[0].variants.find((v: { sku: string }) => v.sku === 'KUR-R-M');
+    expect(after).toMatchObject({
+      attributes: { colour: 'Red', size: 'XL' },
+      priceMinor: 160000,
+      stock: { onHand: 4 },
+    });
+  });
+
+  it('accepts the American spelling of the colour column', async () => {
+    const own = await registerTenant(t);
+    const job = await finished(
+      (
+        await submit('product_name,sku,price,color\nCap,CAP-1,100,Green\n', own.accessToken).expect(
+          202,
+        )
+      ).body.id,
+      own.accessToken,
+    );
+    expect(job).toMatchObject({ status: 'COMPLETED', created: 1 });
+    const v = (await t.http.get('/v1/products').set(bearer(own.accessToken))).body.items[0]
+      .variants[0];
+    expect(v.attributes).toEqual({ colour: 'Green' });
+  });
+});

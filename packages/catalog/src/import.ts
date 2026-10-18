@@ -36,6 +36,30 @@ async function upsertCategory(tx: Tx, tenantId: string, name: string): Promise<s
   ).id;
 }
 
+async function upsertSupplier(tx: Tx, tenantId: string, name: string): Promise<string> {
+  const key = nameKey(name);
+  const existing = await tx.supplier.findUnique({
+    where: { tenantId_nameKey: { tenantId, nameKey: key } },
+    select: { id: true, archivedAt: true },
+  });
+  if (existing) {
+    if (existing.archivedAt) throw new RowProblem(`supplier "${name}" is archived`);
+    return existing.id;
+  }
+  return (
+    await tx.supplier.create({
+      data: { tenantId, name: name.trim(), nameKey: key },
+      select: { id: true },
+    })
+  ).id;
+}
+
+/** Size and colour become variant attributes, the same keys the product form writes. */
+const attributesOf = (row: ImportRow): Record<string, string> => ({
+  ...(row.size ? { size: row.size } : {}),
+  ...(row.colour ? { colour: row.colour } : {}),
+});
+
 async function upsertLocation(tx: Tx, tenantId: string, name: string): Promise<string> {
   const key = nameKey(name);
   const existing = await tx.stockLocation.findUnique({
@@ -62,6 +86,7 @@ async function importRow(
   row: ImportRow,
 ): Promise<RowOutcome> {
   const categoryId = row.category ? await upsertCategory(tx, tenantId, row.category) : null;
+  const supplierId = row.supplier ? await upsertSupplier(tx, tenantId, row.supplier) : null;
 
   const key = nameKey(row.productName);
   let product = await tx.product.findFirst({
@@ -77,6 +102,7 @@ async function importRow(
       throw new RowProblem(`product "${row.productName}" already exists with unit ${product.unit}`);
     const data: Prisma.ProductUncheckedUpdateInput = {};
     if (categoryId && product.categoryId !== categoryId) data.categoryId = categoryId;
+    if (supplierId && product.supplierId !== supplierId) data.supplierId = supplierId;
     if (row.description && product.description !== row.description)
       data.description = row.description;
     if (Object.keys(data).length)
@@ -89,6 +115,7 @@ async function importRow(
         nameKey: key,
         description: row.description,
         categoryId,
+        supplierId,
         unit: row.unit,
       },
     });
@@ -104,6 +131,15 @@ async function importRow(
       where: { id: variant.id },
       data: {
         ...(row.variantName ? { name: row.variantName } : {}),
+        // Merge, so importing a size does not erase a colour set elsewhere.
+        ...(row.size || row.colour
+          ? {
+              attributes: {
+                ...(variant.attributes as Record<string, string>),
+                ...attributesOf(row),
+              },
+            }
+          : {}),
         priceMinor: row.priceMinor,
         ...(row.costMinor !== null ? { costMinor: row.costMinor } : {}),
         ...(row.barcode ? { barcode: row.barcode } : {}),
@@ -120,6 +156,7 @@ async function importRow(
       productId: product.id,
       sku: row.sku,
       name: row.variantName,
+      attributes: attributesOf(row),
       priceMinor: row.priceMinor,
       costMinor: row.costMinor,
       barcode: row.barcode,
@@ -146,6 +183,104 @@ async function importRow(
     );
   }
   return 'created';
+}
+
+export interface ImportPreviewResult {
+  willCreate: number;
+  willUpdate: number;
+  /** Row problems the database would cause (on top of the file's own), by line number. */
+  problems: RowError[];
+}
+
+/**
+ * What applying `rows` would do, decided with the same checks `importRow` makes but writing nothing. Reads only, so it is
+ * safe to call repeatedly. The apply step remains the authority (data can change between the check and the import).
+ */
+export async function previewImportRows(
+  tx: Tx,
+  tenantId: string,
+  rows: readonly ImportRow[],
+): Promise<ImportPreviewResult> {
+  const problems: RowError[] = [];
+  let willCreate = 0;
+  let willUpdate = 0;
+  // Products this same file would create: later rows of the same product are fine, but must agree on the unit.
+  const newProducts = new Map<string, ImportRow>();
+  const locations = new Map<string, boolean>();
+  const suppliers = new Map<string, boolean>();
+
+  const skus = await tx.productVariant.findMany({
+    where: { tenantId, sku: { in: rows.map((r) => r.sku) } },
+    select: { sku: true, productId: true },
+  });
+  const skuProduct = new Map(skus.map((v) => [v.sku, v.productId]));
+
+  for (const row of rows) {
+    const key = nameKey(row.productName);
+    const product = await tx.product.findFirst({
+      where: { tenantId, nameKey: key },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, status: true, unit: true },
+    });
+    const problem = (message: string) => problems.push({ row: row.row, message });
+
+    if (product) {
+      if (product.status === 'ARCHIVED') {
+        problem(`product "${row.productName}" is archived; restore it before importing into it`);
+        continue;
+      }
+      if (product.unit !== row.unit) {
+        problem(`product "${row.productName}" already exists with unit ${product.unit}`);
+        continue;
+      }
+    } else if (newProducts.has(key)) {
+      // created earlier in this file
+    }
+
+    const existingProductId = skuProduct.get(row.sku);
+    if (existingProductId !== undefined && product && existingProductId !== product.id) {
+      problem(`sku ${row.sku} already belongs to a different product`);
+      continue;
+    }
+    if (existingProductId !== undefined && !product) {
+      problem(`sku ${row.sku} already belongs to a different product`);
+      continue;
+    }
+
+    if (row.supplier) {
+      const k = nameKey(row.supplier);
+      if (!suppliers.has(k)) {
+        const s = await tx.supplier.findUnique({
+          where: { tenantId_nameKey: { tenantId, nameKey: k } },
+          select: { archivedAt: true },
+        });
+        suppliers.set(k, s?.archivedAt != null);
+      }
+      if (suppliers.get(k)) {
+        problem(`supplier "${row.supplier}" is archived`);
+        continue;
+      }
+    }
+    if (row.location && row.openingStock > 0 && existingProductId === undefined) {
+      const k = nameKey(row.location);
+      if (!locations.has(k)) {
+        const l = await tx.stockLocation.findUnique({
+          where: { tenantId_nameKey: { tenantId, nameKey: k } },
+          select: { archivedAt: true },
+        });
+        locations.set(k, l?.archivedAt != null);
+      }
+      if (locations.get(k)) {
+        problem(`location "${row.location}" is archived`);
+        continue;
+      }
+    }
+
+    if (!product) newProducts.set(key, row);
+    if (existingProductId !== undefined) willUpdate++;
+    else willCreate++;
+  }
+  return { willCreate, willUpdate, problems };
 }
 
 /**

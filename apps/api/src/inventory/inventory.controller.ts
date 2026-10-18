@@ -44,6 +44,30 @@ export class InventoryController {
     return this.inventory.adjust(auth, input.body);
   }
 
+  @Endpoint(routes.damageStock)
+  damage(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.damageStock>,
+  ): Promise<StockChange> {
+    return this.inventory.damage(auth, input.body);
+  }
+
+  @Endpoint(routes.writeOffStock)
+  writeOff(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.writeOffStock>,
+  ): Promise<StockChange> {
+    return this.inventory.writeOff(auth, input.body);
+  }
+
+  @Endpoint(routes.returnStock)
+  returnStock(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.returnStock>,
+  ): Promise<StockChange> {
+    return this.inventory.returnStock(auth, input.body);
+  }
+
   @Endpoint(routes.listMovements)
   movements(
     @Auth() auth: AuthContext,

@@ -39,6 +39,17 @@ export class ProductsService {
       ]);
   }
 
+  private async requireSupplier(tx: Tx, tenantId: string, supplierId: string): Promise<void> {
+    const found = await tx.supplier.findFirst({
+      where: { id: supplierId, tenantId, archivedAt: null },
+      select: { id: true },
+    });
+    if (!found)
+      throw new ApiError(400, 'validation_failed', 'Request validation failed', [
+        { path: 'body.supplierId', message: 'Supplier not found' },
+      ]);
+  }
+
   private async load(tx: Tx, tenantId: string, id: string): Promise<Product> {
     const product = await tx.product.findFirst({
       where: { id, tenantId },
@@ -125,6 +136,7 @@ export class ProductsService {
         { tenantId: auth.tenantId, userId: auth.userId },
         async (tx) => {
           if (body.categoryId) await this.requireCategory(tx, auth.tenantId, body.categoryId);
+          if (body.supplierId) await this.requireSupplier(tx, auth.tenantId, body.supplierId);
           const product = await tx.product.create({
             data: {
               tenantId: auth.tenantId,
@@ -132,6 +144,8 @@ export class ProductsService {
               nameKey: nameKey(body.name),
               description: body.description ?? null,
               categoryId: body.categoryId ?? null,
+              supplierId: body.supplierId ?? null,
+              imageUrls: body.imageUrls,
               unit: body.unit,
             },
           });
@@ -174,12 +188,15 @@ export class ProductsService {
       const found = await tx.product.findFirst({ where: { id, tenantId: auth.tenantId } });
       if (!found) throw ApiError.notFound('Product not found');
       if (body.categoryId) await this.requireCategory(tx, auth.tenantId, body.categoryId);
+      if (body.supplierId) await this.requireSupplier(tx, auth.tenantId, body.supplierId);
       await tx.product.update({
         where: { id },
         data: {
           ...(body.name !== undefined ? { name: body.name, nameKey: nameKey(body.name) } : {}),
           ...(body.description !== undefined ? { description: body.description } : {}),
           ...(body.categoryId !== undefined ? { categoryId: body.categoryId } : {}),
+          ...(body.supplierId !== undefined ? { supplierId: body.supplierId } : {}),
+          ...(body.imageUrls !== undefined ? { imageUrls: body.imageUrls } : {}),
           ...(body.unit !== undefined ? { unit: body.unit } : {}),
           ...(body.status !== undefined ? { status: body.status } : {}),
         },
