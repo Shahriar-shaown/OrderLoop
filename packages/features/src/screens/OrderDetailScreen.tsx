@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { OrderStatusBadge } from '../components/OrderStatusBadge';
 import { OrderStatusDialog } from '../components/OrderStatusDialog';
 import { QueryBoundary } from '../components/QueryBoundary';
+import { ShipmentPanel } from '../components/ShipmentPanel';
 import { messageFor } from '../errors';
 import { formatWhen } from '../format';
 import { formatPrice } from '../money';
@@ -165,6 +166,8 @@ export function OrderDetailScreen({ id }: { id: string }) {
               </Row>
             </Section>
           )}
+
+          <ShipmentPanel order={order} />
 
           {order.stockHeld && (
             <Alert tone="info">

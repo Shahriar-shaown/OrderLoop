@@ -36,4 +36,7 @@ export const testEnv = {
   LOG_LEVEL: 'silent',
   MAIL_PROVIDER: 'console',
   WEB_ORIGINS: 'http://localhost:3000',
+  // A fixed key for tests only (not a secret: it protects nothing outside the throwaway test database).
+  COURIER_CREDENTIALS_KEY: Buffer.from('orderloop-test-courier-key-00000').toString('base64'),
+  COURIER_MOCK_ENABLED: 'true',
 } as const;

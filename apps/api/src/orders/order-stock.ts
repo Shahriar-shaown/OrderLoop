@@ -20,7 +20,7 @@ import type { StockRunner } from '../inventory/inventory.service.js';
  */
 export interface StockActor {
   tenantId: string;
-  userId: string;
+  userId: string | null;
 }
 
 export interface LineRef {

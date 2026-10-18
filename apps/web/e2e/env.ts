@@ -44,6 +44,8 @@ export const stackEnv = {
   SMTP_HOST: '127.0.0.1',
   SMTP_PORT: '1025',
   SMTP_SECURE: 'false',
+  COURIER_CREDENTIALS_KEY: Buffer.from('orderloop-e2e-courier-key-000000').toString('base64'),
+  COURIER_MOCK_ENABLED: 'true',
   NEXT_PUBLIC_API_URL: `http://localhost:${PORTS.api}`,
   NEXT_PUBLIC_APP_ENV: 'development',
 } as const;

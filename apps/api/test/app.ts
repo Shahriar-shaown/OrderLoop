@@ -11,6 +11,7 @@ import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 import { createLogger } from '../src/logging/logger.js';
 import { LOGGER } from '../src/logging/tokens.js';
+import { COURIER_HTTP } from '../src/couriers/couriers.service.js';
 import { IMPORTS_QUEUE } from '../src/queue/queue.module.js';
 import { PinoLoggerService } from '../src/logging/pino-logger.service.js';
 import { Mailer } from '../src/mail/mailer.js';
@@ -27,7 +28,12 @@ export interface TestApp {
 
 export async function createTestApp(
   env: Record<string, string> = {},
-  options: { logDestination?: Writable; queue?: object } = {},
+  options: {
+    logDestination?: Writable;
+    queue?: object;
+    /** A fake network (and no-op sleeps) for the couriers, so no test ever reaches a real one. */
+    courier?: { fetch?: unknown; sleep?: (ms: number) => Promise<void> };
+  } = {},
 ): Promise<TestApp> {
   const previous = Object.fromEntries(Object.keys(env).map((k) => [k, process.env[k]]));
   Object.assign(process.env, env);
@@ -40,6 +46,7 @@ export async function createTestApp(
     : undefined;
   if (logger) builder = builder.overrideProvider(LOGGER).useValue(logger);
   if (options.queue) builder = builder.overrideProvider(IMPORTS_QUEUE).useValue(options.queue);
+  if (options.courier) builder = builder.overrideProvider(COURIER_HTTP).useValue(options.courier);
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });
   configureApp(app);

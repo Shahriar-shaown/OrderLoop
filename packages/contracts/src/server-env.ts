@@ -37,6 +37,25 @@ export const ServerEnv = z
       .enum(['true', 'false'])
       .default('true')
       .transform((v) => v === 'true'),
+    /**
+     * 32 random bytes, base64 (`openssl rand -base64 32`). Encrypts courier credentials at rest. Without it the courier
+     * connections that need secrets are unavailable (the simulated courier still works); it is never logged or returned.
+     */
+    COURIER_CREDENTIALS_KEY: z
+      .string()
+      .refine((v) => Buffer.from(v, 'base64').length === 32, 'Must be 32 bytes, base64 encoded')
+      .optional(),
+    /** A name for the key above, stored beside each secret so keys can be rotated. */
+    COURIER_CREDENTIALS_KEY_ID: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,32}$/)
+      .default('k1'),
+    /** Retired keys still needed to read old secrets: `id:base64,id:base64`. */
+    COURIER_CREDENTIALS_OLD_KEYS: z.string().default(''),
+    /** The simulated courier. On by default everywhere except production, where it must be switched on on purpose. */
+    COURIER_MOCK_ENABLED: z.enum(['true', 'false']).optional(),
+    /** The address couriers can reach this API on, used to show the webhook URL to paste into a courier's panel. */
+    API_PUBLIC_URL: z.string().url().optional(),
     /** Comma-separated browser origins allowed to call the API with credentials. */
     WEB_ORIGINS: z
       .string()
@@ -76,6 +95,15 @@ export const ServerEnv = z
         path: ['MAIL_PROVIDER'],
         message: 'MAIL_PROVIDER=console prints tokens to the log; configure smtp in production',
       });
+    }
+    for (const entry of env.COURIER_CREDENTIALS_OLD_KEYS.split(',').filter(Boolean)) {
+      const [id, key] = entry.split(':');
+      if (!id || !key || Buffer.from(key, 'base64').length !== 32)
+        ctx.addIssue({
+          code: 'custom',
+          path: ['COURIER_CREDENTIALS_OLD_KEYS'],
+          message: 'Each entry must be id:base64 with a 32-byte key',
+        });
     }
     if (Boolean(env.JWT_PRIVATE_KEY) !== Boolean(env.JWT_PUBLIC_KEY)) {
       ctx.addIssue({

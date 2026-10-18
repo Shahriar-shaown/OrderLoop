@@ -408,3 +408,27 @@ against the real API, accessibility and phone-width scans of the new pages.
 
 **Known limits:** only today / 7 / 30-day periods; no courier fees, so profit is a labelled estimate of gross profit on item
 revenue; no notifications; the mobile screens were not driven on a device.
+
+## 16. Milestone: courier integration (2026-10-21)
+
+Full description, credential setup and the list of what was and was not verified: [couriers.md](couriers.md).
+
+**Delivered:** a provider-independent courier package (`packages/courier-sdk`: one interface with capabilities; Pathao,
+Steadfast and a simulated adapter; HTTP with timeouts, retries, `Retry-After` and a rate limiter; provider status mapping with
+the original text preserved; webhook verification by each courier's documented method); connections with credentials encrypted
+at rest (AES-256-GCM, rotation, never returned or logged); shipments with duplicate-safe, idempotent booking claimed before the
+courier is called, an explicit "unconfirmed" state settled by lookup or by a person, an append-only event trail, cancel where
+supported, and order status/stock following courier updates through the order's own rules; a public webhook endpoint; Settings →
+Couriers and a booking/tracking panel on the order page with clear simulated labelling; `couriers:read` and `couriers:manage`
+permissions.
+
+**Not verified against the real services:** the providers' official reference pages could not be read, so endpoints come from
+each courier's own open-source plugin and community SDKs (classified in couriers.md). Pathao's price estimate and order-info
+paths and Steadfast's header names rest on community sources. Nothing was run against a live or sandbox account.
+
+**Verification:** 100 courier-package tests and 30 API integration tests against mocked HTTP, the vault tests, and 2 browser
+scenarios. The checkpoint (book a test order with the simulated courier, track it through simulated updates, retry safely
+without duplicates) is an automated API test and a browser scenario, both passing.
+
+**Known limits:** no COD settlement (next phase); Pathao and Steadfast cannot cancel through the API; no background polling
+(status refresh is by button or webhook); bulk booking is not built.

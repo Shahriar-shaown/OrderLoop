@@ -86,6 +86,9 @@ model Tenant {
   customerAddresses    CustomerAddress[]
   orderItems           OrderItem[]
   orderStatusHistories OrderStatusHistory[]
+  courierConnections   CourierConnection[]
+  shipments            Shipment[]
+  shipmentEvents       ShipmentEvent[]
 
   @@map("tenants")
 }
@@ -585,10 +588,11 @@ model Order {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer Customer             @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
-  items    OrderItem[]
-  history  OrderStatusHistory[]
+  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer  Customer             @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  items     OrderItem[]
+  history   OrderStatusHistory[]
+  shipments Shipment[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, orderNumber])
@@ -645,4 +649,143 @@ model OrderStatusHistory {
 
   @@index([tenantId, orderId, createdAt])
   @@map("order_status_history")
+}
+
+enum CourierProvider {
+  mock
+  pathao
+  steadfast
+}
+
+enum CourierEnvironment {
+  simulated
+  sandbox
+  production
+}
+
+enum ShipmentStatus {
+  /// We have claimed the order and are about to ask (or are asking) the courier.
+  booking
+  /// The courier refused, or never received it: nothing exists at the courier.
+  booking_failed
+  /// We asked and do not know the answer (timeout, 5xx). A parcel may or may not exist; a person or a lookup must settle it.
+  booking_uncertain
+  booked
+  picked_up
+  in_transit
+  out_for_delivery
+  delivered
+  partial_delivered
+  delivery_failed
+  on_hold
+  returning
+  returned
+  cancelled
+  unknown
+}
+
+enum ShipmentEventSource {
+  booking
+  webhook
+  poll
+  manual
+  simulation
+}
+
+/// A seller's link to one courier. Secrets are stored only as AES-256-GCM ciphertext and are never returned by the API.
+model CourierConnection {
+  id               String             @id @default(uuid(7)) @db.Uuid
+  tenantId         String             @map("tenant_id") @db.Uuid
+  provider         CourierProvider
+  environment      CourierEnvironment
+  /// Encrypted JSON of the provider credentials (client secret, API key ...).
+  credentialsEnc   String?            @map("credentials_enc")
+  /// Encrypted secret the courier sends with its webhooks, chosen by the seller.
+  webhookSecretEnc String?            @map("webhook_secret_enc")
+  /// Non-secret choices: store id, delivery type, default weight, host.
+  settings         Json               @default("{}")
+  enabled          Boolean            @default(true)
+  lastCheckedAt    DateTime?          @map("last_checked_at") @db.Timestamptz(3)
+  lastCheckOk      Boolean?           @map("last_check_ok")
+  lastCheckMessage String?            @map("last_check_message")
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  shipments Shipment[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, provider])
+  @@map("courier_connections")
+}
+
+model Shipment {
+  id                    String             @id @default(uuid(7)) @db.Uuid
+  tenantId              String             @map("tenant_id") @db.Uuid
+  orderId               String             @map("order_id") @db.Uuid
+  connectionId          String             @map("connection_id") @db.Uuid
+  provider              CourierProvider
+  environment           CourierEnvironment
+  /// True for anything booked with the mock adapter: no courier knows about it and no parcel exists.
+  simulated             Boolean
+  status                ShipmentStatus
+  /// The courier's own wording, exactly as last received.
+  providerStatus        String?            @map("provider_status")
+  providerConsignmentId String?            @map("provider_consignment_id")
+  /// What we sent as the courier's reference for this parcel (Pathao merchant_order_id, Steadfast invoice).
+  providerReference     String             @map("provider_reference")
+  trackingCode          String?            @map("tracking_code")
+  trackingUrl           String?            @map("tracking_url")
+  /// 1 for the first booking of an order; a rebooking after a cancel or failure gets the next number and its own reference.
+  attempt               Int                @default(1)
+  codAmountMinor        Int                @map("cod_amount_minor")
+  deliveryFeeMinor      Int?               @map("delivery_fee_minor")
+  failureReason         String?            @map("failure_reason")
+  idempotencyKey        String?            @map("idempotency_key")
+  requestHash           String?            @map("request_hash")
+  bookedAt              DateTime?          @map("booked_at") @db.Timestamptz(3)
+  lastEventAt           DateTime?          @map("last_event_at") @db.Timestamptz(3)
+  lastSyncedAt          DateTime?          @map("last_synced_at") @db.Timestamptz(3)
+  createdById           String?            @map("created_by_id") @db.Uuid
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order      Order             @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+  connection CourierConnection @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Restrict)
+  events     ShipmentEvent[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, orderId, attempt])
+  @@unique([tenantId, idempotencyKey])
+  @@unique([tenantId, provider, providerReference])
+  @@index([tenantId, orderId])
+  @@index([tenantId, status])
+  @@index([tenantId, providerConsignmentId])
+  @@map("shipments")
+}
+
+/// What the courier told us (or what we did), one row per fact. Append-only.
+model ShipmentEvent {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  tenantId       String              @map("tenant_id") @db.Uuid
+  shipmentId     String              @map("shipment_id") @db.Uuid
+  source         ShipmentEventSource
+  /// Identifies one delivery of one courier event, so a replayed webhook is recognised and ignored.
+  eventKey       String              @map("event_key")
+  providerStatus String?             @map("provider_status")
+  /// Our status after this event, or null when the event changed nothing (duplicate, out of order).
+  mappedStatus   ShipmentStatus?     @map("mapped_status")
+  applied        Boolean
+  note           String?
+  payload        Json?
+  occurredAt     DateTime?           @map("occurred_at") @db.Timestamptz(3)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  shipment Shipment @relation(fields: [tenantId, shipmentId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, shipmentId, eventKey])
+  @@index([tenantId, shipmentId, createdAt])
+  @@map("shipment_events")
 }

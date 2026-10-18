@@ -33,3 +33,4 @@ export { CustomersScreen } from './screens/CustomersScreen';
 export { CustomerDetailScreen } from './screens/CustomerDetailScreen';
 export { DashboardScreen } from './screens/DashboardScreen';
 export { TeamScreen } from './screens/TeamScreen';
+export { CouriersScreen } from './screens/CouriersScreen';

@@ -18,6 +18,11 @@ export const ErrorCode = z.enum([
   'invalid_transition',
   'version_conflict',
   'idempotency_conflict',
+  'courier_not_configured',
+  'courier_rejected',
+  'courier_unavailable',
+  'courier_unsupported',
+  'shipment_conflict',
   'internal_error',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;

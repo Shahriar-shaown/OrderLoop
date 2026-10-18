@@ -47,6 +47,9 @@ importers:
       '@orderloop/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@orderloop/courier-sdk':
+        specifier: workspace:*
+        version: link:../../packages/courier-sdk
       '@orderloop/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -368,6 +371,21 @@ importers:
       zod:
         specifier: 4.6.7
         version: 4.6.7
+    devDependencies:
+      '@orderloop/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.5
+      eslint:
+        specifier: ^10.0.0
+        version: 10.12.0(jiti@2.7.0)(supports-color@8.1.1)
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(jsdom@26.1.0(supports-color@8.1.1))(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.51.2)(yaml@2.9.1)
+
+  packages/courier-sdk:
     devDependencies:
       '@orderloop/config':
         specifier: workspace:*

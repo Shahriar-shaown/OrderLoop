@@ -32,6 +32,8 @@ both preferences are stored and returned so the screens can use them as translat
 | `inventory:write` |  yes  |  yes  |   yes   |  yes  |     no     |
 | `orders:read`     |  yes  |  yes  |   yes   |  yes  |    yes     |
 | `orders:write`    |  yes  |  yes  |   yes   |  yes  |     no     |
+| `couriers:read`   |  yes  |  yes  |   yes   |  yes  |    yes     |
+| `couriers:manage` |  yes  |  yes  |   no    |  no   |     no     |
 
 The brief asked for owner, admin, manager and staff. `ACCOUNTANT` (read-only finance access) was added in an earlier
 milestone and is kept.
@@ -70,6 +72,10 @@ preferences or memberships, never on business data).
 | `PATCH/DELETE /v1/members/:id`                                                                                                           | `members:manage`                                                        |
 | `GET /v1/dashboard`; `GET` orders, customers, order duplicates, customer order history, orders export; `POST /v1/orders/duplicate-check` | `orders:read`                                                           |
 | `POST/PATCH` orders and customers, customer addresses, order status, bulk status, orders import (check and apply)                        | `orders:write`                                                          |
+| `GET` couriers, an order's shipments, a shipment                                                                                         | `couriers:read`                                                         |
+| `PATCH/DELETE /v1/couriers/:provider`, `POST /v1/couriers/:provider/test`                                                                | `couriers:manage`                                                       |
+| courier places, shipping quote, book / refresh / cancel / settle / simulate a shipment                                                   | `orders:write`                                                          |
+| `POST /v1/webhooks/couriers/:provider/:tenantId/:connectionId`                                                                           | public; the courier's own proof (see [couriers.md](couriers.md))        |
 | `GET /v1/audit-logs`                                                                                                                     | `audit:read`                                                            |
 | `GET` categories, products, product by id                                                                                                | `catalog:read`                                                          |
 | `POST/PATCH/DELETE` categories, `POST/PATCH` products and variants, `POST/PATCH /v1/locations`, product imports                          | `catalog:write`                                                         |
@@ -116,6 +122,7 @@ deleted by the application role, and are readable only inside their own business
 | `auth.switch_tenant`                                                                                                                               | A person enters a business (logged in the business entered).                              |
 | `auth.register`, `auth.login`, `auth.login_failed`, `auth.logout`, `auth.token_reuse_detected`                                                     | Session events.                                                                           |
 | `order.created`, `order.updated`, `order.status_changed`, `order.cancelled`, `order.bulk_status`, `orders.imported`, `export.orders`, `customer.*` | Orders and customers (names, phones and addresses are never logged).                      |
+| `courier.connection_saved`, `courier.connection_removed`, `courier.connection_tested`, `shipment.*`                                                | Courier connections (which fields changed, never values) and shipment steps.              |
 | `category.*`, `product.created`, `variant.created`, `location.*`, `import.queued`                                                                  | Catalog administration.                                                                   |
 
 ## What proves it

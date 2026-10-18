@@ -281,6 +281,38 @@ export function createApiClient(options: ApiClientOptions) {
       validateImport: (csv: string) => call(routes.validateOrderImport, { body: { csv } }),
       import: (csv: string) => call(routes.importOrders, { body: { csv } }),
     },
+    couriers: {
+      list: () => call(routes.listCouriers),
+      /** Credentials are write-only: they are sent once, stored encrypted on the server, and never come back. */
+      save: (
+        provider: RouteInput<typeof routes.saveCourier>['params']['provider'],
+        body: RouteInput<typeof routes.saveCourier>['body'],
+      ) => call(routes.saveCourier, { params: { provider }, body }),
+      remove: (provider: RouteInput<typeof routes.removeCourier>['params']['provider']) =>
+        call(routes.removeCourier, { params: { provider } }),
+      test: (provider: RouteInput<typeof routes.testCourier>['params']['provider']) =>
+        call(routes.testCourier, { params: { provider } }),
+      locations: (
+        provider: RouteInput<typeof routes.listCourierLocations>['params']['provider'],
+        query: RouteInput<typeof routes.listCourierLocations>['query'],
+      ) => call(routes.listCourierLocations, { params: { provider }, query }),
+    },
+    shipments: {
+      quote: (orderId: string, body: RouteInput<typeof routes.quoteShipping>['body']) =>
+        call(routes.quoteShipping, { params: { id: orderId }, body }),
+      /** `idempotencyKey` is required: repeat the same key to retry safely; a new key means a new booking. */
+      book: (orderId: string, body: RouteInput<typeof routes.bookShipment>['body']) =>
+        call(routes.bookShipment, { params: { id: orderId }, body }),
+      forOrder: (orderId: string) => call(routes.listOrderShipments, { params: { id: orderId } }),
+      get: (id: string) => call(routes.getShipment, { params: { id } }),
+      refresh: (id: string) => call(routes.refreshShipment, { params: { id } }),
+      cancel: (id: string, body: RouteInput<typeof routes.cancelShipment>['body']) =>
+        call(routes.cancelShipment, { params: { id }, body }),
+      resolve: (id: string, body: RouteInput<typeof routes.resolveShipment>['body']) =>
+        call(routes.resolveShipment, { params: { id }, body }),
+      simulate: (id: string, body: RouteInput<typeof routes.simulateShipmentEvent>['body']) =>
+        call(routes.simulateShipmentEvent, { params: { id }, body }),
+    },
     reservations: {
       list: (query: RouteInput<typeof routes.listReservations>['query'] = {}) =>
         call(routes.listReservations, { query }),

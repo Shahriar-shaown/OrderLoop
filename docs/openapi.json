@@ -68,6 +68,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -179,6 +184,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -271,6 +281,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -519,6 +534,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -751,6 +771,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -970,6 +995,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -1060,6 +1090,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -1285,6 +1320,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -1520,6 +1560,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -1629,6 +1674,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -1719,6 +1769,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -1835,6 +1890,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -1960,6 +2020,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -2101,7 +2166,9 @@
                           "inventory:read",
                           "inventory:write",
                           "orders:read",
-                          "orders:write"
+                          "orders:write",
+                          "couriers:read",
+                          "couriers:manage"
                         ]
                       }
                     },
@@ -2170,6 +2237,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -2332,7 +2404,9 @@
                           "inventory:read",
                           "inventory:write",
                           "orders:read",
-                          "orders:write"
+                          "orders:write",
+                          "couriers:read",
+                          "couriers:manage"
                         ]
                       }
                     },
@@ -2401,6 +2475,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -2577,6 +2656,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -2897,6 +2981,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -3050,6 +3139,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -3244,6 +3338,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -3367,6 +3466,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -3505,6 +3609,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -3627,6 +3736,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -3735,6 +3849,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -3886,6 +4005,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -3992,6 +4116,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -4101,6 +4230,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -4224,6 +4358,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -4361,6 +4500,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -4467,6 +4611,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -4794,6 +4943,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -5170,6 +5324,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -5445,6 +5604,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -5788,6 +5952,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -6060,6 +6229,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -6328,6 +6502,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -6464,6 +6643,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -6674,6 +6858,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -6900,6 +7089,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -7015,6 +7209,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -7147,6 +7346,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -7296,6 +7500,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -7517,6 +7726,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -7707,6 +7921,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -7888,6 +8107,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -8156,6 +8380,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -8337,6 +8566,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -8518,6 +8752,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -8712,6 +8951,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -8821,6 +9065,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -8930,6 +9179,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -9080,6 +9334,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -9278,6 +9537,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -9465,6 +9729,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -9621,6 +9890,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -9777,6 +10051,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -9948,6 +10227,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -10143,6 +10427,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -10331,6 +10620,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -10510,6 +10804,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -10679,6 +10978,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -11263,6 +11567,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -11468,6 +11777,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -11737,6 +12051,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -11971,6 +12290,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -12251,6 +12575,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -12481,6 +12810,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -12720,6 +13054,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -12836,6 +13175,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -13066,6 +13410,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -13380,6 +13729,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -13999,6 +14353,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -14179,6 +14538,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -14403,6 +14767,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -14834,6 +15203,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -15418,6 +15792,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -15907,6 +16286,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -16066,6 +16450,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -16243,6 +16632,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -16401,6 +16795,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -16586,6 +16985,11 @@
                         "invalid_transition",
                         "version_conflict",
                         "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
                         "internal_error"
                       ]
                     },
@@ -16623,6 +17027,4099 @@
           }
         ],
         "x-required-permission": "orders:read"
+      }
+    },
+    "/v1/couriers": {
+      "get": {
+        "operationId": "listCouriers",
+        "summary": "The couriers that can be connected, and this workspace’s connection to each (never its secrets)",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "provider": {
+                        "type": "string",
+                        "enum": ["mock", "pathao", "steadfast"]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "simulated": {
+                        "type": "boolean"
+                      },
+                      "capabilities": {
+                        "type": "object",
+                        "properties": {
+                          "quote": {
+                            "type": "boolean"
+                          },
+                          "tracking": {
+                            "type": "boolean"
+                          },
+                          "webhooks": {
+                            "type": "boolean"
+                          },
+                          "cancel": {
+                            "type": "boolean"
+                          },
+                          "returns": {
+                            "type": "boolean"
+                          },
+                          "locations": {
+                            "type": "boolean"
+                          },
+                          "duplicateProtection": {
+                            "type": "string",
+                            "enum": ["reference", "none"]
+                          }
+                        },
+                        "required": [
+                          "quote",
+                          "tracking",
+                          "webhooks",
+                          "cancel",
+                          "returns",
+                          "locations",
+                          "duplicateProtection"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "environments": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": ["simulated", "sandbox", "production"]
+                        }
+                      },
+                      "credentialFields": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            },
+                            "optional": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": ["key", "label", "optional"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "available": {
+                        "type": "boolean"
+                      },
+                      "unavailableReason": {
+                        "type": ["string", "null"]
+                      },
+                      "connection": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "environment": {
+                                "type": "string",
+                                "enum": ["simulated", "sandbox", "production"]
+                              },
+                              "hasCredentials": {
+                                "type": "boolean"
+                              },
+                              "hasWebhookSecret": {
+                                "type": "boolean"
+                              },
+                              "settings": {
+                                "type": "object",
+                                "properties": {
+                                  "storeId": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "deliveryType": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number",
+                                        "const": 48
+                                      },
+                                      {
+                                        "type": "number",
+                                        "const": 12
+                                      }
+                                    ]
+                                  },
+                                  "itemType": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number",
+                                        "const": 1
+                                      },
+                                      {
+                                        "type": "number",
+                                        "const": 2
+                                      }
+                                    ]
+                                  },
+                                  "defaultWeightKg": {
+                                    "type": "number",
+                                    "minimum": 0.5,
+                                    "maximum": 10
+                                  },
+                                  "host": {
+                                    "type": "string",
+                                    "enum": ["steadfast", "packzy"]
+                                  },
+                                  "outcome": {
+                                    "type": "string",
+                                    "enum": [
+                                      "success",
+                                      "validation_error",
+                                      "rate_limited",
+                                      "unavailable",
+                                      "timeout_before_booking",
+                                      "timeout_after_booking",
+                                      "rate_limited_once",
+                                      "unavailable_once",
+                                      "timeout_before_booking_once",
+                                      "timeout_after_booking_once"
+                                    ]
+                                  },
+                                  "referenceLookup": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "webhookUrl": {
+                                "type": ["string", "null"]
+                              },
+                              "lastCheckedAt": {
+                                "type": ["string", "null"]
+                              },
+                              "lastCheckOk": {
+                                "type": ["boolean", "null"]
+                              },
+                              "lastCheckMessage": {
+                                "type": ["string", "null"]
+                              },
+                              "updatedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "environment",
+                              "hasCredentials",
+                              "hasWebhookSecret",
+                              "settings",
+                              "enabled",
+                              "webhookUrl",
+                              "lastCheckedAt",
+                              "lastCheckOk",
+                              "lastCheckMessage",
+                              "updatedAt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "provider",
+                      "name",
+                      "simulated",
+                      "capabilities",
+                      "environments",
+                      "credentialFields",
+                      "available",
+                      "unavailableReason",
+                      "connection"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["couriers"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "couriers:read"
+      }
+    },
+    "/v1/couriers/{provider}": {
+      "patch": {
+        "operationId": "saveCourier",
+        "summary": "Save a courier connection. Credentials are write-only: they are encrypted on the server and never returned",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["mock", "pathao", "steadfast"]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "environment": {
+                    "type": "string",
+                    "enum": ["simulated", "sandbox", "production"]
+                  },
+                  "credentials": {
+                    "type": "object",
+                    "properties": {
+                      "clientId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      "clientSecret": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      "username": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      "password": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      "apiKey": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      "secretKey": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "webhookSecret": {
+                    "type": "string",
+                    "minLength": 16,
+                    "maxLength": 200
+                  },
+                  "settings": {
+                    "type": "object",
+                    "properties": {
+                      "storeId": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "deliveryType": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "const": 48
+                          },
+                          {
+                            "type": "number",
+                            "const": 12
+                          }
+                        ]
+                      },
+                      "itemType": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "const": 1
+                          },
+                          {
+                            "type": "number",
+                            "const": 2
+                          }
+                        ]
+                      },
+                      "defaultWeightKg": {
+                        "type": "number",
+                        "minimum": 0.5,
+                        "maximum": 10
+                      },
+                      "host": {
+                        "type": "string",
+                        "enum": ["steadfast", "packzy"]
+                      },
+                      "outcome": {
+                        "type": "string",
+                        "enum": [
+                          "success",
+                          "validation_error",
+                          "rate_limited",
+                          "unavailable",
+                          "timeout_before_booking",
+                          "timeout_after_booking",
+                          "rate_limited_once",
+                          "unavailable_once",
+                          "timeout_before_booking_once",
+                          "timeout_after_booking_once"
+                        ]
+                      },
+                      "referenceLookup": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": ["mock", "pathao", "steadfast"]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "simulated": {
+                      "type": "boolean"
+                    },
+                    "capabilities": {
+                      "type": "object",
+                      "properties": {
+                        "quote": {
+                          "type": "boolean"
+                        },
+                        "tracking": {
+                          "type": "boolean"
+                        },
+                        "webhooks": {
+                          "type": "boolean"
+                        },
+                        "cancel": {
+                          "type": "boolean"
+                        },
+                        "returns": {
+                          "type": "boolean"
+                        },
+                        "locations": {
+                          "type": "boolean"
+                        },
+                        "duplicateProtection": {
+                          "type": "string",
+                          "enum": ["reference", "none"]
+                        }
+                      },
+                      "required": [
+                        "quote",
+                        "tracking",
+                        "webhooks",
+                        "cancel",
+                        "returns",
+                        "locations",
+                        "duplicateProtection"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "environments": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": ["simulated", "sandbox", "production"]
+                      }
+                    },
+                    "credentialFields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "optional": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": ["key", "label", "optional"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "unavailableReason": {
+                      "type": ["string", "null"]
+                    },
+                    "connection": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "environment": {
+                              "type": "string",
+                              "enum": ["simulated", "sandbox", "production"]
+                            },
+                            "hasCredentials": {
+                              "type": "boolean"
+                            },
+                            "hasWebhookSecret": {
+                              "type": "boolean"
+                            },
+                            "settings": {
+                              "type": "object",
+                              "properties": {
+                                "storeId": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "deliveryType": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "const": 48
+                                    },
+                                    {
+                                      "type": "number",
+                                      "const": 12
+                                    }
+                                  ]
+                                },
+                                "itemType": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "const": 1
+                                    },
+                                    {
+                                      "type": "number",
+                                      "const": 2
+                                    }
+                                  ]
+                                },
+                                "defaultWeightKg": {
+                                  "type": "number",
+                                  "minimum": 0.5,
+                                  "maximum": 10
+                                },
+                                "host": {
+                                  "type": "string",
+                                  "enum": ["steadfast", "packzy"]
+                                },
+                                "outcome": {
+                                  "type": "string",
+                                  "enum": [
+                                    "success",
+                                    "validation_error",
+                                    "rate_limited",
+                                    "unavailable",
+                                    "timeout_before_booking",
+                                    "timeout_after_booking",
+                                    "rate_limited_once",
+                                    "unavailable_once",
+                                    "timeout_before_booking_once",
+                                    "timeout_after_booking_once"
+                                  ]
+                                },
+                                "referenceLookup": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "webhookUrl": {
+                              "type": ["string", "null"]
+                            },
+                            "lastCheckedAt": {
+                              "type": ["string", "null"]
+                            },
+                            "lastCheckOk": {
+                              "type": ["boolean", "null"]
+                            },
+                            "lastCheckMessage": {
+                              "type": ["string", "null"]
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "environment",
+                            "hasCredentials",
+                            "hasWebhookSecret",
+                            "settings",
+                            "enabled",
+                            "webhookUrl",
+                            "lastCheckedAt",
+                            "lastCheckOk",
+                            "lastCheckMessage",
+                            "updatedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "name",
+                    "simulated",
+                    "capabilities",
+                    "environments",
+                    "credentialFields",
+                    "available",
+                    "unavailableReason",
+                    "connection"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["couriers"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "couriers:manage"
+      },
+      "delete": {
+        "operationId": "removeCourier",
+        "summary": "Erase the saved credentials and switch the courier off. Past shipments stay",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["mock", "pathao", "steadfast"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": ["mock", "pathao", "steadfast"]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "simulated": {
+                      "type": "boolean"
+                    },
+                    "capabilities": {
+                      "type": "object",
+                      "properties": {
+                        "quote": {
+                          "type": "boolean"
+                        },
+                        "tracking": {
+                          "type": "boolean"
+                        },
+                        "webhooks": {
+                          "type": "boolean"
+                        },
+                        "cancel": {
+                          "type": "boolean"
+                        },
+                        "returns": {
+                          "type": "boolean"
+                        },
+                        "locations": {
+                          "type": "boolean"
+                        },
+                        "duplicateProtection": {
+                          "type": "string",
+                          "enum": ["reference", "none"]
+                        }
+                      },
+                      "required": [
+                        "quote",
+                        "tracking",
+                        "webhooks",
+                        "cancel",
+                        "returns",
+                        "locations",
+                        "duplicateProtection"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "environments": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": ["simulated", "sandbox", "production"]
+                      }
+                    },
+                    "credentialFields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "optional": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": ["key", "label", "optional"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "unavailableReason": {
+                      "type": ["string", "null"]
+                    },
+                    "connection": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "environment": {
+                              "type": "string",
+                              "enum": ["simulated", "sandbox", "production"]
+                            },
+                            "hasCredentials": {
+                              "type": "boolean"
+                            },
+                            "hasWebhookSecret": {
+                              "type": "boolean"
+                            },
+                            "settings": {
+                              "type": "object",
+                              "properties": {
+                                "storeId": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "deliveryType": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "const": 48
+                                    },
+                                    {
+                                      "type": "number",
+                                      "const": 12
+                                    }
+                                  ]
+                                },
+                                "itemType": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "const": 1
+                                    },
+                                    {
+                                      "type": "number",
+                                      "const": 2
+                                    }
+                                  ]
+                                },
+                                "defaultWeightKg": {
+                                  "type": "number",
+                                  "minimum": 0.5,
+                                  "maximum": 10
+                                },
+                                "host": {
+                                  "type": "string",
+                                  "enum": ["steadfast", "packzy"]
+                                },
+                                "outcome": {
+                                  "type": "string",
+                                  "enum": [
+                                    "success",
+                                    "validation_error",
+                                    "rate_limited",
+                                    "unavailable",
+                                    "timeout_before_booking",
+                                    "timeout_after_booking",
+                                    "rate_limited_once",
+                                    "unavailable_once",
+                                    "timeout_before_booking_once",
+                                    "timeout_after_booking_once"
+                                  ]
+                                },
+                                "referenceLookup": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "webhookUrl": {
+                              "type": ["string", "null"]
+                            },
+                            "lastCheckedAt": {
+                              "type": ["string", "null"]
+                            },
+                            "lastCheckOk": {
+                              "type": ["boolean", "null"]
+                            },
+                            "lastCheckMessage": {
+                              "type": ["string", "null"]
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "environment",
+                            "hasCredentials",
+                            "hasWebhookSecret",
+                            "settings",
+                            "enabled",
+                            "webhookUrl",
+                            "lastCheckedAt",
+                            "lastCheckOk",
+                            "lastCheckMessage",
+                            "updatedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "name",
+                    "simulated",
+                    "capabilities",
+                    "environments",
+                    "credentialFields",
+                    "available",
+                    "unavailableReason",
+                    "connection"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["couriers"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "couriers:manage"
+      }
+    },
+    "/v1/couriers/{provider}/test": {
+      "post": {
+        "operationId": "testCourier",
+        "summary": "Check that the saved credentials work, by asking the courier something harmless",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["mock", "pathao", "steadfast"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "details": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "message": {
+                      "type": ["string", "null"]
+                    },
+                    "checkedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["ok", "details", "message", "checkedAt"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["couriers"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "couriers:manage"
+      }
+    },
+    "/v1/couriers/{provider}/locations": {
+      "get": {
+        "operationId": "listCourierLocations",
+        "summary": "Cities, zones or areas the courier serves (where it has them)",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["mock", "pathao", "steadfast"]
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["cities", "zones", "areas"]
+            }
+          },
+          {
+            "name": "parentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "homeDelivery": {
+                        "type": "boolean"
+                      },
+                      "pickup": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": ["id", "name"],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["couriers"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "orders:write"
+      }
+    },
+    "/v1/orders/{id}/shipping-quote": {
+      "post": {
+        "operationId": "quoteShipping",
+        "summary": "Delivery fee and serviceability for this order, where the courier offers an estimate. Books nothing",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": ["mock", "pathao", "steadfast"]
+                  },
+                  "weightKg": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 50
+                  },
+                  "cityId": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "zoneId": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "areaId": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": ["provider"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": ["mock", "pathao", "steadfast"]
+                    },
+                    "simulated": {
+                      "type": "boolean"
+                    },
+                    "serviceable": {
+                      "type": ["boolean", "null"]
+                    },
+                    "feeMinor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "codEnabled": {
+                      "type": ["boolean", "null"]
+                    },
+                    "codFeeMinor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": ["string", "null"]
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "simulated",
+                    "serviceable",
+                    "feeMinor",
+                    "codEnabled",
+                    "codFeeMinor",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["orders"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "orders:write"
+      }
+    },
+    "/v1/orders/{id}/shipments": {
+      "post": {
+        "operationId": "bookShipment",
+        "summary": "Book this order with a courier. Needs the order to be ready to ship. Repeating a request with the same key returns the same shipment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": ["mock", "pathao", "steadfast"]
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
+                  },
+                  "weightKg": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 50
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 400
+                  },
+                  "cityId": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "zoneId": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "areaId": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": ["provider", "idempotencyKey"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "orderId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "orderNumber": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": ["mock", "pathao", "steadfast"]
+                    },
+                    "environment": {
+                      "type": "string",
+                      "enum": ["simulated", "sandbox", "production"]
+                    },
+                    "simulated": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "booking",
+                        "booking_failed",
+                        "booking_uncertain",
+                        "booked",
+                        "picked_up",
+                        "in_transit",
+                        "out_for_delivery",
+                        "delivered",
+                        "partial_delivered",
+                        "delivery_failed",
+                        "on_hold",
+                        "returning",
+                        "returned",
+                        "cancelled",
+                        "unknown"
+                      ]
+                    },
+                    "providerStatus": {
+                      "type": ["string", "null"]
+                    },
+                    "consignmentId": {
+                      "type": ["string", "null"]
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "trackingCode": {
+                      "type": ["string", "null"]
+                    },
+                    "trackingUrl": {
+                      "type": ["string", "null"]
+                    },
+                    "attempt": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "codAmountMinor": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "deliveryFeeMinor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "failureReason": {
+                      "type": ["string", "null"]
+                    },
+                    "bookedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "lastEventAt": {
+                      "type": ["string", "null"]
+                    },
+                    "lastSyncedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "actions": {
+                      "type": "object",
+                      "properties": {
+                        "canRefresh": {
+                          "type": "boolean"
+                        },
+                        "canCancel": {
+                          "type": "boolean"
+                        },
+                        "needsResolution": {
+                          "type": "boolean"
+                        },
+                        "canSimulate": {
+                          "type": "boolean"
+                        },
+                        "canMarkCancelled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "canRefresh",
+                        "canCancel",
+                        "needsResolution",
+                        "canSimulate",
+                        "canMarkCancelled"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": ["booking", "webhook", "poll", "manual", "simulation"]
+                          },
+                          "providerStatus": {
+                            "type": ["string", "null"]
+                          },
+                          "mappedStatus": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "booking",
+                                  "booking_failed",
+                                  "booking_uncertain",
+                                  "booked",
+                                  "picked_up",
+                                  "in_transit",
+                                  "out_for_delivery",
+                                  "delivered",
+                                  "partial_delivered",
+                                  "delivery_failed",
+                                  "on_hold",
+                                  "returning",
+                                  "returned",
+                                  "cancelled",
+                                  "unknown"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "applied": {
+                            "type": "boolean"
+                          },
+                          "note": {
+                            "type": ["string", "null"]
+                          },
+                          "occurredAt": {
+                            "type": ["string", "null"]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "source",
+                          "providerStatus",
+                          "mappedStatus",
+                          "applied",
+                          "note",
+                          "occurredAt",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "orderId",
+                    "orderNumber",
+                    "provider",
+                    "environment",
+                    "simulated",
+                    "status",
+                    "providerStatus",
+                    "consignmentId",
+                    "reference",
+                    "trackingCode",
+                    "trackingUrl",
+                    "attempt",
+                    "codAmountMinor",
+                    "deliveryFeeMinor",
+                    "failureReason",
+                    "bookedAt",
+                    "lastEventAt",
+                    "lastSyncedAt",
+                    "createdAt",
+                    "actions",
+                    "events"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["orders"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "orders:write"
+      },
+      "get": {
+        "operationId": "listOrderShipments",
+        "summary": "Every shipment booked for an order, newest first",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "orderId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "orderNumber": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "provider": {
+                        "type": "string",
+                        "enum": ["mock", "pathao", "steadfast"]
+                      },
+                      "environment": {
+                        "type": "string",
+                        "enum": ["simulated", "sandbox", "production"]
+                      },
+                      "simulated": {
+                        "type": "boolean"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "booking",
+                          "booking_failed",
+                          "booking_uncertain",
+                          "booked",
+                          "picked_up",
+                          "in_transit",
+                          "out_for_delivery",
+                          "delivered",
+                          "partial_delivered",
+                          "delivery_failed",
+                          "on_hold",
+                          "returning",
+                          "returned",
+                          "cancelled",
+                          "unknown"
+                        ]
+                      },
+                      "providerStatus": {
+                        "type": ["string", "null"]
+                      },
+                      "consignmentId": {
+                        "type": ["string", "null"]
+                      },
+                      "reference": {
+                        "type": "string"
+                      },
+                      "trackingCode": {
+                        "type": ["string", "null"]
+                      },
+                      "trackingUrl": {
+                        "type": ["string", "null"]
+                      },
+                      "attempt": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "codAmountMinor": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "deliveryFeeMinor": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "failureReason": {
+                        "type": ["string", "null"]
+                      },
+                      "bookedAt": {
+                        "type": ["string", "null"]
+                      },
+                      "lastEventAt": {
+                        "type": ["string", "null"]
+                      },
+                      "lastSyncedAt": {
+                        "type": ["string", "null"]
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "actions": {
+                        "type": "object",
+                        "properties": {
+                          "canRefresh": {
+                            "type": "boolean"
+                          },
+                          "canCancel": {
+                            "type": "boolean"
+                          },
+                          "needsResolution": {
+                            "type": "boolean"
+                          },
+                          "canSimulate": {
+                            "type": "boolean"
+                          },
+                          "canMarkCancelled": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "canRefresh",
+                          "canCancel",
+                          "needsResolution",
+                          "canSimulate",
+                          "canMarkCancelled"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "orderId",
+                      "orderNumber",
+                      "provider",
+                      "environment",
+                      "simulated",
+                      "status",
+                      "providerStatus",
+                      "consignmentId",
+                      "reference",
+                      "trackingCode",
+                      "trackingUrl",
+                      "attempt",
+                      "codAmountMinor",
+                      "deliveryFeeMinor",
+                      "failureReason",
+                      "bookedAt",
+                      "lastEventAt",
+                      "lastSyncedAt",
+                      "createdAt",
+                      "actions"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["orders"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "couriers:read"
+      }
+    },
+    "/v1/shipments/{id}": {
+      "get": {
+        "operationId": "getShipment",
+        "summary": "A shipment with everything the courier has told us",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "orderId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "orderNumber": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": ["mock", "pathao", "steadfast"]
+                    },
+                    "environment": {
+                      "type": "string",
+                      "enum": ["simulated", "sandbox", "production"]
+                    },
+                    "simulated": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "booking",
+                        "booking_failed",
+                        "booking_uncertain",
+                        "booked",
+                        "picked_up",
+                        "in_transit",
+                        "out_for_delivery",
+                        "delivered",
+                        "partial_delivered",
+                        "delivery_failed",
+                        "on_hold",
+                        "returning",
+                        "returned",
+                        "cancelled",
+                        "unknown"
+                      ]
+                    },
+                    "providerStatus": {
+                      "type": ["string", "null"]
+                    },
+                    "consignmentId": {
+                      "type": ["string", "null"]
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "trackingCode": {
+                      "type": ["string", "null"]
+                    },
+                    "trackingUrl": {
+                      "type": ["string", "null"]
+                    },
+                    "attempt": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "codAmountMinor": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "deliveryFeeMinor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "failureReason": {
+                      "type": ["string", "null"]
+                    },
+                    "bookedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "lastEventAt": {
+                      "type": ["string", "null"]
+                    },
+                    "lastSyncedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "actions": {
+                      "type": "object",
+                      "properties": {
+                        "canRefresh": {
+                          "type": "boolean"
+                        },
+                        "canCancel": {
+                          "type": "boolean"
+                        },
+                        "needsResolution": {
+                          "type": "boolean"
+                        },
+                        "canSimulate": {
+                          "type": "boolean"
+                        },
+                        "canMarkCancelled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "canRefresh",
+                        "canCancel",
+                        "needsResolution",
+                        "canSimulate",
+                        "canMarkCancelled"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": ["booking", "webhook", "poll", "manual", "simulation"]
+                          },
+                          "providerStatus": {
+                            "type": ["string", "null"]
+                          },
+                          "mappedStatus": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "booking",
+                                  "booking_failed",
+                                  "booking_uncertain",
+                                  "booked",
+                                  "picked_up",
+                                  "in_transit",
+                                  "out_for_delivery",
+                                  "delivered",
+                                  "partial_delivered",
+                                  "delivery_failed",
+                                  "on_hold",
+                                  "returning",
+                                  "returned",
+                                  "cancelled",
+                                  "unknown"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "applied": {
+                            "type": "boolean"
+                          },
+                          "note": {
+                            "type": ["string", "null"]
+                          },
+                          "occurredAt": {
+                            "type": ["string", "null"]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "source",
+                          "providerStatus",
+                          "mappedStatus",
+                          "applied",
+                          "note",
+                          "occurredAt",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "orderId",
+                    "orderNumber",
+                    "provider",
+                    "environment",
+                    "simulated",
+                    "status",
+                    "providerStatus",
+                    "consignmentId",
+                    "reference",
+                    "trackingCode",
+                    "trackingUrl",
+                    "attempt",
+                    "codAmountMinor",
+                    "deliveryFeeMinor",
+                    "failureReason",
+                    "bookedAt",
+                    "lastEventAt",
+                    "lastSyncedAt",
+                    "createdAt",
+                    "actions",
+                    "events"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["shipments"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "couriers:read"
+      }
+    },
+    "/v1/shipments/{id}/refresh": {
+      "post": {
+        "operationId": "refreshShipment",
+        "summary": "Ask the courier where the parcel is now",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "orderId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "orderNumber": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": ["mock", "pathao", "steadfast"]
+                    },
+                    "environment": {
+                      "type": "string",
+                      "enum": ["simulated", "sandbox", "production"]
+                    },
+                    "simulated": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "booking",
+                        "booking_failed",
+                        "booking_uncertain",
+                        "booked",
+                        "picked_up",
+                        "in_transit",
+                        "out_for_delivery",
+                        "delivered",
+                        "partial_delivered",
+                        "delivery_failed",
+                        "on_hold",
+                        "returning",
+                        "returned",
+                        "cancelled",
+                        "unknown"
+                      ]
+                    },
+                    "providerStatus": {
+                      "type": ["string", "null"]
+                    },
+                    "consignmentId": {
+                      "type": ["string", "null"]
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "trackingCode": {
+                      "type": ["string", "null"]
+                    },
+                    "trackingUrl": {
+                      "type": ["string", "null"]
+                    },
+                    "attempt": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "codAmountMinor": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "deliveryFeeMinor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "failureReason": {
+                      "type": ["string", "null"]
+                    },
+                    "bookedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "lastEventAt": {
+                      "type": ["string", "null"]
+                    },
+                    "lastSyncedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "actions": {
+                      "type": "object",
+                      "properties": {
+                        "canRefresh": {
+                          "type": "boolean"
+                        },
+                        "canCancel": {
+                          "type": "boolean"
+                        },
+                        "needsResolution": {
+                          "type": "boolean"
+                        },
+                        "canSimulate": {
+                          "type": "boolean"
+                        },
+                        "canMarkCancelled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "canRefresh",
+                        "canCancel",
+                        "needsResolution",
+                        "canSimulate",
+                        "canMarkCancelled"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": ["booking", "webhook", "poll", "manual", "simulation"]
+                          },
+                          "providerStatus": {
+                            "type": ["string", "null"]
+                          },
+                          "mappedStatus": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "booking",
+                                  "booking_failed",
+                                  "booking_uncertain",
+                                  "booked",
+                                  "picked_up",
+                                  "in_transit",
+                                  "out_for_delivery",
+                                  "delivered",
+                                  "partial_delivered",
+                                  "delivery_failed",
+                                  "on_hold",
+                                  "returning",
+                                  "returned",
+                                  "cancelled",
+                                  "unknown"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "applied": {
+                            "type": "boolean"
+                          },
+                          "note": {
+                            "type": ["string", "null"]
+                          },
+                          "occurredAt": {
+                            "type": ["string", "null"]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "source",
+                          "providerStatus",
+                          "mappedStatus",
+                          "applied",
+                          "note",
+                          "occurredAt",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "orderId",
+                    "orderNumber",
+                    "provider",
+                    "environment",
+                    "simulated",
+                    "status",
+                    "providerStatus",
+                    "consignmentId",
+                    "reference",
+                    "trackingCode",
+                    "trackingUrl",
+                    "attempt",
+                    "codAmountMinor",
+                    "deliveryFeeMinor",
+                    "failureReason",
+                    "bookedAt",
+                    "lastEventAt",
+                    "lastSyncedAt",
+                    "createdAt",
+                    "actions",
+                    "events"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["shipments"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "orders:write"
+      }
+    },
+    "/v1/shipments/{id}/cancel": {
+      "post": {
+        "operationId": "cancelShipment",
+        "summary": "Cancel a booking with the courier, where the courier supports it",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 200
+                  }
+                },
+                "required": ["reason"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "orderId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "orderNumber": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": ["mock", "pathao", "steadfast"]
+                    },
+                    "environment": {
+                      "type": "string",
+                      "enum": ["simulated", "sandbox", "production"]
+                    },
+                    "simulated": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "booking",
+                        "booking_failed",
+                        "booking_uncertain",
+                        "booked",
+                        "picked_up",
+                        "in_transit",
+                        "out_for_delivery",
+                        "delivered",
+                        "partial_delivered",
+                        "delivery_failed",
+                        "on_hold",
+                        "returning",
+                        "returned",
+                        "cancelled",
+                        "unknown"
+                      ]
+                    },
+                    "providerStatus": {
+                      "type": ["string", "null"]
+                    },
+                    "consignmentId": {
+                      "type": ["string", "null"]
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "trackingCode": {
+                      "type": ["string", "null"]
+                    },
+                    "trackingUrl": {
+                      "type": ["string", "null"]
+                    },
+                    "attempt": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "codAmountMinor": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "deliveryFeeMinor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "failureReason": {
+                      "type": ["string", "null"]
+                    },
+                    "bookedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "lastEventAt": {
+                      "type": ["string", "null"]
+                    },
+                    "lastSyncedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "actions": {
+                      "type": "object",
+                      "properties": {
+                        "canRefresh": {
+                          "type": "boolean"
+                        },
+                        "canCancel": {
+                          "type": "boolean"
+                        },
+                        "needsResolution": {
+                          "type": "boolean"
+                        },
+                        "canSimulate": {
+                          "type": "boolean"
+                        },
+                        "canMarkCancelled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "canRefresh",
+                        "canCancel",
+                        "needsResolution",
+                        "canSimulate",
+                        "canMarkCancelled"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": ["booking", "webhook", "poll", "manual", "simulation"]
+                          },
+                          "providerStatus": {
+                            "type": ["string", "null"]
+                          },
+                          "mappedStatus": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "booking",
+                                  "booking_failed",
+                                  "booking_uncertain",
+                                  "booked",
+                                  "picked_up",
+                                  "in_transit",
+                                  "out_for_delivery",
+                                  "delivered",
+                                  "partial_delivered",
+                                  "delivery_failed",
+                                  "on_hold",
+                                  "returning",
+                                  "returned",
+                                  "cancelled",
+                                  "unknown"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "applied": {
+                            "type": "boolean"
+                          },
+                          "note": {
+                            "type": ["string", "null"]
+                          },
+                          "occurredAt": {
+                            "type": ["string", "null"]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "source",
+                          "providerStatus",
+                          "mappedStatus",
+                          "applied",
+                          "note",
+                          "occurredAt",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "orderId",
+                    "orderNumber",
+                    "provider",
+                    "environment",
+                    "simulated",
+                    "status",
+                    "providerStatus",
+                    "consignmentId",
+                    "reference",
+                    "trackingCode",
+                    "trackingUrl",
+                    "attempt",
+                    "codAmountMinor",
+                    "deliveryFeeMinor",
+                    "failureReason",
+                    "bookedAt",
+                    "lastEventAt",
+                    "lastSyncedAt",
+                    "createdAt",
+                    "actions",
+                    "events"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["shipments"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "orders:write"
+      }
+    },
+    "/v1/shipments/{id}/resolve": {
+      "post": {
+        "operationId": "resolveShipment",
+        "summary": "Settle a booking we could not confirm (or record that a booking was cancelled by phone), after looking at the courier’s own panel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "resolution": {
+                    "type": "string",
+                    "enum": ["not_booked", "booked", "cancelled_at_courier"]
+                  },
+                  "consignmentId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 300
+                  }
+                },
+                "required": ["resolution", "reason"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "orderId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "orderNumber": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": ["mock", "pathao", "steadfast"]
+                    },
+                    "environment": {
+                      "type": "string",
+                      "enum": ["simulated", "sandbox", "production"]
+                    },
+                    "simulated": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "booking",
+                        "booking_failed",
+                        "booking_uncertain",
+                        "booked",
+                        "picked_up",
+                        "in_transit",
+                        "out_for_delivery",
+                        "delivered",
+                        "partial_delivered",
+                        "delivery_failed",
+                        "on_hold",
+                        "returning",
+                        "returned",
+                        "cancelled",
+                        "unknown"
+                      ]
+                    },
+                    "providerStatus": {
+                      "type": ["string", "null"]
+                    },
+                    "consignmentId": {
+                      "type": ["string", "null"]
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "trackingCode": {
+                      "type": ["string", "null"]
+                    },
+                    "trackingUrl": {
+                      "type": ["string", "null"]
+                    },
+                    "attempt": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "codAmountMinor": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "deliveryFeeMinor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "failureReason": {
+                      "type": ["string", "null"]
+                    },
+                    "bookedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "lastEventAt": {
+                      "type": ["string", "null"]
+                    },
+                    "lastSyncedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "actions": {
+                      "type": "object",
+                      "properties": {
+                        "canRefresh": {
+                          "type": "boolean"
+                        },
+                        "canCancel": {
+                          "type": "boolean"
+                        },
+                        "needsResolution": {
+                          "type": "boolean"
+                        },
+                        "canSimulate": {
+                          "type": "boolean"
+                        },
+                        "canMarkCancelled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "canRefresh",
+                        "canCancel",
+                        "needsResolution",
+                        "canSimulate",
+                        "canMarkCancelled"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": ["booking", "webhook", "poll", "manual", "simulation"]
+                          },
+                          "providerStatus": {
+                            "type": ["string", "null"]
+                          },
+                          "mappedStatus": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "booking",
+                                  "booking_failed",
+                                  "booking_uncertain",
+                                  "booked",
+                                  "picked_up",
+                                  "in_transit",
+                                  "out_for_delivery",
+                                  "delivered",
+                                  "partial_delivered",
+                                  "delivery_failed",
+                                  "on_hold",
+                                  "returning",
+                                  "returned",
+                                  "cancelled",
+                                  "unknown"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "applied": {
+                            "type": "boolean"
+                          },
+                          "note": {
+                            "type": ["string", "null"]
+                          },
+                          "occurredAt": {
+                            "type": ["string", "null"]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "source",
+                          "providerStatus",
+                          "mappedStatus",
+                          "applied",
+                          "note",
+                          "occurredAt",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "orderId",
+                    "orderNumber",
+                    "provider",
+                    "environment",
+                    "simulated",
+                    "status",
+                    "providerStatus",
+                    "consignmentId",
+                    "reference",
+                    "trackingCode",
+                    "trackingUrl",
+                    "attempt",
+                    "codAmountMinor",
+                    "deliveryFeeMinor",
+                    "failureReason",
+                    "bookedAt",
+                    "lastEventAt",
+                    "lastSyncedAt",
+                    "createdAt",
+                    "actions",
+                    "events"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["shipments"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "orders:write"
+      }
+    },
+    "/v1/shipments/{id}/simulate": {
+      "post": {
+        "operationId": "simulateShipmentEvent",
+        "summary": "Simulated shipments only: make the pretend courier report a status update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "event": {
+                    "type": "string",
+                    "enum": [
+                      "picked_up",
+                      "in_transit",
+                      "out_for_delivery",
+                      "delivered",
+                      "delivery_failed",
+                      "on_hold",
+                      "returning",
+                      "returned"
+                    ]
+                  }
+                },
+                "required": ["event"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "orderId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "orderNumber": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": ["mock", "pathao", "steadfast"]
+                    },
+                    "environment": {
+                      "type": "string",
+                      "enum": ["simulated", "sandbox", "production"]
+                    },
+                    "simulated": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "booking",
+                        "booking_failed",
+                        "booking_uncertain",
+                        "booked",
+                        "picked_up",
+                        "in_transit",
+                        "out_for_delivery",
+                        "delivered",
+                        "partial_delivered",
+                        "delivery_failed",
+                        "on_hold",
+                        "returning",
+                        "returned",
+                        "cancelled",
+                        "unknown"
+                      ]
+                    },
+                    "providerStatus": {
+                      "type": ["string", "null"]
+                    },
+                    "consignmentId": {
+                      "type": ["string", "null"]
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "trackingCode": {
+                      "type": ["string", "null"]
+                    },
+                    "trackingUrl": {
+                      "type": ["string", "null"]
+                    },
+                    "attempt": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "codAmountMinor": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "deliveryFeeMinor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "failureReason": {
+                      "type": ["string", "null"]
+                    },
+                    "bookedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "lastEventAt": {
+                      "type": ["string", "null"]
+                    },
+                    "lastSyncedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "actions": {
+                      "type": "object",
+                      "properties": {
+                        "canRefresh": {
+                          "type": "boolean"
+                        },
+                        "canCancel": {
+                          "type": "boolean"
+                        },
+                        "needsResolution": {
+                          "type": "boolean"
+                        },
+                        "canSimulate": {
+                          "type": "boolean"
+                        },
+                        "canMarkCancelled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "canRefresh",
+                        "canCancel",
+                        "needsResolution",
+                        "canSimulate",
+                        "canMarkCancelled"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": ["booking", "webhook", "poll", "manual", "simulation"]
+                          },
+                          "providerStatus": {
+                            "type": ["string", "null"]
+                          },
+                          "mappedStatus": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "booking",
+                                  "booking_failed",
+                                  "booking_uncertain",
+                                  "booked",
+                                  "picked_up",
+                                  "in_transit",
+                                  "out_for_delivery",
+                                  "delivered",
+                                  "partial_delivered",
+                                  "delivery_failed",
+                                  "on_hold",
+                                  "returning",
+                                  "returned",
+                                  "cancelled",
+                                  "unknown"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "applied": {
+                            "type": "boolean"
+                          },
+                          "note": {
+                            "type": ["string", "null"]
+                          },
+                          "occurredAt": {
+                            "type": ["string", "null"]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "source",
+                          "providerStatus",
+                          "mappedStatus",
+                          "applied",
+                          "note",
+                          "occurredAt",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "orderId",
+                    "orderNumber",
+                    "provider",
+                    "environment",
+                    "simulated",
+                    "status",
+                    "providerStatus",
+                    "consignmentId",
+                    "reference",
+                    "trackingCode",
+                    "trackingUrl",
+                    "attempt",
+                    "codAmountMinor",
+                    "deliveryFeeMinor",
+                    "failureReason",
+                    "bookedAt",
+                    "lastEventAt",
+                    "lastSyncedAt",
+                    "createdAt",
+                    "actions",
+                    "events"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["shipments"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "orders:write"
+      }
+    },
+    "/v1/webhooks/couriers/{provider}/{tenantId}/{connectionId}": {
+      "post": {
+        "operationId": "courierWebhook",
+        "summary": "Where a courier sends status updates. Authenticated by the courier’s own documented method, using the secret the seller saved",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["mock", "pathao", "steadfast"]
+            }
+          },
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["status"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "invalid_transition",
+                        "version_conflict",
+                        "idempotency_conflict",
+                        "courier_not_configured",
+                        "courier_rejected",
+                        "courier_unavailable",
+                        "courier_unsupported",
+                        "shipment_conflict",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["webhooks"]
       }
     }
   },

@@ -242,6 +242,18 @@ export function WorkspaceSettingsScreen() {
       <QueryBoundary {...query} refetch={() => query.refetch()} label="Loading settings">
         {query.data ? <ProfileForm business={query.data} canEdit={can('tenant:update')} /> : null}
       </QueryBoundary>
+      {can('couriers:read') && (
+        <Section
+          title="Couriers"
+          description="Connect Pathao or Steadfast, or practise with the simulated courier."
+        >
+          <Row>
+            <Button variant="secondary" href="/settings/couriers">
+              Courier settings
+            </Button>
+          </Row>
+        </Section>
+      )}
       <MyPreferences />
     </Stack>
   );

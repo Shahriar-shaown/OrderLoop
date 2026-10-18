@@ -5,6 +5,7 @@ export {
   AcceptInvitationScreen,
   AppShell,
   CategoriesScreen,
+  CouriersScreen,
   CustomerDetailScreen,
   DashboardScreen,
   CustomersScreen,

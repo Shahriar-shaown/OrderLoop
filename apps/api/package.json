@@ -24,6 +24,7 @@
     "@node-rs/argon2": "^2.0.2",
     "@orderloop/catalog": "workspace:*",
     "@orderloop/contracts": "workspace:*",
+    "@orderloop/courier-sdk": "workspace:*",
     "@orderloop/db": "workspace:*",
     "@orderloop/domain": "workspace:*",
     "bullmq": "^6.3.15",

@@ -22,6 +22,9 @@ export const TENANT_TABLES = [
   'stock_movements',
   'reservations',
   'import_jobs',
+  'courier_connections',
+  'shipments',
+  'shipment_events',
 ] as const;
 
 /** Tenant tables the runtime role may only INSERT into and SELECT from: history that must never be rewritten. */
@@ -29,6 +32,7 @@ export const APPEND_ONLY_TABLES = [
   'audit_logs',
   'stock_movements',
   'order_status_history',
+  'shipment_events',
 ] as const;
 
 /**

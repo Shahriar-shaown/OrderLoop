@@ -397,9 +397,10 @@ export class OrdersService {
    * turns: the second finds the status already changed. Asking for the status an order is already in changes nothing and
    * is not an error, which is what makes cancel and return safe to repeat.
    */
-  private async moveInTx(
+  async moveInTx(
     tx: Tx,
-    auth: AuthContext,
+    /** `userId` is null when the courier, not a person, causes the move (a delivery update): the history then shows no actor. */
+    auth: { tenantId: string; userId: string | null },
     id: string,
     body: Pick<ChangeStatusBody, 'status' | 'reason' | 'returnedItems' | 'ifVersion'>,
     ip: string | null,
@@ -430,6 +431,21 @@ export class OrdersService {
         'invalid_transition',
         `An order that is ${from.replace(/_/g, ' ')} cannot become ${to.replace(/_/g, ' ')}`,
       );
+    if (to === 'cancelled') {
+      // An order cannot be cancelled while a parcel for it exists (or may exist) at a courier: that parcel would still be delivered and collected on.
+      const live = await tx.shipment.findFirst({
+        where: { tenantId, orderId: id, status: { notIn: ['booking_failed', 'cancelled'] } },
+        select: { provider: true, status: true },
+      });
+      if (live)
+        throw new ApiError(
+          409,
+          'shipment_conflict',
+          live.status === 'booking' || live.status === 'booking_uncertain'
+            ? 'A courier booking for this order is unconfirmed. Settle it on the order page before cancelling.'
+            : 'This order has a live courier shipment. Cancel the shipment first, then cancel the order.',
+        );
+    }
     const reason = body.reason?.trim() || defaultReason;
     if (REASON_REQUIRED.includes(to) && !body.reason?.trim())
       throw validation('body.reason', 'Say why (at least 3 characters)');
