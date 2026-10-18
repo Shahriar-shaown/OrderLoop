@@ -70,17 +70,22 @@ model Tenant {
   timezone        String   @default("Asia/Dhaka")
   defaultLanguage Language @default(en) @map("default_language")
 
-  memberships    Membership[]
-  invitations    Invitation[]
-  categories     Category[]
-  products       Product[]
-  variants       ProductVariant[]
-  locations      StockLocation[]
-  stockLevels    StockLevel[]
-  stockMovements StockMovement[]
-  reservations   Reservation[]
-  importJobs     ImportJob[]
-  suppliers      Supplier[]
+  memberships          Membership[]
+  invitations          Invitation[]
+  categories           Category[]
+  products             Product[]
+  variants             ProductVariant[]
+  locations            StockLocation[]
+  stockLevels          StockLevel[]
+  stockMovements       StockMovement[]
+  reservations         Reservation[]
+  importJobs           ImportJob[]
+  suppliers            Supplier[]
+  customers            Customer[]
+  orders               Order[]
+  customerAddresses    CustomerAddress[]
+  orderItems           OrderItem[]
+  orderStatusHistories OrderStatusHistory[]
 
   @@map("tenants")
 }
@@ -303,6 +308,7 @@ model ProductVariant {
   stockLevels  StockLevel[]
   movements    StockMovement[]
   reservations Reservation[]
+  orderItems   OrderItem[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, sku])
@@ -453,4 +459,190 @@ model ImportJob {
 
   @@index([tenantId, createdAt])
   @@map("import_jobs")
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Customers and orders (Phase 3). Tenant-scoped like everything above. Money is integer paisa; the database repeats the
+// order arithmetic as CHECK constraints. order_status_history is append-only.
+// ---------------------------------------------------------------------------------------------------------------------
+
+enum OrderStatus {
+  pending_confirmation
+  confirmed
+  ready_to_ship
+  shipped
+  in_transit
+  delivered
+  delivery_failed
+  cancelled
+  return_requested
+  returned
+}
+
+enum OrderSource {
+  facebook
+  instagram
+  whatsapp
+  phone_call
+  website
+  walk_in
+  other
+}
+
+model Customer {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  /// Lower-cased name, for search.
+  nameKey   String   @map("name_key")
+  /// Canonical +8801XXXXXXXXX. The identity of a customer within a business.
+  phone     String
+  email     String?
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  addresses CustomerAddress[]
+  orders    Order[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, phone])
+  @@index([tenantId, nameKey])
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  customerId    String   @map("customer_id") @db.Uuid
+  label         String?
+  recipientName String   @map("recipient_name")
+  /// Canonical +8801XXXXXXXXX. May differ from the customer's own (a gift, a relative's address).
+  phone         String
+  line1         String
+  /// Thana or upazila.
+  area          String
+  district      String
+  division      String
+  postalCode    String?  @map("postal_code")
+  isDefault     Boolean  @default(false) @map("is_default")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, customerId])
+  @@map("customer_addresses")
+}
+
+/// Per-business order numbers. One row per tenant, advanced with a row lock inside the order's own transaction, so numbers
+/// are unique, ascending, and a rolled-back order does not burn one.
+model OrderCounter {
+  tenantId   String @id @map("tenant_id") @db.Uuid
+  nextNumber Int    @default(1001) @map("next_number")
+
+  @@map("order_counters")
+}
+
+model Order {
+  id              String      @id @default(uuid(7)) @db.Uuid
+  tenantId        String      @map("tenant_id") @db.Uuid
+  orderNumber     Int         @map("order_number")
+  customerId      String      @map("customer_id") @db.Uuid
+  status          OrderStatus @default(pending_confirmation)
+  source          OrderSource @default(other)
+  /// Where it came from: a Facebook post or chat link, a campaign, who took the call.
+  sourceReference String?     @map("source_reference")
+  notes           String?
+
+  /// The delivery address as it was when the order was made. Later edits to the customer's address book never rewrite it.
+  shipName       String  @map("ship_name")
+  shipPhone      String  @map("ship_phone")
+  shipLine1      String  @map("ship_line1")
+  shipArea       String  @map("ship_area")
+  shipDistrict   String  @map("ship_district")
+  shipDivision   String  @map("ship_division")
+  shipPostalCode String? @map("ship_postal_code")
+
+  subtotalMinor       Int @map("subtotal_minor")
+  discountMinor       Int @default(0) @map("discount_minor")
+  deliveryChargeMinor Int @default(0) @map("delivery_charge_minor")
+  totalMinor          Int @map("total_minor")
+  advancePaidMinor    Int @default(0) @map("advance_paid_minor")
+  /// total - advance. Computed by the server, never accepted from a client.
+  codAmountMinor      Int @map("cod_amount_minor")
+
+  /// A retried create with the same key returns this order instead of making another.
+  idempotencyKey String?  @map("idempotency_key")
+  /// Hash of the request that created it, so reusing a key for a different order is refused.
+  requestHash    String?  @map("request_hash")
+  /// Bumped on every change; clients can send the one they saw to avoid overwriting someone else's edit.
+  version        Int      @default(1)
+  createdById    String?  @map("created_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer             @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  items    OrderItem[]
+  history  OrderStatusHistory[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, orderNumber])
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, customerId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, shipPhone])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String  @id @default(uuid(7)) @db.Uuid
+  tenantId       String  @map("tenant_id") @db.Uuid
+  orderId        String  @map("order_id") @db.Uuid
+  position       Int
+  variantId      String  @map("variant_id") @db.Uuid
+  /// What was sold, as it was then: later renames or price changes do not rewrite past orders.
+  sku            String
+  productName    String  @map("product_name")
+  variantName    String  @default("") @map("variant_name")
+  quantity       Int
+  unitPriceMinor Int     @map("unit_price_minor")
+  discountMinor  Int     @default(0) @map("discount_minor")
+  lineTotalMinor Int     @map("line_total_minor")
+  /// Cost at the time, for profit reporting later.
+  costMinor      Int?    @map("cost_minor")
+  /// The stock held for this line while the order is confirmed or ready to ship.
+  reservationId  String? @map("reservation_id") @db.Uuid
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order   Order          @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, orderId])
+  @@index([tenantId, variantId])
+  @@map("order_items")
+}
+
+/// Append-only (app_user has INSERT and SELECT only). One row per status the order has been in, including its creation.
+model OrderStatusHistory {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  orderId     String       @map("order_id") @db.Uuid
+  fromStatus  OrderStatus? @map("from_status")
+  toStatus    OrderStatus  @map("to_status")
+  reason      String?
+  actorUserId String?      @map("actor_user_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order  Order  @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, orderId, createdAt])
+  @@map("order_status_history")
 }

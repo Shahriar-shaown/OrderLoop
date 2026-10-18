@@ -26,7 +26,7 @@ export const Sku = z
   .transform((v) => v.toUpperCase())
   .pipe(z.string().regex(SKU_RE, SKU_RULE));
 const Quantity = z.number().int().min(1).max(1_000_000);
-const IdempotencyKey = z
+export const IdempotencyKey = z
   .string()
   .min(8)
   .max(100)

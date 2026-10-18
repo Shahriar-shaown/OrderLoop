@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { CsvExport } from '@orderloop/contracts';
-import { Database } from '@orderloop/db';
+import type { CsvExport, OrderFilters } from '@orderloop/contracts';
+import { Database, Prisma } from '@orderloop/db';
 import { assertPaisa, IMPORT_COLUMNS, paisaToBdtString, toCsv } from '@orderloop/domain';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { orderBy, orderWhere } from '../orders/order-query.js';
 
 /** More than this and the file is refused rather than truncated silently; a business this big needs a different tool. */
 const MAX_EXPORT_ROWS = 50_000;
@@ -119,6 +120,100 @@ export class ExportsService {
       });
       return {
         filename: `stock-${stamp()}.csv`,
+        rowCount: rows.length,
+        csv: toCsv([header, ...rows]),
+      };
+    });
+  }
+
+  /** Orders matching the list filters, one row per order line, with the order's figures repeated on each line. */
+  orders(auth: AuthContext, filters: OrderFilters, ip: string | null): Promise<CsvExport> {
+    return this.db.withContext({ tenantId: auth.tenantId, userId: auth.userId }, async (tx) => {
+      const t = await tx.tenant.findUnique({
+        where: { id: auth.tenantId },
+        select: { timezone: true },
+      });
+      const where = orderWhere(auth.tenantId, filters, t?.timezone ?? 'Asia/Dhaka');
+      const lines = await tx.$queryRaw<Record<string, string | number | Date | null>[]>(Prisma.sql`
+        SELECT o.order_number, o.status, o.created_at, c.name AS customer_name, o.ship_name, o.ship_phone,
+               o.ship_line1, o.ship_area, o.ship_district, o.ship_division, o.ship_postal_code,
+               i.sku, i.product_name, i.variant_name, i.quantity, i.unit_price_minor, i.discount_minor AS line_discount_minor,
+               i.line_total_minor, o.discount_minor, o.delivery_charge_minor, o.advance_paid_minor, o.total_minor,
+               o.cod_amount_minor, o.source, o.source_reference, o.notes
+        FROM orders o
+        JOIN customers c ON c.tenant_id = o.tenant_id AND c.id = o.customer_id
+        JOIN order_items i ON i.tenant_id = o.tenant_id AND i.order_id = o.id
+        WHERE ${where}
+        ORDER BY ${orderBy('createdAt', 'desc')}, i.position
+        LIMIT ${MAX_EXPORT_ROWS}`);
+      const money = (v: string | number | Date | null | undefined) =>
+        paisaToBdtString(assertPaisa(Number(v ?? 0)));
+      const header = [
+        'order_number',
+        'status',
+        'created_at',
+        'customer_name',
+        'recipient_name',
+        'phone',
+        'address_line',
+        'area',
+        'district',
+        'division',
+        'postal_code',
+        'sku',
+        'product_name',
+        'variant_name',
+        'quantity',
+        'unit_price',
+        'line_discount',
+        'line_total',
+        'discount',
+        'delivery_charge',
+        'advance_paid',
+        'total',
+        'cod_amount',
+        'source',
+        'source_reference',
+        'notes',
+      ];
+      const rows = lines.map((l) => [
+        l['order_number'] as number,
+        l['status'] as string,
+        (l['created_at'] as Date).toISOString(),
+        l['customer_name'] as string,
+        l['ship_name'] as string,
+        // Local form (01712345678): a leading + would be read as a formula by spreadsheets.
+        (l['ship_phone'] as string).replace(/^\+880/, '0'),
+        l['ship_line1'] as string,
+        l['ship_area'] as string,
+        l['ship_district'] as string,
+        l['ship_division'] as string,
+        (l['ship_postal_code'] as string | null) ?? null,
+        l['sku'] as string,
+        l['product_name'] as string,
+        (l['variant_name'] as string) || null,
+        l['quantity'] as number,
+        money(l['unit_price_minor']),
+        money(l['line_discount_minor']),
+        money(l['line_total_minor']),
+        money(l['discount_minor']),
+        money(l['delivery_charge_minor']),
+        money(l['advance_paid_minor']),
+        money(l['total_minor']),
+        money(l['cod_amount_minor']),
+        l['source'] as string,
+        (l['source_reference'] as string | null) ?? null,
+        (l['notes'] as string | null) ?? null,
+      ]);
+      await this.audit.record(tx, {
+        tenantId: auth.tenantId,
+        actorUserId: auth.userId,
+        action: 'export.orders',
+        metadata: { rows: rows.length },
+        ip,
+      });
+      return {
+        filename: `orders-${stamp()}.csv`,
         rowCount: rows.length,
         csv: toCsv([header, ...rows]),
       };

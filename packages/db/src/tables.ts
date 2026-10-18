@@ -9,6 +9,12 @@ export const TENANT_TABLES = [
   'audit_logs',
   'categories',
   'suppliers',
+  'customers',
+  'customer_addresses',
+  'order_counters',
+  'orders',
+  'order_items',
+  'order_status_history',
   'products',
   'product_variants',
   'stock_locations',
@@ -19,7 +25,11 @@ export const TENANT_TABLES = [
 ] as const;
 
 /** Tenant tables the runtime role may only INSERT into and SELECT from: history that must never be rewritten. */
-export const APPEND_ONLY_TABLES = ['audit_logs', 'stock_movements'] as const;
+export const APPEND_ONLY_TABLES = [
+  'audit_logs',
+  'stock_movements',
+  'order_status_history',
+] as const;
 
 /**
  * Global auth tables: reached before any tenant is known (login, refresh), keyed by unguessable

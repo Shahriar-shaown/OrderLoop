@@ -333,6 +333,26 @@ JSON bodies are limited to **100 KB** on every route. The one exception is `POST
 CSV), and only for callers who send a bearer token: anonymous requests there get `401` before the body is read. A body that
 is too large is `413`, and one that is not valid JSON is `400`, both as problem details that never echo the body back.
 
+## Orders and customers
+
+Full behaviour (status machine, when stock moves, totals, idempotency, duplicates, bulk actions, CSV) is in
+[orders.md](orders.md). The conventions an API client needs:
+
+- **Totals are the server's.** Send quantities, optional unit prices and discounts, and `discountMinor`, `deliveryChargeMinor`,
+  `advancePaidMinor`. A body that includes `totalMinor`, `subtotalMinor`, `codAmountMinor` or `lineTotalMinor` is `400`.
+  Responses carry every derived figure; `codAmountMinor` is `total - advance`.
+- **`idempotencyKey` is required** on `POST /v1/orders`. A retry with the same key returns the same order (`201`) and holds
+  stock once; the same key with a different body is `409 idempotency_conflict`.
+- **Stock** is held by `confirmed` (or `confirm: true` on creation, atomically), released by `cancelled`, shipped by
+  `ready_to_ship` -> `shipped`, and restocked by `return_requested` -> `returned`. `POST /v1/orders/{id}/status` takes
+  `{ status, reason?, returnedItems?, ifVersion? }`; repeating a status change is `200` and changes nothing.
+- **Errors you will see:** `409 invalid_transition`, `409 insufficient_stock` (with `errors[].path = items.N` for each short
+  line), `409 version_conflict`, `409 idempotency_conflict`, `400 validation_failed` with field paths such as
+  `body.lines.0.quantity`.
+- **Lists** (`GET /v1/orders`, `/v1/customers`, `/v1/customers/{id}/orders`) page with an opaque `cursor`; `GET /v1/orders` also
+  returns `total` and takes `q`, `status`, `source` (comma-separated), `from`/`to`, amount bounds, `sort` and `dir`.
+- **Phone numbers** may be sent in any common Bangladeshi form and come back as `+8801XXXXXXXXX`.
+
 ## Rate limiting and lockout
 
 Limits are per client IP and apply to every route unless stated. Exceeding one returns `429 rate_limited` with a

@@ -14,6 +14,8 @@ export const Permission = z.enum([
   'catalog:write',
   'inventory:read',
   'inventory:write',
+  'orders:read',
+  'orders:write',
 ]);
 export type Permission = z.infer<typeof Permission>;
 

@@ -4,5 +4,7 @@ export * from './env.js';
 export * from './errors.js';
 export * from './auth.js';
 export * from './catalog.js';
+export * from './phone.js';
+export * from './orders.js';
 export * from './routes.js';
 export * from './openapi.js';

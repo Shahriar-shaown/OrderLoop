@@ -399,3 +399,125 @@ describe('inventory module calls', () => {
     ]);
   });
 });
+
+describe('order calls', () => {
+  const order = {
+    id: '0197b0a0-0000-7000-8000-000000000001',
+    orderNumber: 1001,
+    status: 'pending_confirmation',
+    source: 'other',
+    sourceReference: null,
+    notes: null,
+    customer: {
+      id: '0197b0a0-0000-7000-8000-000000000002',
+      name: 'Rina Akter',
+      phone: '+8801712345678',
+    },
+    shipping: {
+      recipientName: 'Rina',
+      phone: '+8801712345678',
+      line1: 'Road 3',
+      area: 'Sadar',
+      district: 'Dhaka',
+      division: 'Dhaka',
+      postalCode: null,
+    },
+    items: [],
+    subtotalMinor: 100,
+    discountMinor: 0,
+    deliveryChargeMinor: 0,
+    totalMinor: 100,
+    advancePaidMinor: 0,
+    codAmountMinor: 100,
+    stockHeld: false,
+    version: 1,
+    createdAt: '2026-10-18T00:00:00Z',
+    updatedAt: '2026-10-18T00:00:00Z',
+    history: [],
+    allowedStatuses: ['confirmed', 'cancelled'],
+  };
+  const make = (status: number, body: unknown, seen: Seen[]) =>
+    createApiClient({
+      baseUrl: 'http://x',
+      fetch: stub(status, body, seen).fetchImpl,
+      getAccessToken: () => 't',
+    });
+  const validCreate = {
+    customer: { name: 'Rina Akter', phone: '01712-345678' },
+    address: {
+      recipientName: 'Rina',
+      phone: '01712345678',
+      line1: 'Road 3',
+      area: 'Sadar',
+      district: 'Dhaka',
+      division: 'Dhaka',
+    },
+    items: [{ variantId: '0197b0a0-0000-7000-8000-000000000003', quantity: 2 }],
+    idempotencyKey: 'order-key-0001',
+  } as const;
+
+  it('creates an order with the key, and writes the phone number in its canonical form', async () => {
+    const seen: Seen[] = [];
+    await make(201, order, seen).orders.create(validCreate);
+    expect(seen[0]!.url).toBe('http://x/v1/orders');
+    const sent = JSON.parse(seen[0]!.init.body as string);
+    expect(sent.idempotencyKey).toBe('order-key-0001');
+    expect(sent.customer.phone).toBe('+8801712345678');
+    expect(sent.address.phone).toBe('+8801712345678');
+  });
+
+  it('refuses to send an order without a key, with no customer, or with a total of its own', async () => {
+    const seen: Seen[] = [];
+    const api = make(201, order, seen);
+    await expect(
+      api.orders.create({ ...validCreate, idempotencyKey: undefined } as never),
+    ).rejects.toBeTruthy();
+    await expect(
+      api.orders.create({ ...validCreate, customer: undefined } as never),
+    ).rejects.toBeTruthy();
+    await expect(
+      api.orders.create({ ...validCreate, totalMinor: 1 } as never),
+    ).rejects.toBeTruthy();
+    await expect(api.orders.create({ ...validCreate, items: [] } as never)).rejects.toBeTruthy();
+    expect(seen).toHaveLength(0);
+  });
+
+  it('changes status, lists with filters, and runs bulk actions against the right endpoints', async () => {
+    const seen: Seen[] = [];
+    const id = order.id;
+    await make(200, order, seen).orders.changeStatus(id, {
+      status: 'cancelled',
+      reason: 'Customer changed mind',
+    });
+    await make(200, { items: [], nextCursor: null, total: 0 }, seen).orders.list({
+      status: 'confirmed,shipped',
+      sort: 'totalMinor',
+      dir: 'desc',
+    } as never);
+    await make(200, { results: [], succeeded: 0, failed: 0 }, seen).orders.bulkChangeStatus({
+      orderIds: [id],
+      status: 'confirmed',
+    });
+    await make(200, [], seen).orders.checkDuplicates({ phone: '01712345678', variantIds: [] });
+    expect(seen.map((s) => `${s.init.method} ${s.url}`)).toEqual([
+      `POST http://x/v1/orders/${id}/status`,
+      'GET http://x/v1/orders?status=confirmed%2Cshipped&sort=totalMinor&dir=desc&limit=25',
+      'POST http://x/v1/orders/bulk-status',
+      'POST http://x/v1/orders/duplicate-check',
+    ]);
+  });
+
+  it('manages customers and addresses with the two-part path', async () => {
+    const seen: Seen[] = [];
+    const cid = '0197b0a0-0000-7000-8000-000000000002';
+    const aid = '0197b0a0-0000-7000-8000-000000000009';
+    await make(200, {}, seen).customers.removeAddress(cid, aid);
+    await make(200, { items: [], nextCursor: null, total: 0 }, seen).customers.orders(cid, {
+      limit: 5,
+    });
+    expect(seen.map((s) => `${s.init.method} ${s.url}`)).toEqual([
+      `DELETE http://x/v1/customers/${cid}/addresses/${aid}`,
+      `GET http://x/v1/customers/${cid}/orders?limit=5`,
+    ]);
+  });
+});

@@ -502,3 +502,68 @@ describe('size, colour and supplier columns', () => {
     expect(v.attributes).toEqual({ colour: 'Green' });
   });
 });
+
+describe('CHECKPOINT: create products, adjust stock, import a CSV, race the last units', () => {
+  it('two concurrent stock operations cannot oversell, whichever way the stock arrived', async () => {
+    const own = await registerTenant(t);
+    const token = own.accessToken;
+    const post = (path: string, body: object) => t.http.post(path).set(bearer(token)).send(body);
+
+    // 1. create a product by hand and bring stock in, then correct it with an adjustment
+    const made = (
+      await post('/v1/products', {
+        name: 'Checkpoint mug',
+        variants: [{ sku: 'CP-MUG', priceMinor: 45000 }],
+      }).expect(201)
+    ).body;
+    const mugId = made.variants[0].id as string;
+    await post('/v1/inventory/receive', { variantId: mugId, quantity: 10 }).expect(201);
+    await post('/v1/inventory/adjust', {
+      variantId: mugId,
+      delta: -4,
+      reason: 'two broke, two lost',
+    }).expect(201);
+
+    // 2. import a CSV whose opening stock is 1 for a second product
+    const csv = 'product_name,sku,price,opening_stock\nCheckpoint plate,CP-PLATE,120.50,1\n';
+    const job = await finished((await submit(csv, token).expect(202)).body.id, token);
+    expect(job).toMatchObject({ status: 'COMPLETED', created: 1, failed: 0 });
+    const plate = (await t.http.get('/v1/products?q=CP-PLATE').set(bearer(token)).expect(200)).body
+      .items[0].variants[0] as { id: string; priceMinor: number; stock: { onHand: number } };
+    expect(plate).toMatchObject({ priceMinor: 12050, stock: { onHand: 1 } });
+
+    // 3. the last single plate, asked for by 10 requests at once: exactly one wins
+    const plateRace = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        post('/v1/reservations', { variantId: plate.id, quantity: 1 }),
+      ),
+    );
+    expect(plateRace.filter((r) => r.status === 201)).toHaveLength(1);
+    expect(plateRace.filter((r) => r.status === 409)).toHaveLength(9);
+
+    // 4. the 6 mugs left (10 received - 4 adjusted): a reservation of 4 and an adjustment of -4 at once cannot both fit
+    const mugRace = await Promise.all([
+      ...Array.from({ length: 3 }, () =>
+        post('/v1/reservations', { variantId: mugId, quantity: 4 }),
+      ),
+      ...Array.from({ length: 3 }, () =>
+        post('/v1/inventory/adjust', { variantId: mugId, delta: -4, reason: 'race' }),
+      ),
+    ]);
+    const granted = mugRace.filter((r) => r.status === 201).length;
+    expect(granted).toBeLessThanOrEqual(1); // 6 units: at most one block of 4 fits
+    for (const r of mugRace) expect([201, 409]).toContain(r.status);
+    for (const id of [mugId, plate.id]) {
+      const lv = (await t.http.get(`/v1/inventory?variantId=${id}`).set(bearer(token))).body
+        .items[0];
+      expect(lv.onHand).toBeGreaterThanOrEqual(0);
+      expect(lv.reserved).toBeLessThanOrEqual(lv.onHand);
+      expect(lv.available).toBeGreaterThanOrEqual(0);
+    }
+    // the ledger explains every unit
+    const moves = (
+      await t.http.get(`/v1/inventory/movements?variantId=${plate.id}`).set(bearer(token))
+    ).body.items as { type: string }[];
+    expect(moves.map((m) => m.type).sort()).toEqual(['RECEIVE', 'RESERVE']);
+  });
+});

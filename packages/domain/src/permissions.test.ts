@@ -84,6 +84,8 @@ describe('the documented permission matrix (docs/permissions.md)', () => {
     'catalog:write': ['OWNER', 'ADMIN', 'MANAGER'],
     'inventory:read': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTANT'],
     'inventory:write': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'],
+    'orders:read': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTANT'],
+    'orders:write': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'],
   } as const;
 
   it('matches the table, permission by permission', () => {

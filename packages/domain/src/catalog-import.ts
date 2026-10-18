@@ -62,7 +62,7 @@ export interface ParsedImport {
 
 const MAX_MINOR = 2_000_000_000;
 
-function parseMoney(raw: string, label: string): number {
+export function parseMoney(raw: string, label: string): number {
   let minor: number;
   try {
     minor = bdtToPaisa(raw.replace(/^৳/, '').trim());
@@ -77,7 +77,7 @@ function parseMoney(raw: string, label: string): number {
   return minor;
 }
 
-function parseCount(raw: string, label: string, max: number): number {
+export function parseCount(raw: string, label: string, max: number): number {
   if (!/^\d+$/.test(raw.trim()))
     throw new RangeError(`${label} must be a whole number of 0 or more`);
   const n = Number(raw.trim());
@@ -85,7 +85,7 @@ function parseCount(raw: string, label: string, max: number): number {
   return n;
 }
 
-function text(raw: string | undefined, label: string, max: number): string | null {
+export function text(raw: string | undefined, label: string, max: number): string | null {
   const value = (raw ?? '').trim();
   if (value.length > max) throw new RangeError(`${label} is longer than ${max} characters`);
   return value === '' ? null : value;

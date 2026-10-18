@@ -38,6 +38,7 @@ export { Form, useFormSubmit, type FormProps } from './Form';
 export { Field, type FieldA11y, type FieldProps } from './Field';
 export { TextField, type TextFieldProps, type TextFieldKind } from './TextField';
 export { FieldGrid } from './FieldGrid';
+export { Checkbox } from './Checkbox';
 export { SelectField, type SelectFieldProps, type SelectOption } from './SelectField';
 
 // Feedback

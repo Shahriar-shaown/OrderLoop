@@ -362,3 +362,32 @@ and storage tests.
 **Known limits:** a supplier is a label on a product (no purchase orders yet); no transfers between locations; pictures are
 links; mobile has no file import, categories or locations screens; the mobile screens were type-checked, bundled for iOS and
 rendered in tests through the shared components, but not driven on a simulator or device.
+
+## 14. Milestone: order management (2026-10-20)
+
+Full design: [orders.md](orders.md).
+
+**Delivered:** customers matched on a canonical Bangladeshi phone number, saved addresses and per-customer history (plain
+counts, never a score or label); orders with several lines, discount, delivery charge, advance and a computed COD amount, all
+totalled by the server (a pure function shared with the web/mobile preview, backed by database `CHECK` constraints); source
+tracking; the status machine `pending_confirmation` → `confirmed` → `ready_to_ship` → `shipped` → `in_transit` →
+`delivered` (+ `delivery_failed`, `cancelled`, `return_requested`, `returned`) with reasons, an append-only status history and an
+audit trail; stock reserved on confirm (all lines or none), released on cancel, shipped on handover and restocked on return,
+each exactly once; required idempotency keys on creation; per-tenant gap-free order numbers; duplicate-order hints; editing
+rules by status with optimistic versions; search, filters, sorting and keyset paging; bulk status changes; CSV check/import and
+export; orders and customers screens on web and mobile reading the real API.
+
+**Adapted from the architecture:** state names follow the brief (mapping to DRAFT/PACKED/HANDED_OVER in orders.md); the
+idempotency key is a body field like the stock endpoints (the route registry models bodies, not headers); partial delivery and
+exchange are deferred.
+
+**Verification:** 66 order-specific API tests (including tenant isolation for every read, write and attach-by-id, concurrent
+confirm/cancel/return races, and a randomised orders-against-stock test), domain tests (every transition, stock effects,
+totals property, phone numbers), shared-screen render tests, and 10 browser scenarios with accessibility and phone-width
+checks. The pre-milestone checkpoint (create products, adjust stock, import a CSV, race the last units) and the post-milestone
+checkpoint (create an order, reserve stock, change its status, cancel another, verify inventory and totals) are both automated
+tests that pass.
+
+**Known limits:** no couriers, shipments or COD reconciliation (next phases); no partial returns or exchanges; order import is
+synchronous and capped at 500 orders; the mobile app has no file picker for CSV import; the mobile screens were type-checked,
+bundled for iOS and rendered in tests through the shared components, but not driven on a simulator or device.

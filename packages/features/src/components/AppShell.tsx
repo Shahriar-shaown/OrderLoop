@@ -31,6 +31,8 @@ export interface ShellNavItem {
 }
 
 const WEB_NAV: ShellNavItem[] = [
+  { href: '/orders', label: 'Orders' },
+  { href: '/customers', label: 'Customers' },
   { href: '/products', label: 'Products' },
   { href: '/inventory', label: 'Stock' },
   { href: '/categories', label: 'Categories' },

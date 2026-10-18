@@ -6,5 +6,6 @@ import { ReservationsService } from './reservations.service.js';
 @Module({
   controllers: [InventoryController],
   providers: [StockRunner, InventoryService, ReservationsService],
+  exports: [StockRunner],
 })
 export class InventoryModule {}

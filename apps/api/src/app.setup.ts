@@ -28,7 +28,11 @@ export function requireBearerToken(req: Request, res: Response, next: NextFuncti
  * body is parsed before authentication runs, so without this check anyone could make the server buffer 3 MB per request.
  */
 export function configureApp(app: NestExpressApplication): void {
-  app.use('/v1/imports/products', requireBearerToken, json({ limit: '3mb' }));
+  app.use(
+    ['/v1/imports/products', '/v1/imports/orders'],
+    requireBearerToken,
+    json({ limit: '3mb' }),
+  );
   app.use(json({ limit: '100kb' })); // skipped for requests the route above already parsed
   // Parser failures (too large, invalid JSON) happen before any controller or guard. Answer them here as problem details;
   // otherwise they reach the generic handler, which can echo the parser's message (it may quote the body).

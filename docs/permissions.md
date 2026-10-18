@@ -30,6 +30,8 @@ both preferences are stored and returned so the screens can use them as translat
 | `catalog:write`   |  yes  |  yes  |   yes   |  no   |     no     |
 | `inventory:read`  |  yes  |  yes  |   yes   |  yes  |    yes     |
 | `inventory:write` |  yes  |  yes  |   yes   |  yes  |     no     |
+| `orders:read`     |  yes  |  yes  |   yes   |  yes  |    yes     |
+| `orders:write`    |  yes  |  yes  |   yes   |  yes  |     no     |
 
 The brief asked for owner, admin, manager and staff. `ACCOUNTANT` (read-only finance access) was added in an earlier
 milestone and is kept.
@@ -53,24 +55,26 @@ Every protected route is declared once in `packages/contracts/src/routes.ts` wit
 route has no permission and is not on the short list of self-service routes (which act on the caller's own session,
 preferences or memberships, never on business data).
 
-| Route                                                                                                           | Needs                                                                   |
-| --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `POST /v1/auth/logout`                                                                                          | any member                                                              |
-| `POST /v1/auth/switch-tenant`                                                                                   | any member of the _target_ business                                     |
-| `POST /v1/auth/resend-verification`                                                                             | any member                                                              |
-| `GET /v1/me`, `PATCH /v1/me`                                                                                    | any member                                                              |
-| `GET /v1/workspaces`                                                                                            | any member (lists the caller's own businesses only)                     |
-| `POST /v1/workspaces`                                                                                           | any member (caller becomes OWNER of the new business; at most 10 owned) |
-| `GET /v1/tenant`                                                                                                | `tenant:read`                                                           |
-| `PATCH /v1/tenant`                                                                                              | `tenant:update`                                                         |
-| `GET /v1/members`                                                                                               | `members:read`                                                          |
-| `GET/POST /v1/members/invitations`, `DELETE /v1/members/invitations/:id`                                        | `members:invite`                                                        |
-| `PATCH/DELETE /v1/members/:id`                                                                                  | `members:manage`                                                        |
-| `GET /v1/audit-logs`                                                                                            | `audit:read`                                                            |
-| `GET` categories, products, product by id                                                                       | `catalog:read`                                                          |
-| `POST/PATCH/DELETE` categories, `POST/PATCH` products and variants, `POST/PATCH /v1/locations`, product imports | `catalog:write`                                                         |
-| `GET /v1/locations`, `/v1/inventory`, `/v1/inventory/movements`, `/v1/inventory/low-stock`, `/v1/reservations`  | `inventory:read`                                                        |
-| `POST` receive, adjust, reserve, release, fulfil                                                                | `inventory:write`                                                       |
+| Route                                                                                                               | Needs                                                                   |
+| ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `POST /v1/auth/logout`                                                                                              | any member                                                              |
+| `POST /v1/auth/switch-tenant`                                                                                       | any member of the _target_ business                                     |
+| `POST /v1/auth/resend-verification`                                                                                 | any member                                                              |
+| `GET /v1/me`, `PATCH /v1/me`                                                                                        | any member                                                              |
+| `GET /v1/workspaces`                                                                                                | any member (lists the caller's own businesses only)                     |
+| `POST /v1/workspaces`                                                                                               | any member (caller becomes OWNER of the new business; at most 10 owned) |
+| `GET /v1/tenant`                                                                                                    | `tenant:read`                                                           |
+| `PATCH /v1/tenant`                                                                                                  | `tenant:update`                                                         |
+| `GET /v1/members`                                                                                                   | `members:read`                                                          |
+| `GET/POST /v1/members/invitations`, `DELETE /v1/members/invitations/:id`                                            | `members:invite`                                                        |
+| `PATCH/DELETE /v1/members/:id`                                                                                      | `members:manage`                                                        |
+| `GET` orders, customers, order duplicates, customer order history, orders export; `POST /v1/orders/duplicate-check` | `orders:read`                                                           |
+| `POST/PATCH` orders and customers, customer addresses, order status, bulk status, orders import (check and apply)   | `orders:write`                                                          |
+| `GET /v1/audit-logs`                                                                                                | `audit:read`                                                            |
+| `GET` categories, products, product by id                                                                           | `catalog:read`                                                          |
+| `POST/PATCH/DELETE` categories, `POST/PATCH` products and variants, `POST/PATCH /v1/locations`, product imports     | `catalog:write`                                                         |
+| `GET /v1/locations`, `/v1/inventory`, `/v1/inventory/movements`, `/v1/inventory/low-stock`, `/v1/reservations`      | `inventory:read`                                                        |
+| `POST` receive, adjust, reserve, release, fulfil                                                                    | `inventory:write`                                                       |
 
 The generated, always-current list is `docs/openapi.json` (each protected operation carries its permission).
 
@@ -102,16 +106,17 @@ Five independent layers, so a bug in one does not open a hole:
 Audit rows are appended in the same transaction as the change (so they commit or roll back together), cannot be updated or
 deleted by the application role, and are readable only inside their own business (`GET /v1/audit-logs`, `audit:read`).
 
-| Action                                                                                         | When                                                                                      |
-| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `tenant.created`                                                                               | A business is created (sign-up, or `POST /v1/workspaces`; the latter records where from). |
-| `tenant.updated`                                                                               | Profile or regional settings changed. Records **which fields** changed, not their values. |
-| `member.invited` / `member.invitation_revoked`                                                 | An invitation is sent or revoked.                                                         |
-| `member.joined`                                                                                | An invitation is accepted.                                                                |
-| `member.role_changed` / `member.removed`                                                       | A role is changed or a member is removed.                                                 |
-| `auth.switch_tenant`                                                                           | A person enters a business (logged in the business entered).                              |
-| `auth.register`, `auth.login`, `auth.login_failed`, `auth.logout`, `auth.token_reuse_detected` | Session events.                                                                           |
-| `category.*`, `product.created`, `variant.created`, `location.*`, `import.queued`              | Catalog administration.                                                                   |
+| Action                                                                                                                                             | When                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `tenant.created`                                                                                                                                   | A business is created (sign-up, or `POST /v1/workspaces`; the latter records where from). |
+| `tenant.updated`                                                                                                                                   | Profile or regional settings changed. Records **which fields** changed, not their values. |
+| `member.invited` / `member.invitation_revoked`                                                                                                     | An invitation is sent or revoked.                                                         |
+| `member.joined`                                                                                                                                    | An invitation is accepted.                                                                |
+| `member.role_changed` / `member.removed`                                                                                                           | A role is changed or a member is removed.                                                 |
+| `auth.switch_tenant`                                                                                                                               | A person enters a business (logged in the business entered).                              |
+| `auth.register`, `auth.login`, `auth.login_failed`, `auth.logout`, `auth.token_reuse_detected`                                                     | Session events.                                                                           |
+| `order.created`, `order.updated`, `order.status_changed`, `order.cancelled`, `order.bulk_status`, `orders.imported`, `export.orders`, `customer.*` | Orders and customers (names, phones and addresses are never logged).                      |
+| `category.*`, `product.created`, `variant.created`, `location.*`, `import.queued`                                                                  | Catalog administration.                                                                   |
 
 ## What proves it
 

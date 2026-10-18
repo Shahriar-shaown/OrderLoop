@@ -235,6 +235,47 @@ export function createApiClient(options: ApiClientOptions) {
     exports: {
       products: () => call(routes.exportProducts),
       stock: () => call(routes.exportStock),
+      orders: (filters: RouteInput<typeof routes.exportOrders>['query'] = {}) =>
+        call(routes.exportOrders, { query: filters }),
+    },
+    customers: {
+      list: (query: RouteInput<typeof routes.listCustomers>['query'] = {}) =>
+        call(routes.listCustomers, { query }),
+      get: (id: string) => call(routes.getCustomer, { params: { id } }),
+      create: (body: RouteInput<typeof routes.createCustomer>['body']) =>
+        call(routes.createCustomer, { body }),
+      update: (id: string, body: RouteInput<typeof routes.updateCustomer>['body']) =>
+        call(routes.updateCustomer, { params: { id }, body }),
+      addAddress: (id: string, body: RouteInput<typeof routes.addCustomerAddress>['body']) =>
+        call(routes.addCustomerAddress, { params: { id }, body }),
+      updateAddress: (
+        id: string,
+        addressId: string,
+        body: RouteInput<typeof routes.updateCustomerAddress>['body'],
+      ) => call(routes.updateCustomerAddress, { params: { id, addressId }, body }),
+      removeAddress: (id: string, addressId: string) =>
+        call(routes.deleteCustomerAddress, { params: { id, addressId } }),
+      orders: (id: string, query: RouteInput<typeof routes.listCustomerOrders>['query'] = {}) =>
+        call(routes.listCustomerOrders, { params: { id }, query }),
+    },
+    orders: {
+      list: (query: RouteInput<typeof routes.listOrders>['query'] = {}) =>
+        call(routes.listOrders, { query }),
+      get: (id: string) => call(routes.getOrder, { params: { id } }),
+      /** `idempotencyKey` is required: a retry with the same key returns the order already made. */
+      create: (body: RouteInput<typeof routes.createOrder>['body']) =>
+        call(routes.createOrder, { body }),
+      update: (id: string, body: RouteInput<typeof routes.updateOrder>['body']) =>
+        call(routes.updateOrder, { params: { id }, body }),
+      changeStatus: (id: string, body: RouteInput<typeof routes.changeOrderStatus>['body']) =>
+        call(routes.changeOrderStatus, { params: { id }, body }),
+      bulkChangeStatus: (body: RouteInput<typeof routes.bulkChangeOrderStatus>['body']) =>
+        call(routes.bulkChangeOrderStatus, { body }),
+      duplicates: (id: string) => call(routes.listOrderDuplicates, { params: { id } }),
+      checkDuplicates: (body: RouteInput<typeof routes.checkOrderDuplicates>['body']) =>
+        call(routes.checkOrderDuplicates, { body }),
+      validateImport: (csv: string) => call(routes.validateOrderImport, { body: { csv } }),
+      import: (csv: string) => call(routes.importOrders, { body: { csv } }),
     },
     reservations: {
       list: (query: RouteInput<typeof routes.listReservations>['query'] = {}) =>
