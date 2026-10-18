@@ -18,6 +18,7 @@ import { RequestLogMiddleware } from './logging/request-log.middleware.js';
 import { MailModule } from './mail/mail.module.js';
 import { MembersModule } from './members/members.module.js';
 import { OpenApiController } from './openapi.controller.js';
+import { WorkspacesModule } from './workspaces/workspaces.module.js';
 import { RedisModule } from './redis/redis.module.js';
 
 @Module({
@@ -41,6 +42,7 @@ import { RedisModule } from './redis/redis.module.js';
     AuthModule,
     AuditModule,
     MembersModule,
+    WorkspacesModule,
     CatalogModule,
     InventoryModule,
     ImportsModule,

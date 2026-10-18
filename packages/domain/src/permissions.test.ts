@@ -71,3 +71,25 @@ describe('role assignment', () => {
     }
   });
 });
+
+describe('the documented permission matrix (docs/permissions.md)', () => {
+  const matrix = {
+    'tenant:read': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTANT'],
+    'tenant:update': ['OWNER', 'ADMIN'],
+    'members:read': ['OWNER', 'ADMIN', 'MANAGER', 'ACCOUNTANT'],
+    'members:invite': ['OWNER', 'ADMIN'],
+    'members:manage': ['OWNER', 'ADMIN'],
+    'audit:read': ['OWNER', 'ADMIN'],
+    'catalog:read': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTANT'],
+    'catalog:write': ['OWNER', 'ADMIN', 'MANAGER'],
+    'inventory:read': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTANT'],
+    'inventory:write': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'],
+  } as const;
+
+  it('matches the table, permission by permission', () => {
+    for (const [permission, roles] of Object.entries(matrix)) {
+      const allowed = ROLES.filter((r) => can(r, permission as never));
+      expect(allowed, permission).toEqual(roles);
+    }
+  });
+});

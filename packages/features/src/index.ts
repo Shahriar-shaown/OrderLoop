@@ -1,6 +1,7 @@
-export { createRuntime, useApi, useRuntime, type Runtime } from './runtime';
+export { createRuntime, useApi, useRuntime, type RefreshTokenStore, type Runtime } from './runtime';
+export { useRequireAuth } from './auth';
 export { AppProviders } from './components/AppProviders';
-export { AppShell } from './components/AppShell';
+export { AppShell, type ShellNavItem } from './components/AppShell';
 export { useAuth } from './auth';
 export { safeNext } from './errors';
 
@@ -18,3 +19,7 @@ export { CategoriesScreen } from './screens/CategoriesScreen';
 export { LocationsScreen } from './screens/LocationsScreen';
 export { ImportsScreen } from './screens/ImportsScreen';
 export { HomeScreen } from './screens/HomeScreen';
+export { WorkspaceSettingsScreen } from './screens/WorkspaceSettingsScreen';
+export { WorkspacesScreen } from './screens/WorkspacesScreen';
+export { WorkspaceCreateScreen } from './screens/WorkspaceCreateScreen';
+export { useSwitchWorkspace, useWorkspaces } from './workspaces';

@@ -2,6 +2,7 @@ import { RegisterBody } from '@orderloop/contracts';
 import { Button, Form, Link, Text, useNavigation } from '@orderloop/ui';
 import { useEffect } from 'react';
 import { useAuth } from '../auth';
+import { useRuntime } from '../runtime';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormError } from '../components/FormError';
 import { FormTextField } from '../components/FormTextField';
@@ -10,15 +11,16 @@ import { useZodForm } from '../zodForm';
 export function SignupScreen() {
   const { status, signUp } = useAuth();
   const navigation = useNavigation();
+  const { home } = useRuntime();
   const form = useZodForm(RegisterBody, { name: '', tenantName: '', email: '', password: '' });
 
   useEffect(() => {
-    if (status === 'authenticated' && !form.formState.isSubmitting) navigation.replace('/products');
+    if (status === 'authenticated' && !form.formState.isSubmitting) navigation.replace(home);
   }, [status]);
 
   const submit = form.submit(async (data) => {
     await signUp(data);
-    navigation.replace('/products');
+    navigation.replace(home);
   });
 
   return (

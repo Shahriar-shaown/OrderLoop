@@ -159,7 +159,17 @@ export function createApiClient(options: ApiClientOptions) {
         call(routes.acceptInvitation, { body }),
     },
     me: () => call(routes.me),
+    updatePreferences: (
+      language: RouteInput<typeof routes.updatePreferences>['body']['language'],
+    ) => call(routes.updatePreferences, { body: { language } }),
     tenant: () => call(routes.tenant),
+    updateTenant: (body: RouteInput<typeof routes.updateTenant>['body']) =>
+      call(routes.updateTenant, { body }),
+    workspaces: {
+      list: () => call(routes.listWorkspaces),
+      create: (body: RouteInput<typeof routes.createWorkspace>['body']) =>
+        call(routes.createWorkspace, { body }),
+    },
     members: {
       list: () => call(routes.listMembers),
       invite: (body: RouteInput<typeof routes.inviteMember>['body']) =>

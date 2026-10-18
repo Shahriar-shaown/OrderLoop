@@ -146,21 +146,22 @@ with a verified email; an existing account must supply its current password. Err
 
 ## Other endpoints
 
-| Method and path                       | Needs                           | Purpose                                                                                                       |
-| ------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `GET /health/live`                    | nothing                         | Liveness. 200 while the process runs.                                                                         |
-| `GET /health/ready`                   | nothing                         | Readiness. 200, or 503 `degraded` when PostgreSQL or Redis is down.                                           |
-| `GET /openapi.json`                   | nothing                         | This API as OpenAPI 3.1.                                                                                      |
-| `GET /v1/me`                          | access token                    | User (with `emailVerified`), tenant, role, permissions, memberships.                                          |
-| `GET /v1/tenant`                      | `tenant:read`                   | The current tenant.                                                                                           |
-| `GET /v1/members`                     | `members:read`                  | Members of the current tenant.                                                                                |
-| `GET/POST /v1/members/invitations`    | `members:invite` (OWNER, ADMIN) | List pending, or invite by email. Inviting needs a verified email.                                            |
-| `DELETE /v1/members/invitations/{id}` | `members:invite`                | Revoke a pending invitation.                                                                                  |
-| `PATCH/DELETE /v1/members/{id}`       | `members:manage` (OWNER, ADMIN) | Change a role, or remove a member. An ADMIN cannot touch OWNERs or ADMINs; a tenant keeps at least one OWNER. |
-| `GET /v1/audit-logs`                  | `audit:read` (OWNER, ADMIN)     | Tenant audit trail, newest first, cursor paginated (`limit` 1 to 100).                                        |
+| Method and path                       | Needs                           | Purpose                                                                                                                                                                            |
+| ------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /health/live`                    | nothing                         | Liveness. 200 while the process runs.                                                                                                                                              |
+| `GET /health/ready`                   | nothing                         | Readiness. 200, or 503 `degraded` when PostgreSQL or Redis is down.                                                                                                                |
+| `GET /openapi.json`                   | nothing                         | This API as OpenAPI 3.1.                                                                                                                                                           |
+| `GET/PATCH /v1/me`                    | access token                    | User (with `emailVerified`, `language`), current business summary, role, permissions, memberships. `PATCH` sets your own language.                                                 |
+| `GET/PATCH /v1/tenant`                | `tenant:read` / `tenant:update` | The current business profile (name, logo link, contact, address, currency, time zone, language); `PATCH` is partial, `null` clears an optional field, audited as `tenant.updated`. |
+| `GET/POST /v1/workspaces`             | access token                    | The businesses you belong to with your role in each; create another (you become its OWNER, max 10 owned). Enter it with `POST /v1/auth/switch-tenant`.                             |
+| `GET /v1/members`                     | `members:read`                  | Members of the current tenant.                                                                                                                                                     |
+| `GET/POST /v1/members/invitations`    | `members:invite` (OWNER, ADMIN) | List pending, or invite by email. Inviting needs a verified email.                                                                                                                 |
+| `DELETE /v1/members/invitations/{id}` | `members:invite`                | Revoke a pending invitation.                                                                                                                                                       |
+| `PATCH/DELETE /v1/members/{id}`       | `members:manage` (OWNER, ADMIN) | Change a role, or remove a member. An ADMIN cannot touch OWNERs or ADMINs; a tenant keeps at least one OWNER.                                                                      |
+| `GET /v1/audit-logs`                  | `audit:read` (OWNER, ADMIN)     | Tenant audit trail, newest first, cursor paginated (`limit` 1 to 100).                                                                                                             |
 
-Roles are `OWNER`, `ADMIN`, `MANAGER`, `STAFF`, `ACCOUNTANT`; the permission matrix is in
-`packages/domain/src/permissions.ts`.
+Roles are `OWNER`, `ADMIN`, `MANAGER`, `STAFF`, `ACCOUNTANT`. The full permission matrix, role-assignment rules, tenant-isolation
+layers and audit events are in [permissions.md](permissions.md); the code is `packages/domain/src/permissions.ts`.
 
 ## Catalog, stock and imports
 

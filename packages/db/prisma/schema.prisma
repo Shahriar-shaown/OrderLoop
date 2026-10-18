@@ -19,6 +19,11 @@ enum Role {
   ACCOUNTANT
 }
 
+enum Language {
+  en
+  bn
+}
+
 enum TokenPurpose {
   EMAIL_VERIFICATION
   PASSWORD_RESET
@@ -34,6 +39,8 @@ model User {
   disabledAt      DateTime? @map("disabled_at") @db.Timestamptz(3)
   /// Set when the user proves they control the address (verification link, or accepting an invitation sent to it).
   emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+  /// The person's own interface language; a business has its own default (tenants.default_language).
+  language        Language  @default(en)
 
   memberships Membership[]
   sessions    Session[]
@@ -42,11 +49,26 @@ model User {
   @@map("users")
 }
 
-/// Tenant-scoped (RLS: id = app.tenant_id).
+/// Tenant-scoped (RLS: id = app.tenant_id). User-facing name: "business" / "workspace".
 model Tenant {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  name      String
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  id              String   @id @default(uuid(7)) @db.Uuid
+  name            String
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  logoUrl         String?  @map("logo_url")
+  contactEmail    String?  @map("contact_email")
+  contactPhone    String?  @map("contact_phone")
+  addressLine1    String?  @map("address_line1")
+  addressLine2    String?  @map("address_line2")
+  city            String?
+  district        String?
+  postalCode      String?  @map("postal_code")
+  /// ISO 3166-1 alpha-2.
+  country         String   @default("BD")
+  /// ISO 4217. Display and reporting currency; amounts are stored in minor units.
+  currency        String   @default("BDT")
+  /// IANA zone name.
+  timezone        String   @default("Asia/Dhaka")
+  defaultLanguage Language @default(en) @map("default_language")
 
   memberships    Membership[]
   invitations    Invitation[]

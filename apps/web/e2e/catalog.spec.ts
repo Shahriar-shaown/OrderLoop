@@ -265,6 +265,8 @@ test.describe('accessibility and small screens of the signed-in screens', () => 
       '/categories',
       '/locations',
       '/imports',
+      '/settings',
+      '/workspaces/new',
       detail,
     ]) {
       await page.goto(path);
@@ -273,7 +275,7 @@ test.describe('accessibility and small screens of the signed-in screens', () => 
     }
 
     await page.setViewportSize({ width: 375, height: 800 });
-    for (const path of ['/products', '/inventory', detail, '/products/new']) {
+    for (const path of ['/products', '/inventory', detail, '/products/new', '/settings']) {
       await page.goto(path);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       await expectNoHorizontalOverflow(page);

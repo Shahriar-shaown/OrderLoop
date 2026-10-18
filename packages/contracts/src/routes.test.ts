@@ -15,7 +15,16 @@ describe('route registry', () => {
   });
 
   it('every access route that is not self-service declares a permission or is intentionally open to any member', () => {
-    const openToAnyMember = new Set(['logout', 'switchTenant', 'me', 'resendVerification']);
+    // Self-service: they act on the caller's own session, preferences or memberships, never on business data.
+    const openToAnyMember = new Set([
+      'logout',
+      'switchTenant',
+      'me',
+      'updatePreferences',
+      'listWorkspaces',
+      'createWorkspace',
+      'resendVerification',
+    ]);
     for (const spec of Object.values(routes)) {
       if (spec.auth === 'access' && !openToAnyMember.has(spec.id))
         expect('permission' in spec).toBe(true);

@@ -22,13 +22,21 @@ import { useAuth, useRequireAuth } from '../auth';
 import { messageFor } from '../errors';
 import { useCan } from '../permissions';
 import { useRuntime } from '../runtime';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
-const NAV: { href: string; label: string; needs?: Permission }[] = [
+export interface ShellNavItem {
+  href: string;
+  label: string;
+  needs?: Permission;
+}
+
+const WEB_NAV: ShellNavItem[] = [
   { href: '/products', label: 'Products' },
   { href: '/inventory', label: 'Stock' },
   { href: '/categories', label: 'Categories' },
   { href: '/locations', label: 'Locations' },
   { href: '/imports', label: 'Import', needs: 'catalog:write' },
+  { href: '/settings', label: 'Settings' },
 ];
 
 function VerifyBanner() {
@@ -83,12 +91,20 @@ function VerifyBanner() {
 }
 
 /** The signed-in frame: header with the workspace and account, the menu, the verification reminder, then the screen. */
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  nav = WEB_NAV,
+}: {
+  children: ReactNode;
+  /** The menu. The web app shows the catalog; the mobile app shows what it has built so far. */
+  nav?: ShellNavItem[];
+}) {
   const { status, session: current, signOut } = useAuth();
   useRequireAuth();
   const navigation = useNavigation();
   const can = useCan();
   const { colors } = useTheme();
+  const { home } = useRuntime();
   const [leaving, setLeaving] = useState(false);
 
   // While restoring the session (or being sent to sign in) show nothing from the app: no flash of private screens.
@@ -121,12 +137,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         <View style={{ width: '100%', maxWidth: 1100, alignSelf: 'center' }}>
           <Stack direction="row" justify="between" align="center" gap={3} wrap>
             <Row gap={3} wrap>
-              <Link href="/products" variant="plain">
+              <Link href={home} variant="plain">
                 <Text variant="heading">OrderLoop</Text>
               </Link>
-              <Text tone="muted" testID="tenant-name">
-                {current.tenant.name}
-              </Text>
+              <WorkspaceSwitcher
+                fallback={
+                  <Text tone="muted" testID="tenant-name">
+                    {current.tenant.name}
+                  </Text>
+                }
+              />
               <Badge>{current.role.toLowerCase()}</Badge>
             </Row>
             <Row gap={3} wrap>
@@ -141,11 +161,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Stack>
           <View role="navigation" aria-label="Main" style={{ marginTop: 8 }}>
             <Row gap={1} wrap>
-              {NAV.filter((item) => !item.needs || can(item.needs)).map((item) => (
-                <NavLink key={item.href} href={item.href}>
-                  {item.label}
-                </NavLink>
-              ))}
+              {nav
+                .filter((item) => !item.needs || can(item.needs))
+                .map((item) => (
+                  <NavLink key={item.href} href={item.href}>
+                    {item.label}
+                  </NavLink>
+                ))}
             </Row>
           </View>
         </View>

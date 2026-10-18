@@ -17,4 +17,7 @@ export {
   ResetPasswordScreen,
   SignupScreen,
   VerifyEmailScreen,
+  WorkspaceCreateScreen,
+  WorkspaceSettingsScreen,
+  WorkspacesScreen,
 } from '@orderloop/features';

@@ -2,7 +2,7 @@
 
 One loop. Every order. A Bangladesh-first platform for Facebook and Instagram sellers: orders, couriers, COD reconciliation, inventory and analytics.
 
-**Current state: identity, tenancy, and the product catalog with stock control.** The API has accounts, tenants, roles, sessions, invitations and an audit log, plus products with variants, stock locations, an append-only stock ledger that cannot oversell, reservations, low-stock alerts and background CSV import, all isolated per tenant by PostgreSQL row-level security. There are no orders, couriers or COD features yet, and the web and mobile apps are still placeholder screens that do not use the auth API.
+**Current state: identity, tenancy, and the product catalog with stock control.** The API has accounts, tenants, roles, sessions, invitations and an audit log, plus products with variants, stock locations, an append-only stock ledger that cannot oversell, reservations, low-stock alerts and background CSV import, all isolated per tenant by PostgreSQL row-level security. Businesses have a profile (logo, contact, address, BDT / Asia/Dhaka / English-Bangla defaults), people belong to several through memberships with roles (owner, admin, manager, staff, accountant) and can switch between them; see [docs/permissions.md](docs/permissions.md). The web app has sign-in, the catalog and business settings screens; the mobile app has sign-in, a business list and switcher, creation and settings. There are no orders, couriers or COD features yet.
 
 - Plan: [docs/implementation-plan.md](docs/implementation-plan.md)
 - Architecture decisions: [docs/architecture.md](docs/architecture.md)
@@ -16,7 +16,7 @@ apps/
   api/        NestJS 12 REST API (ESM). GET /health/live, GET /health/ready
   worker/     BullMQ worker process (connects to Redis; no jobs yet)
   web/        Next.js 16. Thin routes over the shared screens: sign-in, sign-up, password reset, catalog, stock
-  mobile/     Expo SDK 57 + React Native + Expo Router. A development screen built from the shared components
+  mobile/     Expo SDK 57 + React Native + Expo Router. Sign-in and business screens from `packages/features` (refresh token in secure storage); `/status` is a development screen
 packages/
   contracts/  Zod schemas and types shared by every app (health, env validation)
   api-client/ Typed fetch client built on the contracts (used by web and mobile)
@@ -73,7 +73,8 @@ Base URL `http://localhost:4000`. Machine-readable description: `GET /openapi.js
 | `POST /v1/auth/logout`                                                                                                                       | access token                         | Revoke the session immediately                                |
 | `POST /v1/auth/switch-tenant`                                                                                                                | access token                         | Re-scope the session to another tenant                        |
 | `POST /v1/auth/accept-invitation`                                                                                                            | invitation token                     | Join a tenant (creates the account if needed)                 |
-| `GET /v1/me`, `GET /v1/tenant`                                                                                                               | access token                         | Current user, role, permissions; current tenant               |
+| `GET/PATCH /v1/me`, `GET/PATCH /v1/tenant`                                                                                                   | access token; `tenant:update`        | Current user and role; business profile and settings          |
+| `GET/POST /v1/workspaces`                                                                                                                    | access token                         | Your businesses with your role; create another                |
 | `GET/POST/PATCH/DELETE /v1/members`                                                                                                          | `members:*` permission               | List, invite (`/invitations`), change role, remove            |
 | `GET/POST /v1/products`, `GET/PATCH /v1/products/:id`, `POST /v1/products/:id/variants`, `PATCH /v1/variants/:id`                            | `catalog:read` / `catalog:write`     | Products with variants (SKU, price in paisa); search, archive |
 | `GET/POST /v1/categories`, `PATCH/DELETE /v1/categories/:id`, `GET/POST /v1/locations`, `PATCH /v1/locations/:id`                            | `catalog:*` / `inventory:read`       | Categories and stock locations                                |

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { ForgotPasswordBody, LoginBody, Password, RegisterBody } from './auth.js';
+import {
+  CreateWorkspaceBody,
+  ForgotPasswordBody,
+  LoginBody,
+  Password,
+  RegisterBody,
+  UpdateTenantBody,
+} from './auth.js';
 
 /** The first message for each field, which is what a form shows. */
 function firstErrors(
@@ -83,5 +90,32 @@ describe('other forms', () => {
 
   it('forgot-password asks for an email', () => {
     expect(firstErrors(ForgotPasswordBody, { email: '' })).toEqual({ email: 'Email is required' });
+  });
+});
+
+describe('business settings validation', () => {
+  it('defaults a new workspace to BDT, Asia/Dhaka and English', () => {
+    expect(CreateWorkspaceBody.parse({ name: 'Dhaka Threads' })).toEqual({
+      name: 'Dhaka Threads',
+      currency: 'BDT',
+      timezone: 'Asia/Dhaka',
+      defaultLanguage: 'en',
+    });
+  });
+  it('rejects unknown currencies, zones, languages and insecure logos', () => {
+    expect(UpdateTenantBody.safeParse({ currency: 'XXX' }).success).toBe(false);
+    expect(UpdateTenantBody.safeParse({ timezone: 'Mars/Base' }).success).toBe(false);
+    expect(UpdateTenantBody.safeParse({ defaultLanguage: 'fr' }).success).toBe(false);
+    expect(UpdateTenantBody.safeParse({ logoUrl: 'http://x.test/a.png' }).success).toBe(false);
+    expect(UpdateTenantBody.safeParse({ logoUrl: 'https://x.test/a.png' }).success).toBe(true);
+  });
+  it('requires at least one field and refuses an id', () => {
+    expect(UpdateTenantBody.safeParse({}).success).toBe(false);
+    expect(UpdateTenantBody.safeParse({ id: 'x', name: 'Valid name' }).success).toBe(false);
+  });
+  it('accepts null to clear optional fields and checks phone format', () => {
+    expect(UpdateTenantBody.safeParse({ city: null, logoUrl: null }).success).toBe(true);
+    expect(UpdateTenantBody.safeParse({ contactPhone: '+8801712345678' }).success).toBe(true);
+    expect(UpdateTenantBody.safeParse({ contactPhone: 'call me' }).success).toBe(false);
   });
 });

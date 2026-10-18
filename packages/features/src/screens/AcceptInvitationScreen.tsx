@@ -1,6 +1,7 @@
 import { Alert, Button, Form, Link, Text, useNavigation } from '@orderloop/ui';
 import { z } from 'zod';
 import { useAuth } from '../auth';
+import { useRuntime } from '../runtime';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormError } from '../components/FormError';
 import { FormTextField } from '../components/FormTextField';
@@ -18,6 +19,7 @@ const AcceptForm = z.object({
 export function AcceptInvitationScreen({ token }: { token?: string | undefined }) {
   const { acceptInvitation } = useAuth();
   const navigation = useNavigation();
+  const { home } = useRuntime();
   const form = useZodForm(AcceptForm, { name: '', password: '' });
 
   const submit = form.submit(async (data) => {
@@ -26,7 +28,7 @@ export function AcceptInvitationScreen({ token }: { token?: string | undefined }
       password: data.password,
       ...(data.name ? { name: data.name } : {}),
     });
-    navigation.replace('/products');
+    navigation.replace(home);
   });
 
   return (

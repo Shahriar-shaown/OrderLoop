@@ -6,12 +6,14 @@ import { AuthLayout } from '../components/AuthLayout';
 import { FormError } from '../components/FormError';
 import { FormTextField } from '../components/FormTextField';
 import { safeNext } from '../errors';
+import { useRuntime } from '../runtime';
 import { useZodForm } from '../zodForm';
 
 export function LoginScreen({ next }: { next?: string | undefined }) {
   const { status, signIn } = useAuth();
   const navigation = useNavigation();
-  const target = safeNext(next);
+  const { home } = useRuntime();
+  const target = safeNext(next, home);
   const form = useZodForm(LoginBody, { email: '', password: '' });
 
   useEffect(() => {

@@ -1,3 +1,4 @@
+import type { AuthResult } from '@orderloop/contracts';
 import { createApiClient, type ApiClient, type ApiClientOptions } from '@orderloop/api-client';
 import { createContext, useContext, type ReactNode } from 'react';
 import { SessionManager, withTokenRetry } from './session';
@@ -6,6 +7,14 @@ import { SessionManager, withTokenRetry } from './session';
 export interface Runtime {
   api: ApiClient;
   session: SessionManager;
+  /** Where a signed-in person lands: the first screen of the app. */
+  home: string;
+}
+
+/** Device storage for the refresh token, for apps that cannot use an HttpOnly cookie (the native apps). */
+export interface RefreshTokenStore {
+  get(): Promise<string | null>;
+  set(token: string | null): Promise<void>;
 }
 
 /**
@@ -14,8 +23,13 @@ export interface Runtime {
  * keep the refresh token in the device's secure storage.
  */
 export function createRuntime(
-  options: Pick<ApiClientOptions, 'baseUrl' | 'headers' | 'credentials'>,
+  options: Pick<ApiClientOptions, 'baseUrl' | 'headers' | 'credentials'> & {
+    /** Native apps: keep the refresh token here and send it in the request body. Omit on the web (cookie). */
+    refreshTokenStore?: RefreshTokenStore;
+    home?: string;
+  },
 ): Runtime {
+  const store = options.refreshTokenStore;
   const shared = {
     baseUrl: options.baseUrl,
     ...(options.headers ? { headers: options.headers } : {}),
@@ -23,15 +37,30 @@ export function createRuntime(
   };
   const raw = createApiClient(shared);
   const session = new SessionManager({
-    refresh: () => raw.auth.refresh({}),
+    refresh: async () => {
+      if (!store) return raw.auth.refresh({});
+      const refreshToken = await store.get();
+      // No stored token: there is no session to restore. Same shape as a refused refresh, so the app shows sign-in.
+      if (!refreshToken) throw Object.assign(new Error('No session'), { status: 401 });
+      return raw.auth.refresh({ refreshToken });
+    },
     logout: () => api.auth.logout(),
+    ...(store
+      ? {
+          persist: async (next: AuthResult | null) => {
+            if (next === null) await store.set(null);
+            // Refresh tokens rotate: every response that carries one replaces the stored one.
+            else if (next.refreshToken) await store.set(next.refreshToken);
+          },
+        }
+      : {}),
   });
   const api: ApiClient = createApiClient({
     ...shared,
     getAccessToken: session.getAccessToken,
     fetch: withTokenRetry((...args) => fetch(...args), session),
   });
-  return { api, session };
+  return { api, session, home: options.home ?? '/products' };
 }
 
 const RuntimeContext = createContext<Runtime | null>(null);

@@ -315,3 +315,25 @@ and the lower findings are fixed and regression-tested (see architecture.md sect
 (three imports in flight per business, no finer fairness); the counts of an import that was resumed after a crash are approximate;
 no stock transfers between locations (adjust down and receive up instead); no returns movement yet; no catalog or inventory UI
 (Phases 6 and 7); the ledger cannot yet be consumed as a global change feed (replay is per variant and location).
+
+## 12. Milestone: business workspaces and role-based access control (2026-10-18)
+
+**Delivered:** business profile (name, logo link, contact, address, currency `BDT`, time zone `Asia/Dhaka`, English/Bangla
+default language) and a per-person language preference; workspace list and creation (`GET/POST /v1/workspaces`), switching
+(existing `switch-tenant`), partial settings update (`PATCH /v1/tenant`, `tenant:update`), audit events `tenant.created`
+(with origin), `tenant.updated` (changed field names only) next to the existing membership events; a row-level-security read
+policy so a person can list only the businesses they belong to; shared screens (business list/switcher, create, settings) used
+by web and mobile; the mobile app now signs in, with the refresh token in the device's secure storage. The permission matrix,
+role-assignment rules and the five isolation layers are documented in [permissions.md](permissions.md).
+
+**Found already in place (not rebuilt):** forced RLS on every tenant table, composite foreign keys, the per-request
+membership and permission check in `AccessGuard`, roles, invitations, the audit log, and the isolation suite.
+
+**Verification:** tenant-isolation suite (31) and the new `workspaces.e2e` suite (16: cross-tenant reads and writes, forged
+ids, switching into strangers' or missing businesses, role changes taking effect on the next request, settings permissions)
+green with the rest of the API integration suite; web Playwright scenarios for editing, creating, switching and read-only
+settings; unit tests for the contract rules, the permission matrix and the native session storage.
+
+**Known limits:** the logo is a link, not an upload (no file storage yet); screens are not translated into Bangla yet (the
+preferences are stored and returned); the mobile app has no catalog screens yet; a person can own at most 10 businesses;
+the mobile screens were type-checked and bundled for iOS but not driven on a simulator or device in this session.

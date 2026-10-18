@@ -11,7 +11,9 @@ import {
   type Me,
   type RegisterBody,
   type Role,
-  type TenantInfo,
+  type TenantSummary,
+  type UpdatePreferencesBody,
+  type UserSummary,
 } from '@orderloop/contracts';
 import { applyContext, Database, isUniqueViolation, TokenPurpose, type Tx } from '@orderloop/db';
 import { canAssignRole, permissionsFor } from '@orderloop/domain';
@@ -32,12 +34,38 @@ import {
   UserTokenService,
 } from './user-token.service.js';
 
+/** Columns of a tenant that every session response carries. */
+export const tenantSummarySelect = {
+  id: true,
+  name: true,
+  logoUrl: true,
+  currency: true,
+  timezone: true,
+  defaultLanguage: true,
+} as const;
+
+export function tenantSummary(row: {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+  currency: string;
+  timezone: string;
+  defaultLanguage: 'en' | 'bn';
+}): TenantSummary {
+  // currency/timezone are only ever written through the contract's allowlists.
+  return {
+    ...row,
+    currency: row.currency as TenantSummary['currency'],
+    timezone: row.timezone as TenantSummary['timezone'],
+  };
+}
+
 /** AuthResult as issued internally: always carries the refresh token; the transport layer decides how to deliver it. */
 export type Issued = AuthResult & { refreshToken?: string };
 
 interface Grant {
-  user: { id: string; email: string; name: string; emailVerified: boolean };
-  tenant: { id: string; name: string };
+  user: UserSummary;
+  tenant: TenantSummary;
   role: Role;
   sessionId: string;
   memberships: { tenantId: string; role: Role }[];
@@ -99,18 +127,21 @@ export class AuthService {
   ): Promise<Grant> {
     const row = await tx.user.findUniqueOrThrow({
       where: { id: input.userId },
-      select: { id: true, email: true, name: true, emailVerifiedAt: true },
+      select: { id: true, email: true, name: true, emailVerifiedAt: true, language: true },
     });
     const user = {
       id: row.id,
       email: row.email,
       name: row.name,
       emailVerified: row.emailVerifiedAt !== null,
+      language: row.language,
     };
-    const tenant = await tx.tenant.findUniqueOrThrow({
-      where: { id: input.tenantId },
-      select: { id: true, name: true },
-    });
+    const tenant = tenantSummary(
+      await tx.tenant.findUniqueOrThrow({
+        where: { id: input.tenantId },
+        select: tenantSummarySelect,
+      }),
+    );
     const memberships = await tx.membership.findMany({
       where: { userId: input.userId },
       select: { tenantId: true, role: true },
@@ -586,11 +617,13 @@ export class AuthService {
     });
   }
 
-  async tenant(tenantId: string): Promise<TenantInfo> {
-    const t = await this.db.withContext({ tenantId }, (tx) =>
-      tx.tenant.findUnique({ where: { id: tenantId } }),
+  async updatePreferences(
+    auth: { userId: string; tenantId: string; role: Role },
+    body: UpdatePreferencesBody,
+  ): Promise<Me> {
+    await this.db.withContext({ tenantId: auth.tenantId, userId: auth.userId }, (tx) =>
+      tx.user.update({ where: { id: auth.userId }, data: { language: body.language } }),
     );
-    if (!t) throw ApiError.notFound('Tenant not found');
-    return { id: t.id, name: t.name, createdAt: t.createdAt.toISOString() };
+    return this.me(auth);
   }
 }

@@ -382,9 +382,13 @@
                         },
                         "emailVerified": {
                           "type": "boolean"
+                        },
+                        "language": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
                         }
                       },
-                      "required": ["id", "email", "name", "emailVerified"],
+                      "required": ["id", "email", "name", "emailVerified", "language"],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -397,9 +401,44 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "logoUrl": {
+                          "type": ["string", "null"]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "enum": [
+                            "Asia/Dhaka",
+                            "Asia/Kolkata",
+                            "Asia/Karachi",
+                            "Asia/Dubai",
+                            "Asia/Riyadh",
+                            "Asia/Kuala_Lumpur",
+                            "Asia/Singapore",
+                            "Europe/London",
+                            "Europe/Berlin",
+                            "America/New_York",
+                            "America/Los_Angeles",
+                            "UTC"
+                          ]
+                        },
+                        "defaultLanguage": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
                         }
                       },
-                      "required": ["id", "name"],
+                      "required": [
+                        "id",
+                        "name",
+                        "logoUrl",
+                        "currency",
+                        "timezone",
+                        "defaultLanguage"
+                      ],
                       "additionalProperties": false
                     },
                     "role": {
@@ -572,9 +611,13 @@
                         },
                         "emailVerified": {
                           "type": "boolean"
+                        },
+                        "language": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
                         }
                       },
-                      "required": ["id", "email", "name", "emailVerified"],
+                      "required": ["id", "email", "name", "emailVerified", "language"],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -587,9 +630,44 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "logoUrl": {
+                          "type": ["string", "null"]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "enum": [
+                            "Asia/Dhaka",
+                            "Asia/Kolkata",
+                            "Asia/Karachi",
+                            "Asia/Dubai",
+                            "Asia/Riyadh",
+                            "Asia/Kuala_Lumpur",
+                            "Asia/Singapore",
+                            "Europe/London",
+                            "Europe/Berlin",
+                            "America/New_York",
+                            "America/Los_Angeles",
+                            "UTC"
+                          ]
+                        },
+                        "defaultLanguage": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
                         }
                       },
-                      "required": ["id", "name"],
+                      "required": [
+                        "id",
+                        "name",
+                        "logoUrl",
+                        "currency",
+                        "timezone",
+                        "defaultLanguage"
+                      ],
                       "additionalProperties": false
                     },
                     "role": {
@@ -749,9 +827,13 @@
                         },
                         "emailVerified": {
                           "type": "boolean"
+                        },
+                        "language": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
                         }
                       },
-                      "required": ["id", "email", "name", "emailVerified"],
+                      "required": ["id", "email", "name", "emailVerified", "language"],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -764,9 +846,44 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "logoUrl": {
+                          "type": ["string", "null"]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "enum": [
+                            "Asia/Dhaka",
+                            "Asia/Kolkata",
+                            "Asia/Karachi",
+                            "Asia/Dubai",
+                            "Asia/Riyadh",
+                            "Asia/Kuala_Lumpur",
+                            "Asia/Singapore",
+                            "Europe/London",
+                            "Europe/Berlin",
+                            "America/New_York",
+                            "America/Los_Angeles",
+                            "UTC"
+                          ]
+                        },
+                        "defaultLanguage": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
                         }
                       },
-                      "required": ["id", "name"],
+                      "required": [
+                        "id",
+                        "name",
+                        "logoUrl",
+                        "currency",
+                        "timezone",
+                        "defaultLanguage"
+                      ],
                       "additionalProperties": false
                     },
                     "role": {
@@ -1019,9 +1136,13 @@
                         },
                         "emailVerified": {
                           "type": "boolean"
+                        },
+                        "language": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
                         }
                       },
-                      "required": ["id", "email", "name", "emailVerified"],
+                      "required": ["id", "email", "name", "emailVerified", "language"],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -1034,9 +1155,44 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "logoUrl": {
+                          "type": ["string", "null"]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "enum": [
+                            "Asia/Dhaka",
+                            "Asia/Kolkata",
+                            "Asia/Karachi",
+                            "Asia/Dubai",
+                            "Asia/Riyadh",
+                            "Asia/Kuala_Lumpur",
+                            "Asia/Singapore",
+                            "Europe/London",
+                            "Europe/Berlin",
+                            "America/New_York",
+                            "America/Los_Angeles",
+                            "UTC"
+                          ]
+                        },
+                        "defaultLanguage": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
                         }
                       },
-                      "required": ["id", "name"],
+                      "required": [
+                        "id",
+                        "name",
+                        "logoUrl",
+                        "currency",
+                        "timezone",
+                        "defaultLanguage"
+                      ],
                       "additionalProperties": false
                     },
                     "role": {
@@ -1212,9 +1368,13 @@
                         },
                         "emailVerified": {
                           "type": "boolean"
+                        },
+                        "language": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
                         }
                       },
-                      "required": ["id", "email", "name", "emailVerified"],
+                      "required": ["id", "email", "name", "emailVerified", "language"],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -1227,9 +1387,44 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "logoUrl": {
+                          "type": ["string", "null"]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "enum": [
+                            "Asia/Dhaka",
+                            "Asia/Kolkata",
+                            "Asia/Karachi",
+                            "Asia/Dubai",
+                            "Asia/Riyadh",
+                            "Asia/Kuala_Lumpur",
+                            "Asia/Singapore",
+                            "Europe/London",
+                            "Europe/Berlin",
+                            "America/New_York",
+                            "America/Los_Angeles",
+                            "UTC"
+                          ]
+                        },
+                        "defaultLanguage": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
                         }
                       },
-                      "required": ["id", "name"],
+                      "required": [
+                        "id",
+                        "name",
+                        "logoUrl",
+                        "currency",
+                        "timezone",
+                        "defaultLanguage"
+                      ],
                       "additionalProperties": false
                     },
                     "role": {
@@ -1788,9 +1983,13 @@
                         },
                         "emailVerified": {
                           "type": "boolean"
+                        },
+                        "language": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
                         }
                       },
-                      "required": ["id", "email", "name", "emailVerified"],
+                      "required": ["id", "email", "name", "emailVerified", "language"],
                       "additionalProperties": false
                     },
                     "tenant": {
@@ -1803,9 +2002,270 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "logoUrl": {
+                          "type": ["string", "null"]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "enum": [
+                            "Asia/Dhaka",
+                            "Asia/Kolkata",
+                            "Asia/Karachi",
+                            "Asia/Dubai",
+                            "Asia/Riyadh",
+                            "Asia/Kuala_Lumpur",
+                            "Asia/Singapore",
+                            "Europe/London",
+                            "Europe/Berlin",
+                            "America/New_York",
+                            "America/Los_Angeles",
+                            "UTC"
+                          ]
+                        },
+                        "defaultLanguage": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
                         }
                       },
-                      "required": ["id", "name"],
+                      "required": [
+                        "id",
+                        "name",
+                        "logoUrl",
+                        "currency",
+                        "timezone",
+                        "defaultLanguage"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                    },
+                    "permissions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "tenant:read",
+                          "tenant:update",
+                          "members:read",
+                          "members:invite",
+                          "members:manage",
+                          "audit:read",
+                          "catalog:read",
+                          "catalog:write",
+                          "inventory:read",
+                          "inventory:write"
+                        ]
+                      }
+                    },
+                    "memberships": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tenantId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                          }
+                        },
+                        "required": ["tenantId", "role"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["user", "tenant", "role", "permissions", "memberships"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["me"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "updatePreferences",
+        "summary": "Change the signed-in user’s own preferences (interface language)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "language": {
+                    "type": "string",
+                    "enum": ["en", "bn"]
+                  }
+                },
+                "required": ["language"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "emailVerified": {
+                          "type": "boolean"
+                        },
+                        "language": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
+                        }
+                      },
+                      "required": ["id", "email", "name", "emailVerified", "language"],
+                      "additionalProperties": false
+                    },
+                    "tenant": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "logoUrl": {
+                          "type": ["string", "null"]
+                        },
+                        "currency": {
+                          "type": "string",
+                          "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "enum": [
+                            "Asia/Dhaka",
+                            "Asia/Kolkata",
+                            "Asia/Karachi",
+                            "Asia/Dubai",
+                            "Asia/Riyadh",
+                            "Asia/Kuala_Lumpur",
+                            "Asia/Singapore",
+                            "Europe/London",
+                            "Europe/Berlin",
+                            "America/New_York",
+                            "America/Los_Angeles",
+                            "UTC"
+                          ]
+                        },
+                        "defaultLanguage": {
+                          "type": "string",
+                          "enum": ["en", "bn"]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "logoUrl",
+                        "currency",
+                        "timezone",
+                        "defaultLanguage"
+                      ],
                       "additionalProperties": false
                     },
                     "role": {
@@ -1933,7 +2393,7 @@
     "/v1/tenant": {
       "get": {
         "operationId": "tenant",
-        "summary": "Current tenant",
+        "summary": "Current business: profile, currency, timezone and language",
         "responses": {
           "200": {
             "description": "Success",
@@ -1951,11 +2411,79 @@
                     "name": {
                       "type": "string"
                     },
+                    "logoUrl": {
+                      "type": ["string", "null"]
+                    },
+                    "currency": {
+                      "type": "string",
+                      "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "enum": [
+                        "Asia/Dhaka",
+                        "Asia/Kolkata",
+                        "Asia/Karachi",
+                        "Asia/Dubai",
+                        "Asia/Riyadh",
+                        "Asia/Kuala_Lumpur",
+                        "Asia/Singapore",
+                        "Europe/London",
+                        "Europe/Berlin",
+                        "America/New_York",
+                        "America/Los_Angeles",
+                        "UTC"
+                      ]
+                    },
+                    "defaultLanguage": {
+                      "type": "string",
+                      "enum": ["en", "bn"]
+                    },
                     "createdAt": {
+                      "type": "string"
+                    },
+                    "contactEmail": {
+                      "type": ["string", "null"]
+                    },
+                    "contactPhone": {
+                      "type": ["string", "null"]
+                    },
+                    "addressLine1": {
+                      "type": ["string", "null"]
+                    },
+                    "addressLine2": {
+                      "type": ["string", "null"]
+                    },
+                    "city": {
+                      "type": ["string", "null"]
+                    },
+                    "district": {
+                      "type": ["string", "null"]
+                    },
+                    "postalCode": {
+                      "type": ["string", "null"]
+                    },
+                    "country": {
                       "type": "string"
                     }
                   },
-                  "required": ["id", "name", "createdAt"],
+                  "required": [
+                    "id",
+                    "name",
+                    "logoUrl",
+                    "currency",
+                    "timezone",
+                    "defaultLanguage",
+                    "createdAt",
+                    "contactEmail",
+                    "contactPhone",
+                    "addressLine1",
+                    "addressLine2",
+                    "city",
+                    "district",
+                    "postalCode",
+                    "country"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -2034,6 +2562,663 @@
           }
         ],
         "x-required-permission": "tenant:read"
+      },
+      "patch": {
+        "operationId": "updateTenant",
+        "summary": "Update the current business profile and settings (owner or admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 100
+                  },
+                  "logoUrl": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "format": "uri"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "contactEmail": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 254,
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "contactPhone": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\+?[0-9][0-9 ()-]{5,19}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "addressLine1": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "addressLine2": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "city": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "district": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "postalCode": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "country": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "enum": [
+                      "Asia/Dhaka",
+                      "Asia/Kolkata",
+                      "Asia/Karachi",
+                      "Asia/Dubai",
+                      "Asia/Riyadh",
+                      "Asia/Kuala_Lumpur",
+                      "Asia/Singapore",
+                      "Europe/London",
+                      "Europe/Berlin",
+                      "America/New_York",
+                      "America/Los_Angeles",
+                      "UTC"
+                    ]
+                  },
+                  "defaultLanguage": {
+                    "type": "string",
+                    "enum": ["en", "bn"]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "logoUrl": {
+                      "type": ["string", "null"]
+                    },
+                    "currency": {
+                      "type": "string",
+                      "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "enum": [
+                        "Asia/Dhaka",
+                        "Asia/Kolkata",
+                        "Asia/Karachi",
+                        "Asia/Dubai",
+                        "Asia/Riyadh",
+                        "Asia/Kuala_Lumpur",
+                        "Asia/Singapore",
+                        "Europe/London",
+                        "Europe/Berlin",
+                        "America/New_York",
+                        "America/Los_Angeles",
+                        "UTC"
+                      ]
+                    },
+                    "defaultLanguage": {
+                      "type": "string",
+                      "enum": ["en", "bn"]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "contactEmail": {
+                      "type": ["string", "null"]
+                    },
+                    "contactPhone": {
+                      "type": ["string", "null"]
+                    },
+                    "addressLine1": {
+                      "type": ["string", "null"]
+                    },
+                    "addressLine2": {
+                      "type": ["string", "null"]
+                    },
+                    "city": {
+                      "type": ["string", "null"]
+                    },
+                    "district": {
+                      "type": ["string", "null"]
+                    },
+                    "postalCode": {
+                      "type": ["string", "null"]
+                    },
+                    "country": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "logoUrl",
+                    "currency",
+                    "timezone",
+                    "defaultLanguage",
+                    "createdAt",
+                    "contactEmail",
+                    "contactPhone",
+                    "addressLine1",
+                    "addressLine2",
+                    "city",
+                    "district",
+                    "postalCode",
+                    "country"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["tenant"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "tenant:update"
+      }
+    },
+    "/v1/workspaces": {
+      "get": {
+        "operationId": "listWorkspaces",
+        "summary": "Businesses the signed-in user belongs to, with their role in each",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "logoUrl": {
+                        "type": ["string", "null"]
+                      },
+                      "currency": {
+                        "type": "string",
+                        "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                      },
+                      "timezone": {
+                        "type": "string",
+                        "enum": [
+                          "Asia/Dhaka",
+                          "Asia/Kolkata",
+                          "Asia/Karachi",
+                          "Asia/Dubai",
+                          "Asia/Riyadh",
+                          "Asia/Kuala_Lumpur",
+                          "Asia/Singapore",
+                          "Europe/London",
+                          "Europe/Berlin",
+                          "America/New_York",
+                          "America/Los_Angeles",
+                          "UTC"
+                        ]
+                      },
+                      "defaultLanguage": {
+                        "type": "string",
+                        "enum": ["en", "bn"]
+                      },
+                      "role": {
+                        "type": "string",
+                        "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                      },
+                      "joinedAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "logoUrl",
+                      "currency",
+                      "timezone",
+                      "defaultLanguage",
+                      "role",
+                      "joinedAt"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["workspaces"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createWorkspace",
+        "summary": "Create another business; the caller becomes its owner. Switch into it with switch-tenant",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 100
+                  },
+                  "currency": {
+                    "default": "BDT",
+                    "type": "string",
+                    "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                  },
+                  "timezone": {
+                    "default": "Asia/Dhaka",
+                    "type": "string",
+                    "enum": [
+                      "Asia/Dhaka",
+                      "Asia/Kolkata",
+                      "Asia/Karachi",
+                      "Asia/Dubai",
+                      "Asia/Riyadh",
+                      "Asia/Kuala_Lumpur",
+                      "Asia/Singapore",
+                      "Europe/London",
+                      "Europe/Berlin",
+                      "America/New_York",
+                      "America/Los_Angeles",
+                      "UTC"
+                    ]
+                  },
+                  "defaultLanguage": {
+                    "default": "en",
+                    "type": "string",
+                    "enum": ["en", "bn"]
+                  }
+                },
+                "required": ["name"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "logoUrl": {
+                      "type": ["string", "null"]
+                    },
+                    "currency": {
+                      "type": "string",
+                      "enum": ["BDT", "USD", "INR", "EUR", "GBP", "AED", "SAR", "MYR", "SGD"]
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "enum": [
+                        "Asia/Dhaka",
+                        "Asia/Kolkata",
+                        "Asia/Karachi",
+                        "Asia/Dubai",
+                        "Asia/Riyadh",
+                        "Asia/Kuala_Lumpur",
+                        "Asia/Singapore",
+                        "Europe/London",
+                        "Europe/Berlin",
+                        "America/New_York",
+                        "America/Los_Angeles",
+                        "UTC"
+                      ]
+                    },
+                    "defaultLanguage": {
+                      "type": "string",
+                      "enum": ["en", "bn"]
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                    },
+                    "joinedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "logoUrl",
+                    "currency",
+                    "timezone",
+                    "defaultLanguage",
+                    "role",
+                    "joinedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "validation_failed",
+                        "unauthorized",
+                        "invalid_credentials",
+                        "token_expired",
+                        "token_reuse_detected",
+                        "forbidden",
+                        "not_found",
+                        "conflict",
+                        "rate_limited",
+                        "invitation_invalid",
+                        "token_invalid",
+                        "email_not_verified",
+                        "last_owner",
+                        "insufficient_stock",
+                        "internal_error"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["workspaces"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/members": {

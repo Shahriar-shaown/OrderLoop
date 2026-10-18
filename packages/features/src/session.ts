@@ -17,6 +17,11 @@ export type SessionStatus = 'loading' | 'anonymous' | 'authenticated';
 export interface SessionApi {
   refresh(): Promise<AuthResult>;
   logout(): Promise<unknown>;
+  /**
+   * Called whenever the session is adopted or cleared (never for tokens in flight). Native apps use it to keep the
+   * rotated refresh token in secure storage; the web needs nothing because its refresh token is an HttpOnly cookie.
+   */
+  persist?(session: AuthResult | null): void | Promise<void>;
 }
 
 export interface Snapshot {
@@ -129,7 +134,16 @@ export class SessionManager {
   }
 
   // ---- internals --------------------------------------------------------------------------------------------------
+  private persist(session: AuthResult | null): void {
+    try {
+      Promise.resolve(this.api.persist?.(session)).catch(() => undefined);
+    } catch {
+      // Storage trouble must never break the in-memory session.
+    }
+  }
+
   private setSession(session: AuthResult): void {
+    this.persist(session);
     this.set({ status: 'authenticated', session });
     this.schedule(session.expiresIn);
   }
@@ -137,6 +151,7 @@ export class SessionManager {
   private clear(): void {
     if (this.timer) clearTimeout(this.timer);
     this.timer = undefined;
+    this.persist(null);
     this.set({ status: 'anonymous', session: null });
   }
 

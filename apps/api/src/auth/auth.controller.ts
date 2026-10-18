@@ -1,12 +1,6 @@
 import { Controller, Inject, Req, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import {
-  routes,
-  type AuthResult,
-  type Me,
-  type ParsedInput,
-  type TenantInfo,
-} from '@orderloop/contracts';
+import { routes, type AuthResult, type Me, type ParsedInput } from '@orderloop/contracts';
 import type { Response } from 'express';
 import { ApiError } from '../common/api-error.js';
 import { Auth, Endpoint, Input, type AppRequest, type AuthContext } from '../common/endpoint.js';
@@ -162,9 +156,12 @@ export class AccountController {
     return this.auth.me(auth);
   }
 
-  @Endpoint(routes.tenant)
-  tenant(@Auth() auth: AuthContext): Promise<TenantInfo> {
-    return this.auth.tenant(auth.tenantId);
+  @Endpoint(routes.updatePreferences)
+  updatePreferences(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.updatePreferences>,
+  ): Promise<Me> {
+    return this.auth.updatePreferences(auth, input.body);
   }
 }
 

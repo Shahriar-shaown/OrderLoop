@@ -6,8 +6,15 @@ const session = (token: string, expiresIn = 900): AuthResult =>
   ({
     accessToken: token,
     expiresIn,
-    user: { id: 'u', email: 'a@b.c', name: 'A', emailVerified: true },
-    tenant: { id: 't', name: 'T' },
+    user: { id: 'u', email: 'a@b.c', name: 'A', emailVerified: true, language: 'en' },
+    tenant: {
+      id: 't',
+      name: 'T',
+      logoUrl: null,
+      currency: 'BDT',
+      timezone: 'Asia/Dhaka',
+      defaultLanguage: 'en',
+    },
     role: 'OWNER',
     memberships: [],
   }) as AuthResult;
@@ -173,5 +180,34 @@ describe('withTokenRetry', () => {
       (await withTokenRetry(base, { refresh: vi.fn() })('http://api/v1/products', authed)).status,
     ).toBe(409);
     expect(base).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('persisting the session (native apps)', () => {
+  it('hands every adopted session, and the sign-out, to the persist hook', async () => {
+    const persisted: (string | null)[] = [];
+    const manager = new SessionManager({
+      refresh: async () => session('refreshed'),
+      logout: async () => undefined,
+      persist: (s) => void persisted.push(s?.accessToken ?? null),
+    });
+    manager.start(session('first'));
+    await manager.refresh();
+    await manager.logout();
+    expect(persisted).toEqual(['first', 'refreshed', null]);
+    manager.dispose();
+  });
+
+  it('keeps working when storage throws', async () => {
+    const manager = new SessionManager({
+      refresh: async () => session('x'),
+      logout: async () => undefined,
+      persist: () => {
+        throw new Error('keychain unavailable');
+      },
+    });
+    manager.start(session('ok'));
+    expect(manager.getSnapshot().status).toBe('authenticated');
+    manager.dispose();
   });
 });
