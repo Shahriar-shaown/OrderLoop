@@ -5,7 +5,7 @@ import type {
   OrderStatus,
   OrderSummary,
 } from '@orderloop/contracts';
-import { holdsStock, ORDER_TRANSITIONS } from '@orderloop/domain';
+import { cashPosition, holdsStock, ORDER_TRANSITIONS } from '@orderloop/domain';
 
 export interface OrderRow {
   id: string;
@@ -103,7 +103,42 @@ export interface SummaryRow {
   total_minor: number;
   cod_amount_minor: number;
   created_at: Date;
+  first_item: string | null;
+  first_qty: number | null;
+  line_count: bigint | number;
+  courier_provider: 'mock' | 'pathao' | 'steadfast' | null;
+  courier_status: string | null;
+  courier_simulated: boolean | null;
+  collected: bigint | number;
   sv: Date | number | string;
+}
+
+/**
+ * The order's cash in a seller's words. Delivered is never "collected": only cash a courier statement reports is. An order
+ * with nothing to collect is prepaid; a cancelled or returned one owes nothing; a delivered one with no real courier
+ * shipment cannot be confirmed by any statement.
+ */
+export function paymentState(r: {
+  status: OrderStatus;
+  cod: number;
+  collected: number;
+  realCourier: boolean;
+}): OrderSummary['payment'] {
+  if (r.cod === 0) return 'prepaid';
+  if (r.status === 'cancelled' || r.status === 'returned' || r.status === 'return_requested')
+    return 'not_due';
+  if (r.status !== 'delivered') return 'cod_pending';
+  if (!r.realCourier) return 'cod_untracked';
+  const pos = cashPosition({
+    status: r.status,
+    codAmountMinor: r.cod,
+    collectedMinor: r.collected,
+  });
+  return pos.state === 'unpaid'
+    ? 'cod_unpaid'
+    : pos.state === 'partial'
+      ? 'cod_partial'
+      : 'cod_collected';
 }
 
 export const toSummary = (r: SummaryRow): OrderSummary => ({
@@ -119,4 +154,20 @@ export const toSummary = (r: SummaryRow): OrderSummary => ({
   totalMinor: r.total_minor,
   codAmountMinor: r.cod_amount_minor,
   createdAt: r.created_at.toISOString(),
+  itemsSummary: r.first_item
+    ? `${r.first_item} ×${r.first_qty ?? 1}${Number(r.line_count) > 1 ? ` +${Number(r.line_count) - 1}` : ''}`
+    : '',
+  payment: paymentState({
+    status: r.status,
+    cod: r.cod_amount_minor,
+    collected: Number(r.collected),
+    realCourier: !!r.courier_provider && r.courier_simulated === false,
+  }),
+  courier: r.courier_provider
+    ? {
+        provider: r.courier_provider,
+        simulated: !!r.courier_simulated,
+        status: r.courier_status as never,
+      }
+    : null,
 });

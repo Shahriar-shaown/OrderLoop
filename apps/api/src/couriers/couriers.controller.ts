@@ -7,10 +7,13 @@ import {
   type ParsedInput,
   type Shipment,
   type ShipmentDetail,
+  type ShipmentRowPage,
+  type ShipmentSummary,
   type ShippingQuote,
 } from '@orderloop/contracts';
 import { Auth, Endpoint, Input, type AppRequest, type AuthContext } from '../common/endpoint.js';
 import { CouriersService } from './couriers.service.js';
+import { ShipmentReportsService } from './shipment-reports.service.js';
 import { ShipmentsService } from './shipments.service.js';
 
 @Controller()
@@ -18,6 +21,7 @@ export class CouriersController {
   constructor(
     private readonly couriers: CouriersService,
     private readonly shipments: ShipmentsService,
+    private readonly reports: ShipmentReportsService,
   ) {}
 
   @Endpoint(routes.listCouriers)
@@ -127,5 +131,18 @@ export class CouriersController {
     @Req() req: AppRequest,
   ): Promise<ShipmentDetail> {
     return this.shipments.simulate(auth, input.params.id, input.body.event, req.ip ?? null);
+  }
+
+  @Endpoint(routes.listShipments)
+  listAll(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.listShipments>,
+  ): Promise<ShipmentRowPage> {
+    return this.reports.list(auth, input.query);
+  }
+
+  @Endpoint(routes.getShipmentSummary)
+  stats(@Auth() auth: AuthContext): Promise<ShipmentSummary> {
+    return this.reports.summary(auth);
   }
 }

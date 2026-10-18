@@ -1,7 +1,8 @@
 import type { Invitation, Member } from '@orderloop/contracts';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { Dimensions } from 'react-native';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '../../test/mount';
 import { TeamScreen } from './TeamScreen';
 
@@ -53,57 +54,68 @@ const api = (extra: Record<string, unknown> = {}) => ({
   },
 });
 
+/** jsdom reports no width, which reads as a phone; the table layouts are tested at a desktop width. */
+const setWidth = (width: number) => {
+  const original = Dimensions.get.bind(Dimensions);
+  vi.spyOn(Dimensions, 'get').mockImplementation((key) =>
+    key === 'window' ? { width, height: 900, scale: 1, fontScale: 1 } : original(key),
+  );
+};
+
 describe('team and permissions', () => {
+  beforeEach(() => setWidth(1280));
+  afterEach(() => vi.restoreAllMocks());
+
   it('shows the people, the pending invitations and the real permission matrix', async () => {
     mount(<TeamScreen />, api());
     expect(await screen.findByText('Helper Person')).toBeTruthy();
     expect(screen.getByText('new.person@example.test')).toBeTruthy();
     expect(screen.getByText(/^Your role: Owner\./)).toBeTruthy();
     const matrix = screen.getByRole('table', { name: 'Permissions by role' });
-    const settings = within(matrix).getByRole('row', { name: /Change business settings/ });
-    const cells = within(settings)
-      .getAllByRole('cell')
-      .map((c) => c.textContent);
-    expect(cells.slice(1)).toEqual(['Yes', 'Yes', 'No', 'No', 'No']); // owner, admin, manager, staff, accountant
-    const orders = within(matrix).getByRole('row', { name: /Create and change orders/ });
-    expect(
-      within(orders)
+    // Each cell holds a check or minus icon named Yes / No.
+    const answers = (row: HTMLElement) =>
+      within(row)
         .getAllByRole('cell')
-        .map((c) => c.textContent)
-        .slice(1),
-    ).toEqual(['Yes', 'Yes', 'Yes', 'Yes', 'No']);
+        .slice(1)
+        .map((c) => within(c).getByRole('img').getAttribute('aria-label'));
+    const settings = within(matrix).getByRole('row', { name: /Change business settings/ });
+    expect(answers(settings)).toEqual(['Yes', 'Yes', 'No', 'No', 'No']); // owner, admin, manager, staff, accountant
+    const orders = within(matrix).getByRole('row', { name: /Create and change orders/ });
+    expect(answers(orders)).toEqual(['Yes', 'Yes', 'Yes', 'Yes', 'No']);
     expect(await screen.findByText('member.invited')).toBeTruthy();
   });
 
-  it('validates an invitation before sending, then sends it', async () => {
+  it('validates an invitation before sending, then sends it and clears the box', async () => {
     const a = api();
     mount(<TeamScreen />, a);
-    await userEvent.click(await screen.findByRole('button', { name: 'Invite someone' }));
-    const dialog = await screen.findByRole('dialog');
-    await userEvent.type(within(dialog).getByLabelText(/Email/), 'nope');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Send invitation' }));
-    expect(await within(dialog).findByText('Enter a valid email address')).toBeTruthy();
+    const email = await screen.findByLabelText(/Email/);
+    await userEvent.type(email, 'nope');
+    await userEvent.click(screen.getByRole('button', { name: 'Send invitation' }));
+    expect(await screen.findByText('Enter a valid email address')).toBeTruthy();
     expect(a.members.invite).not.toHaveBeenCalled();
-    await userEvent.clear(within(dialog).getByLabelText(/Email/));
-    await userEvent.type(within(dialog).getByLabelText(/Email/), 'friend@example.test');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Send invitation' }));
+    await userEvent.clear(email);
+    await userEvent.type(email, 'friend@example.test');
+    await userEvent.click(screen.getByRole('button', { name: 'Send invitation' }));
     await waitFor(() =>
       expect(a.members.invite).toHaveBeenCalledWith({
         email: 'friend@example.test',
         role: 'STAFF',
       }),
     );
+    await waitFor(() => expect((email as HTMLInputElement).value).toBe(''));
   });
 
   it('asks before removing someone, and does nothing if you back out', async () => {
     const a = api();
     mount(<TeamScreen />, a);
-    await userEvent.click(await screen.findByRole('button', { name: 'Remove Helper Person' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for Helper Person' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/They lose access to this business immediately/)).toBeTruthy();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(a.members.remove).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole('button', { name: 'Remove Helper Person' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Helper Person' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove' }));
     await userEvent.click(
       within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remove' }),
     );
@@ -126,9 +138,9 @@ describe('team and permissions', () => {
     const a = api();
     mount(<TeamScreen />, a);
     await screen.findByText('Helper Person');
-    expect(screen.queryByRole('button', { name: 'Change role for Anwar' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Remove Anwar' })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Change role for Helper Person' }));
+    expect(screen.queryByRole('button', { name: 'Actions for Anwar' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Helper Person' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Change role' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.selectOptions(
       within(dialog).getByLabelText('Role', { exact: true }),
@@ -143,10 +155,9 @@ describe('team and permissions', () => {
   it('an admin cannot manage owners or other admins, and cannot grant those roles', async () => {
     mount(<TeamScreen />, api(), 'ADMIN');
     await screen.findByText('Helper Person');
-    expect(screen.getByRole('button', { name: 'Change role for Helper Person' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Change role for Another Admin' })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Invite someone' }));
-    const options = within(await screen.findByRole('dialog'))
+    expect(screen.getByRole('button', { name: 'Actions for Helper Person' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Actions for Another Admin' })).toBeNull();
+    const options = within(screen.getByRole('combobox', { name: /^Role/ }))
       .getAllByRole('option')
       .map((o) => o.textContent ?? '');
     expect(options.some((o) => o.startsWith('Owner'))).toBe(false);
@@ -158,7 +169,19 @@ describe('team and permissions', () => {
     mount(<TeamScreen />, api(), 'STAFF');
     expect(await screen.findByText('Your role cannot see the team list.')).toBeTruthy();
     expect(screen.queryByText('Helper Person')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Invite someone' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send invitation' })).toBeNull();
     expect(screen.getByRole('table', { name: 'Permissions by role' })).toBeTruthy();
+  });
+
+  it('on a phone the people and invitations become cards with the same actions', async () => {
+    setWidth(390);
+    const a = api();
+    mount(<TeamScreen />, a);
+    expect(await screen.findByText('Helper Person')).toBeTruthy();
+    expect(screen.queryByRole('table', { name: 'Team members' })).toBeNull();
+    expect(screen.getByRole('list', { name: 'Team members' })).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Helper Person' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove' }));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
   });
 });

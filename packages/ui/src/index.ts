@@ -26,6 +26,30 @@ export { PageHeader } from './PageHeader';
 export { Divider } from './Divider';
 export { StatCard } from './StatCard';
 export { BarChart, type Bar } from './BarChart';
+export {
+  AreaChart,
+  DonutChart,
+  WaterfallChart,
+  niceMax,
+  type Series,
+  type DonutSlice,
+  type WaterfallStep,
+} from './charts';
+export { ProgressBar, type Segment } from './ProgressBar';
+export { Skeleton } from './Skeleton';
+export { Delta } from './Delta';
+export { Avatar } from './Avatar';
+export { Timeline, type TimelineStep } from './Timeline';
+export { Pagination, pageWindow } from './Pagination';
+export { SearchField } from './SearchField';
+export { Popover, type PopoverTriggerProps } from './Popover';
+export { Menu, MenuRow, type MenuItem } from './Menu';
+export { FilterMenu, type FilterOption } from './FilterMenu';
+export { Sheet } from './Sheet';
+export { Grid, Split, PageStack, type Columns } from './Layout';
+export { Breadcrumbs, type Crumb } from './Breadcrumbs';
+export { Logo, LogoMark } from './Logo';
+export { RadioGroup, Switch, type RadioOption } from './Controls';
 export { KeyValueList } from './KeyValue';
 export { SkipLink } from './SkipLink';
 
@@ -33,6 +57,7 @@ export { SkipLink } from './SkipLink';
 export { Button, type ButtonProps } from './Button';
 export { Link, useLinkPress, type LinkProps } from './Link';
 export { NavLink } from './NavLink';
+export { NavItem } from './NavItem';
 export { Tabs, type TabItem } from './Tabs';
 
 // Forms
@@ -46,6 +71,9 @@ export { SelectField, type SelectFieldProps, type SelectOption } from './SelectF
 // Feedback
 export { Alert } from './Alert';
 export { Badge, type Tone } from './Badge';
+export { Icon, type IconProps } from './Icon';
+export { ICON_NAMES, type IconName } from './icons';
+export { useBreakpoint, type Breakpoint, type Responsive } from './useBreakpoint';
 export { EmptyState } from './EmptyState';
 export { Spinner } from './Spinner';
 export { LoadingState } from './LoadingState';
@@ -55,6 +83,11 @@ export { ConfirmDialog } from './ConfirmDialog';
 export { FormDialog } from './FormDialog';
 
 // Data
-export { DataTable, type Column } from './DataTable';
+export { DataTable, type Column, type Selection } from './DataTable';
 export { LoadMore } from './LoadMore';
 export { Content } from './Content';
+export { StickyActions } from './StickyActions';
+export { FilterChip } from './FilterChip';
+export { DateRangeFilter, type DatePreset } from './DateRangeFilter';
+export { QuantityStepper } from './QuantityStepper';
+export { TableSection } from './TableSection';

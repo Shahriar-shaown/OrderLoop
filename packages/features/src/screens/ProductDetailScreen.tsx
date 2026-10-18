@@ -3,30 +3,44 @@ import {
   Alert,
   Badge,
   Button,
+  Card,
   ConfirmDialog,
   DataTable,
   KeyValueList,
+  Menu,
   PageHeader,
   Row,
   Section,
+  Split,
   Stack,
   Text,
   useToast,
   type Column,
+  type MenuItem,
 } from '@orderloop/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Image } from 'react-native';
+import { priceRange } from '../components/ProductCard';
 import { ProductEditDialog } from '../components/ProductEditDialog';
 import { QueryBoundary } from '../components/QueryBoundary';
-import { StockDialog, type StockMode, type VariantRef } from '../components/StockDialog';
+import {
+  StockDialog,
+  variantRefOf,
+  type StockMode,
+  type VariantRef,
+} from '../components/StockDialog';
+import {
+  productStockStatus,
+  StockStatusBadge,
+  variantStockStatus,
+} from '../components/StockStatusBadge';
 import { VariantDialog } from '../components/VariantDialog';
 import { messageFor } from '../errors';
 import { useCategories, useProduct, useSuppliers } from '../hooks';
 import { formatPrice } from '../money';
 import { useCan } from '../permissions';
 import { useApi } from '../runtime';
-import { variantLabel } from '../format';
 
 type Archiving = { kind: 'product' } | { kind: 'variant'; variant: Variant } | null;
 
@@ -65,141 +79,152 @@ export function ProductDetailScreen({ id }: { id: string }) {
     }
   }
 
-  const ref = (p: Product, v: Variant): VariantRef => ({
-    id: v.id,
-    sku: v.sku,
-    label: variantLabel(p.name, v.name),
-  });
+  /** The buttons on one variant: receive and adjust up front, the rest in the menu. */
+  const actions = (p: Product, v: Variant) => {
+    const ref = variantRefOf(p, v);
+    const ask = (mode: StockMode) => () => setStock({ mode, variant: ref });
+    const stockItems: MenuItem[] =
+      can('inventory:write') && !v.archived
+        ? [
+            { key: 'reserve', label: 'Reserve stock', icon: 'lock', onPress: ask('reserve') },
+            { key: 'damage', label: 'Mark as damaged', icon: 'alert', onPress: ask('damage') },
+            ...(v.stock.damaged > 0
+              ? [
+                  {
+                    key: 'writeOff',
+                    label: 'Write off damaged',
+                    icon: 'trash',
+                    onPress: ask('writeOff'),
+                  } satisfies MenuItem,
+                ]
+              : []),
+            { key: 'return', label: 'Record a return', icon: 'return', onPress: ask('return') },
+          ]
+        : [];
+    const catalogItems: MenuItem[] = can('catalog:write')
+      ? [
+          {
+            key: 'edit',
+            label: 'Edit variant',
+            icon: 'edit',
+            onPress: () => setVariantDialog({ variant: v }),
+          },
+          {
+            key: 'archive',
+            label: v.archived ? 'Restore variant' : 'Archive variant',
+            icon: v.archived ? 'refresh' : 'trash',
+            danger: !v.archived,
+            onPress: () =>
+              v.archived
+                ? void changeArchived({ kind: 'variant', variant: v }, false)
+                : setArchiving({ kind: 'variant', variant: v }),
+          },
+        ]
+      : [];
+    return (
+      <Row gap={1} wrap align="center">
+        {can('inventory:write') && !v.archived && (
+          <>
+            <Button size="sm" variant="secondary" onPress={ask('receive')}>
+              Receive
+            </Button>
+            <Button size="sm" variant="secondary" onPress={ask('adjust')}>
+              Adjust
+            </Button>
+          </>
+        )}
+        {stockItems.length + catalogItems.length > 0 && (
+          <Menu label={`More actions for ${v.sku}`} items={[...stockItems, ...catalogItems]} />
+        )}
+      </Row>
+    );
+  };
+
+  const skuCell = (v: Variant) => (
+    <Stack gap={1}>
+      <Text weight="bold">{v.sku}</Text>
+      {v.name ? (
+        <Text variant="caption" tone="muted">
+          {v.name}
+        </Text>
+      ) : null}
+      {v.archived ? <Badge dot>Archived</Badge> : null}
+    </Stack>
+  );
+  const availableCell = (v: Variant) =>
+    v.archived ? (
+      <Text numeric>{String(v.stock.available)}</Text>
+    ) : (
+      <Stack gap={1} align="end">
+        <Text numeric>{String(v.stock.available)}</Text>
+        {variantStockStatus(v).level !== 'in' && (
+          <StockStatusBadge status={variantStockStatus(v)} />
+        )}
+      </Stack>
+    );
 
   const columns = (p: Product): Column<Variant>[] => [
+    { key: 'sku', header: 'SKU', minWidth: 150, flex: 2, render: skuCell },
     {
-      key: 'sku',
-      header: 'SKU',
-      minWidth: 150,
-      flex: 2,
+      key: 'price',
+      header: 'Price',
+      align: 'right',
+      minWidth: 100,
+      render: (v) => <Text numeric>{formatPrice(v.priceMinor)}</Text>,
+    },
+    {
+      key: 'cost',
+      header: 'Cost',
+      align: 'right',
+      minWidth: 100,
+      show: 'desktop',
       render: (v) => (
-        <Stack gap={1}>
-          <Text weight="bold">{v.sku}</Text>
-          {v.name ? (
-            <Text variant="caption" tone="muted">
-              {v.name}
-            </Text>
-          ) : null}
-          {v.archived ? <Badge>Archived</Badge> : null}
-        </Stack>
+        <Text numeric tone="muted">
+          {v.costMinor === null ? '—' : formatPrice(v.costMinor)}
+        </Text>
       ),
     },
-    { key: 'price', header: 'Price', minWidth: 110, render: (v) => formatPrice(v.priceMinor) },
     {
       key: 'onHand',
       header: 'On hand',
       align: 'right',
-      minWidth: 90,
-      render: (v) => String(v.stock.onHand),
+      minWidth: 80,
+      render: (v) => <Text numeric>{String(v.stock.onHand)}</Text>,
     },
     {
       key: 'reserved',
       header: 'Reserved',
       align: 'right',
-      minWidth: 90,
-      render: (v) => String(v.stock.reserved),
+      minWidth: 80,
+      render: (v) => <Text numeric>{String(v.stock.reserved)}</Text>,
     },
-    {
-      key: 'available',
-      header: 'Available',
-      align: 'right',
-      minWidth: 100,
-      render: (v) =>
-        v.reorderPoint > 0 && v.stock.available <= v.reorderPoint ? (
-          <Badge tone="warning">{`${v.stock.available} low`}</Badge>
-        ) : (
-          String(v.stock.available)
-        ),
-    },
+    { key: 'available', header: 'Available', align: 'right', minWidth: 130, render: availableCell },
     {
       key: 'damaged',
       header: 'Damaged',
       align: 'right',
-      minWidth: 90,
-      render: (v) => String(v.stock.damaged),
+      minWidth: 80,
+      render: (v) => <Text numeric>{String(v.stock.damaged)}</Text>,
     },
     {
       key: 'actions',
       header: 'Actions',
-      flex: 3,
-      minWidth: 600,
-      render: (v) => (
-        <Row gap={1} wrap>
-          {can('inventory:write') && !v.archived && (
-            <>
-              <Button
-                size="sm"
-                variant="secondary"
-                onPress={() => setStock({ mode: 'receive', variant: ref(p, v) })}
-              >
-                Receive
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onPress={() => setStock({ mode: 'adjust', variant: ref(p, v) })}
-              >
-                Adjust
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onPress={() => setStock({ mode: 'reserve', variant: ref(p, v) })}
-              >
-                Reserve
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onPress={() => setStock({ mode: 'damage', variant: ref(p, v) })}
-              >
-                Damaged
-              </Button>
-              {v.stock.damaged > 0 && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onPress={() => setStock({ mode: 'writeOff', variant: ref(p, v) })}
-                >
-                  Write off
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="secondary"
-                onPress={() => setStock({ mode: 'return', variant: ref(p, v) })}
-              >
-                Return
-              </Button>
-            </>
-          )}
-          {can('catalog:write') && (
-            <>
-              <Button size="sm" variant="ghost" onPress={() => setVariantDialog({ variant: v })}>
-                Edit
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onPress={() =>
-                  v.archived
-                    ? changeArchived({ kind: 'variant', variant: v }, false)
-                    : setArchiving({ kind: 'variant', variant: v })
-                }
-              >
-                {v.archived ? 'Restore' : 'Archive'}
-              </Button>
-            </>
-          )}
-        </Row>
-      ),
+      flex: 2,
+      minWidth: 200,
+      render: (v) => actions(p, v),
     },
   ];
+
+  const totals = (p: Product) => {
+    const live = p.variants.filter((v) => !v.archived);
+    const sum = (f: (v: Variant) => number) => live.reduce((n, v) => n + f(v), 0);
+    return {
+      onHand: sum((v) => v.stock.onHand),
+      reserved: sum((v) => v.stock.reserved),
+      available: sum((v) => v.stock.available),
+      damaged: sum((v) => v.stock.damaged),
+    };
+  };
 
   return (
     <QueryBoundary {...query} refetch={() => query.refetch()} label="Loading product">
@@ -207,16 +232,18 @@ export function ProductDetailScreen({ id }: { id: string }) {
         <Stack gap={5}>
           <PageHeader
             title={product.name}
+            breadcrumbs={[{ label: 'Products', href: '/products' }, { label: product.name }]}
+            badges={
+              product.status === 'ACTIVE' ? (
+                <StockStatusBadge status={productStockStatus(product)} />
+              ) : (
+                <Badge dot>Archived</Badge>
+              )
+            }
             actions={
-              <Row gap={2} wrap>
-                <Badge tone={product.status === 'ACTIVE' ? 'success' : 'neutral'}>
-                  {product.status === 'ACTIVE' ? 'Active' : 'Archived'}
-                </Badge>
-                <Button href="/products" variant="secondary">
-                  Back to products
-                </Button>
+              <>
                 {can('catalog:write') && (
-                  <Button variant="secondary" onPress={() => setEditing(true)}>
+                  <Button variant="secondary" icon="edit" onPress={() => setEditing(true)}>
                     Edit
                   </Button>
                 )}
@@ -232,7 +259,7 @@ export function ProductDetailScreen({ id }: { id: string }) {
                     {product.status === 'ACTIVE' ? 'Archive' : 'Restore'}
                   </Button>
                 )}
-              </Row>
+              </>
             }
           />
           {product.status === 'ARCHIVED' && (
@@ -241,57 +268,119 @@ export function ProductDetailScreen({ id }: { id: string }) {
               change.
             </Alert>
           )}
-          <Section title="Details">
-            <KeyValueList
-              items={[
-                { label: 'Description', value: product.description ?? 'None' },
-                {
-                  label: 'Category',
-                  value: product.categoryId
-                    ? (categories.data?.find((c) => c.id === product.categoryId)?.name ?? '—')
-                    : 'None',
-                },
-                { label: 'Unit of measure', value: product.unit },
-                {
-                  label: 'Supplier',
-                  value: product.supplierId
-                    ? (suppliers.data?.find((s) => s.id === product.supplierId)?.name ?? '—')
-                    : 'None',
-                },
-              ]}
-            />
-            {product.imageUrls.length > 0 && (
-              <Row gap={2} wrap>
-                {product.imageUrls.map((url, i) => (
-                  <Image
-                    key={url}
-                    source={{ uri: url }}
-                    accessibilityLabel={`${product.name}, picture ${i + 1}`}
-                    style={{ width: 96, height: 96, borderRadius: 8 }}
-                    resizeMode="cover"
+          <Split
+            main={
+              <>
+                <Section
+                  title="Variants"
+                  description="Price and stock live on each variant."
+                  actions={
+                    can('catalog:write') && product.status === 'ACTIVE' ? (
+                      <Button
+                        variant="secondary"
+                        icon="plus"
+                        onPress={() => setVariantDialog({ variant: null })}
+                      >
+                        Add variant
+                      </Button>
+                    ) : undefined
+                  }
+                >
+                  <DataTable
+                    label="Variants"
+                    columns={columns(product)}
+                    rows={product.variants}
+                    rowKey={(v) => v.id}
+                    renderCard={(v) => (
+                      <Stack gap={3}>
+                        <Row justify="between" align="start" gap={2}>
+                          {skuCell(v)}
+                          <Text variant="label" numeric>
+                            {formatPrice(v.priceMinor)}
+                          </Text>
+                        </Row>
+                        <Row gap={4} wrap>
+                          {(
+                            [
+                              ['On hand', v.stock.onHand],
+                              ['Reserved', v.stock.reserved],
+                              ['Available', v.stock.available],
+                              ['Damaged', v.stock.damaged],
+                            ] as const
+                          ).map(([label, n]) => (
+                            <Stack key={label} gap={1}>
+                              <Text variant="caption" tone="muted">
+                                {label}
+                              </Text>
+                              <Text numeric>{String(n)}</Text>
+                            </Stack>
+                          ))}
+                        </Row>
+                        {!v.archived && <StockStatusBadge status={variantStockStatus(v)} />}
+                        {actions(product, v)}
+                      </Stack>
+                    )}
                   />
-                ))}
-              </Row>
-            )}
-          </Section>
-          <Section
-            title="Variants"
-            description="Price and stock live on each variant."
-            actions={
-              can('catalog:write') && product.status === 'ACTIVE' ? (
-                <Button variant="secondary" onPress={() => setVariantDialog({ variant: null })}>
-                  Add variant
-                </Button>
-              ) : undefined
+                </Section>
+                <Section title="Details">
+                  <KeyValueList
+                    items={[
+                      { label: 'Description', value: product.description ?? 'None' },
+                      {
+                        label: 'Category',
+                        value: product.categoryId
+                          ? (categories.data?.find((c) => c.id === product.categoryId)?.name ?? '—')
+                          : 'None',
+                      },
+                      { label: 'Unit of measure', value: product.unit },
+                      {
+                        label: 'Supplier',
+                        value: product.supplierId
+                          ? (suppliers.data?.find((s) => s.id === product.supplierId)?.name ?? '—')
+                          : 'None',
+                      },
+                    ]}
+                  />
+                  {product.imageUrls.length > 0 && (
+                    <Row gap={2} wrap>
+                      {product.imageUrls.map((url, i) => (
+                        <Image
+                          key={url}
+                          source={{ uri: url }}
+                          accessibilityLabel={`${product.name}, picture ${i + 1}`}
+                          style={{ width: 96, height: 96, borderRadius: 8 }}
+                          resizeMode="cover"
+                        />
+                      ))}
+                    </Row>
+                  )}
+                </Section>
+              </>
             }
-          >
-            <DataTable
-              label="Variants"
-              columns={columns(product)}
-              rows={product.variants}
-              rowKey={(v) => v.id}
-            />
-          </Section>
+            aside={
+              <Card variant="outlined" padding="md">
+                <Stack gap={3}>
+                  <Text variant="title" role="heading" aria-level={2}>
+                    Stock summary
+                  </Text>
+                  <KeyValueList
+                    layout="inline"
+                    items={[
+                      { label: 'Price', value: priceRange(product) },
+                      { label: 'On hand', value: String(totals(product).onHand) },
+                      { label: 'Reserved', value: String(totals(product).reserved) },
+                      { label: 'Damaged', value: String(totals(product).damaged) },
+                      {
+                        label: 'Available',
+                        value: String(totals(product).available),
+                        emphasis: true,
+                      },
+                    ]}
+                  />
+                </Stack>
+              </Card>
+            }
+          />
 
           <ProductEditDialog product={product} open={editing} onClose={() => setEditing(false)} />
           <VariantDialog

@@ -2,27 +2,30 @@ import { useState, type ReactNode } from 'react';
 import { Platform, TextInput, View, type TextInputProps } from 'react-native';
 import { Field } from './Field';
 import { useFormSubmit } from './formContext';
+import { Icon } from './Icon';
+import type { IconName } from './icons';
 import { useTheme } from './theme';
-import { fontSize, radius, space, touchTarget } from './tokens';
+import { useBreakpoint } from './useBreakpoint';
+import { fontSize, radius, space } from './tokens';
 import { createTextVariants } from './variants';
 
 export const useInputStyle = createTextVariants((t) => ({
   base: {
     borderWidth: 1,
     borderRadius: radius.md,
-    backgroundColor: t.colors.background,
+    backgroundColor: t.colors.surface,
     color: t.colors.foreground,
     fontSize: fontSize.sm,
     paddingHorizontal: space[3],
     paddingVertical: space[2],
-    minHeight: touchTarget,
+    minHeight: 40,
   },
   variants: {
     state: {
-      idle: { borderColor: t.colors.border },
+      idle: { borderColor: t.colors.borderStrong },
       focused: {
-        borderColor: t.colors.focus,
-        outlineWidth: 2,
+        borderColor: t.colors.primary,
+        outlineWidth: 3,
         outlineStyle: 'solid',
         outlineColor: t.colors.focus,
         outlineOffset: 0,
@@ -79,6 +82,8 @@ export interface TextFieldProps extends Omit<
   required?: boolean | undefined;
   /** Draws an element inside the field's right edge, for example a show-password toggle. */
   trailing?: ReactNode;
+  /** An icon inside the field's left edge. */
+  leadingIcon?: IconName;
 }
 
 /** A labelled text input (`multiline` makes it a text area). Label, hint and error are announced with the input. */
@@ -90,6 +95,7 @@ export function TextField({
   hideLabel,
   required = false,
   trailing,
+  leadingIcon,
   editable = true,
   multiline = false,
   onFocus,
@@ -99,6 +105,7 @@ export function TextField({
 }: TextFieldProps) {
   const { colors } = useTheme();
   const submit = useFormSubmit();
+  const { isMobile } = useBreakpoint();
   const [focused, setFocused] = useState(false);
   const style = useInputStyle({
     state: error ? 'invalid' : focused ? 'focused' : 'idle',
@@ -120,7 +127,12 @@ export function TextField({
             placeholderTextColor={colors.muted}
             editable={editable}
             multiline={multiline}
-            style={[style, trailing ? { paddingRight: space[10] } : null]}
+            style={[
+              style,
+              isMobile && !multiline ? { minHeight: 44 } : null,
+              trailing ? { paddingRight: space[10] } : null,
+              leadingIcon ? { paddingLeft: space[10] } : null,
+            ]}
             onFocus={(e) => {
               setFocused(true);
               onFocus?.(e);
@@ -146,6 +158,20 @@ export function TextField({
             {...KINDS[kind]}
             {...rest}
           />
+          {leadingIcon && (
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: space[3],
+                top: 0,
+                bottom: 0,
+                justifyContent: 'center',
+              }}
+            >
+              <Icon name={leadingIcon} size={16} color={colors.muted} />
+            </View>
+          )}
           {trailing && (
             <View
               style={{

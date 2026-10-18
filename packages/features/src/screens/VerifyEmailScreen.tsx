@@ -1,4 +1,4 @@
-import { Alert, Link, LoadingState, Text } from '@orderloop/ui';
+import { Alert, Button, LoadingState, Text } from '@orderloop/ui';
 import { useEffect, useState } from 'react';
 import { AuthLayout } from '../components/AuthLayout';
 import { messageFor } from '../errors';
@@ -50,13 +50,17 @@ export function VerifyEmailScreen({ token }: { token?: string | undefined }) {
       ) : state.kind === 'failed' ? (
         <>
           <Alert tone="error">{state.message}</Alert>
-          <Text>Sign in and use “Resend verification email” to get a fresh link.</Text>
-          <Link href="/login">Go to sign in</Link>
+          <Text tone="muted">Sign in and use “Resend verification email” to get a fresh link.</Text>
+          <Button href="/login" size="lg" fullWidth>
+            Go to sign in
+          </Button>
         </>
       ) : (
         <>
           <Alert tone="success">Your email address is verified. Thank you.</Alert>
-          <Link href={home}>Continue to OrderLoop</Link>
+          <Button href={home} size="lg" fullWidth>
+            Continue to OrderLoop
+          </Button>
         </>
       )}
     </AuthLayout>

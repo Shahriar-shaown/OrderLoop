@@ -41,6 +41,7 @@ function EditForm({ product, onClose }: { product: Product; onClose: () => void 
       open
       onClose={onClose}
       title="Edit product"
+      icon="edit"
       onSubmit={submit}
       submitLabel="Save changes"
       busy={form.busy}

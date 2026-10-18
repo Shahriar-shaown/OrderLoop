@@ -129,6 +129,15 @@ import {
   SettlementItemDetail,
   SummaryQuery,
 } from './finance.js';
+import {
+  Analytics,
+  AnalyticsQuery,
+  InventorySummary,
+  OrderCash,
+  ShipmentQuery,
+  ShipmentRowPage,
+  ShipmentSummary,
+} from './insights.js';
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
@@ -1328,6 +1337,58 @@ export const routes = {
     params: IdParam,
     body: ReasonBody,
     response: ManualCost,
+  }),
+  // ---- overview data behind the screens --------------------------------------------------------------------------------
+  listShipments: route({
+    id: 'listShipments',
+    method: 'GET',
+    path: '/v1/shipments',
+    summary: 'Shipments across all orders, newest first, with status counts for the filters',
+    auth: 'access',
+    permission: 'couriers:read',
+    query: ShipmentQuery,
+    response: ShipmentRowPage,
+  }),
+  getShipmentSummary: route({
+    id: 'getShipmentSummary',
+    method: 'GET',
+    path: '/v1/shipment-stats',
+    summary:
+      'Courier KPIs: booked today, awaiting pickup, on the way, delayed, delivered, returned, COD on the way, and per-courier results',
+    auth: 'access',
+    permission: 'couriers:read',
+    response: ShipmentSummary,
+  }),
+  getOrderCash: route({
+    id: 'getOrderCash',
+    method: 'GET',
+    path: '/v1/orders/:id/cash',
+    summary:
+      'What the order is owed and what courier statements report for it: expected, collected, charges, settled',
+    auth: 'access',
+    permission: 'finance:read',
+    params: IdParam,
+    response: OrderCash,
+  }),
+  getInventorySummary: route({
+    id: 'getInventorySummary',
+    method: 'GET',
+    path: '/v1/inventory/summary',
+    summary: 'Inventory value at cost and at retail, low stock and out of stock counts',
+    auth: 'access',
+    permission: 'inventory:read',
+    response: InventorySummary,
+  }),
+  getAnalytics: route({
+    id: 'getAnalytics',
+    method: 'GET',
+    path: '/v1/finance/analytics',
+    summary:
+      'Daily revenue and gross profit, sales by channel and best-selling products for a period',
+    auth: 'access',
+    permission: 'finance:read',
+    query: AnalyticsQuery,
+    response: Analytics,
   }),
 } as const;
 

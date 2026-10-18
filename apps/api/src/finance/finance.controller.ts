@@ -1,9 +1,11 @@
 import { Controller, Req } from '@nestjs/common';
 import {
   routes,
+  type Analytics,
   type Discrepancy,
   type FinanceSummary,
   type ManualCost,
+  type OrderCash,
   type OutstandingCod,
   type ParsedInput,
   type SettlementBatch,
@@ -156,5 +158,21 @@ export class FinanceController {
     @Req() req: AppRequest,
   ): Promise<ManualCost> {
     return this.finance.voidCost(auth, input.params.id, input.body.reason, req.ip ?? null);
+  }
+
+  @Endpoint(routes.getOrderCash)
+  orderCash(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.getOrderCash>,
+  ): Promise<OrderCash> {
+    return this.finance.getOrderCash(auth, input.params.id);
+  }
+
+  @Endpoint(routes.getAnalytics)
+  analytics(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.getAnalytics>,
+  ): Promise<Analytics> {
+    return this.finance.getAnalytics(auth, input.query);
   }
 }

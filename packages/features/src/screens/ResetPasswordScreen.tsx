@@ -1,10 +1,10 @@
 import { Password } from '@orderloop/contracts';
-import { Alert, Button, Form, Link, Text } from '@orderloop/ui';
+import { Alert, Button, Form } from '@orderloop/ui';
 import { useState } from 'react';
 import { z } from 'zod';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormError } from '../components/FormError';
-import { FormTextField } from '../components/FormTextField';
+import { FormPasswordField } from '../components/FormPasswordField';
 import { useApi } from '../runtime';
 import { useZodForm } from '../zodForm';
 
@@ -31,7 +31,9 @@ export function ResetPasswordScreen({ token }: { token?: string | undefined }) {
         <Alert tone="error">
           This reset link is incomplete. Open the link from your email again, or request a new one.
         </Alert>
-        <Link href="/forgot-password">Request a new link</Link>
+        <Button href="/forgot-password" variant="secondary" fullWidth>
+          Request a new link
+        </Button>
       </AuthLayout>
     );
   }
@@ -42,20 +44,27 @@ export function ResetPasswordScreen({ token }: { token?: string | undefined }) {
           Your password has been changed and you were signed out everywhere. Sign in with the new
           one.
         </Alert>
-        <Link href="/login">Go to sign in</Link>
+        <Button href="/login" size="lg" fullWidth>
+          Go to sign in
+        </Button>
       </AuthLayout>
     );
   }
   return (
-    <AuthLayout title="Choose a new password">
+    <AuthLayout
+      title="Choose a new password"
+      description="Pick something you do not use anywhere else."
+      footer={
+        form.formError ? (
+          <Button href="/forgot-password" variant="link">
+            Request a new link
+          </Button>
+        ) : undefined
+      }
+    >
       <Form onSubmit={submit}>
         <FormError message={form.formError} />
-        {form.formError ? (
-          <Text>
-            <Link href="/forgot-password">Request a new link</Link>
-          </Text>
-        ) : null}
-        <FormTextField
+        <FormPasswordField
           control={form.control}
           name="password"
           label="New password"
@@ -63,14 +72,14 @@ export function ResetPasswordScreen({ token }: { token?: string | undefined }) {
           required
           hint="At least 8 characters, with an uppercase letter, a number and a special character."
         />
-        <FormTextField
+        <FormPasswordField
           control={form.control}
           name="confirm"
           label="Confirm new password"
           kind="newPassword"
           required
         />
-        <Button type="submit" loading={form.formState.isSubmitting} fullWidth>
+        <Button type="submit" size="lg" loading={form.formState.isSubmitting} fullWidth>
           Change password
         </Button>
       </Form>

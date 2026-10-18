@@ -5,6 +5,7 @@ import { useAuth } from '../auth';
 import { useRuntime } from '../runtime';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormError } from '../components/FormError';
+import { FormPasswordField } from '../components/FormPasswordField';
 import { FormTextField } from '../components/FormTextField';
 import { useZodForm } from '../zodForm';
 
@@ -24,7 +25,15 @@ export function SignupScreen() {
   });
 
   return (
-    <AuthLayout title="Create your account">
+    <AuthLayout
+      title="Create your account"
+      description="Set up your business in a minute. You can invite your team later."
+      footer={
+        <Text tone="muted">
+          Already have an account? <Link href="/login">Sign in</Link>
+        </Text>
+      }
+    >
       <Form onSubmit={submit}>
         <FormError message={form.formError} />
         <FormTextField
@@ -43,7 +52,7 @@ export function SignupScreen() {
           hint="Your shop or company. You can invite your team later."
         />
         <FormTextField control={form.control} name="email" label="Email" kind="email" required />
-        <FormTextField
+        <FormPasswordField
           control={form.control}
           name="password"
           label="Password"
@@ -51,13 +60,10 @@ export function SignupScreen() {
           required
           hint="At least 8 characters, with an uppercase letter, a number and a special character."
         />
-        <Button type="submit" loading={form.formState.isSubmitting} fullWidth>
+        <Button type="submit" size="lg" loading={form.formState.isSubmitting} fullWidth>
           Create account
         </Button>
       </Form>
-      <Text>
-        Already have an account? <Link href="/login">Sign in</Link>
-      </Text>
     </AuthLayout>
   );
 }

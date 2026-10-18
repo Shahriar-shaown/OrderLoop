@@ -80,15 +80,22 @@ export default async function setup() {
 
   const webDir = resolve(repoRoot, 'apps/web');
   // A production build: what users get, and free of development-only console noise. Its own folder keeps `next dev` safe.
-  if (!process.env.E2E_SKIP_BUILD)
+  if (!process.env.E2E_SKIP_BUILD && !process.env.E2E_DEV)
     run(webDir, ['exec', 'next', 'build'], { ...stackEnv, NEXT_DIST_DIR: 'build/e2e' });
 
   start('api', resolve(repoRoot, 'apps/api'), 'node', ['dist/main.js'], stackEnv);
   start('worker', resolve(repoRoot, 'apps/worker'), 'node', ['dist/main.js'], stackEnv);
-  start('web', webDir, 'pnpm', ['exec', 'next', 'start', '-p', String(PORTS.web)], {
-    ...stackEnv,
-    NEXT_DIST_DIR: 'build/e2e',
-  });
+  // E2E_DEV=1 runs `next dev` instead of a production build: slower, but React reports errors in full.
+  start(
+    'web',
+    webDir,
+    'pnpm',
+    ['exec', 'next', process.env.E2E_DEV ? 'dev' : 'start', '-p', String(PORTS.web)],
+    {
+      ...stackEnv,
+      NEXT_DIST_DIR: 'build/e2e',
+    },
+  );
 
   await waitFor(`http://localhost:${PORTS.api}/health/live`, 'API');
   await waitFor(`http://localhost:${PORTS.web}/login`, 'web app');

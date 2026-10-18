@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type {
+  InventorySummary,
   AdjustBody,
   DamageBody,
   ReturnBody,
@@ -391,6 +392,47 @@ export class InventoryService {
           createdAt: m.createdAt.toISOString(),
         })),
         nextCursor: rows.length > query.limit && last ? encodeSeqCursor(last.seq) : null,
+      };
+    });
+  }
+
+  /** Inventory value and stock counts, over active variants of active products. */
+  summary(auth: AuthContext): Promise<InventorySummary> {
+    return this.db.withContext({ tenantId: auth.tenantId }, async (tx) => {
+      const [r] = await tx.$queryRaw<
+        {
+          products: number;
+          variants: number;
+          cost: bigint;
+          retail: bigint;
+          missing: number;
+          low: number;
+          out: number;
+        }[]
+      >`
+        WITH v AS (
+          SELECT v.id, v.product_id, v.price_minor, v.cost_minor, v.reorder_point,
+                 COALESCE(SUM(l.on_hand), 0)::bigint AS on_hand, COALESCE(SUM(l.reserved), 0)::bigint AS reserved
+          FROM product_variants v
+          JOIN products p ON p.tenant_id = v.tenant_id AND p.id = v.product_id
+          LEFT JOIN stock_levels l ON l.tenant_id = v.tenant_id AND l.variant_id = v.id
+          WHERE v.tenant_id = ${auth.tenantId}::uuid AND v.archived_at IS NULL AND p.status = 'ACTIVE'
+          GROUP BY v.id)
+        SELECT count(DISTINCT product_id)::int AS products, count(*)::int AS variants,
+               COALESCE(sum(on_hand * cost_minor) FILTER (WHERE cost_minor IS NOT NULL), 0) AS cost,
+               COALESCE(sum(on_hand * price_minor), 0) AS retail,
+               (count(*) FILTER (WHERE cost_minor IS NULL AND on_hand > 0))::int AS missing,
+               (count(*) FILTER (WHERE reorder_point > 0 AND on_hand - reserved <= reorder_point))::int AS low,
+               (count(*) FILTER (WHERE on_hand - reserved <= 0))::int AS out
+        FROM v`;
+      return {
+        products: r?.products ?? 0,
+        variants: r?.variants ?? 0,
+        inventoryValueCostMinor: Number(r?.cost ?? 0),
+        retailValueMinor: Number(r?.retail ?? 0),
+        missingCostVariants: r?.missing ?? 0,
+        lowStockCount: r?.low ?? 0,
+        outOfStockCount: r?.out ?? 0,
       };
     });
   }

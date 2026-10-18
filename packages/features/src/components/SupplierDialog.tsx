@@ -51,6 +51,7 @@ function SupplierForm({ supplier, onClose }: { supplier: Supplier | null; onClos
       open
       onClose={onClose}
       title={supplier ? 'Edit supplier' : 'New supplier'}
+      icon="store"
       onSubmit={submit}
       submitLabel={supplier ? 'Save changes' : 'Add supplier'}
       busy={form.busy}

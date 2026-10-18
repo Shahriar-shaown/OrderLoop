@@ -2,27 +2,41 @@ import type { ReactNode } from 'react';
 import { View } from 'react-native';
 import { Text } from './Text';
 import { useTheme } from './theme';
-import { radius, space } from './tokens';
+import { radius, space, type Tone } from './tokens';
 
-export type Tone = 'info' | 'success' | 'warning' | 'error' | 'neutral';
+export type { Tone } from './tokens';
 
-/** A small status pill. The tone colours it; the text must always say the status too (colour alone is not enough). */
-export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: Tone }) {
+/**
+ * A small status pill. The tone colours it; the text must always say the status too (colour alone is not enough).
+ * `dot` adds the status dot used for order, payment and shipment statuses.
+ */
+export function Badge({
+  children,
+  tone = 'neutral',
+  dot = false,
+}: {
+  children: ReactNode;
+  tone?: Tone;
+  dot?: boolean;
+}) {
   const { colors } = useTheme();
   const c = colors.tones[tone];
   return (
     <View
       style={{
         alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
         backgroundColor: c.background,
-        borderColor: c.border,
-        borderWidth: 1,
         borderRadius: radius.full,
         paddingHorizontal: space[2],
         paddingVertical: 2,
+        minHeight: 22,
       }}
     >
-      <Text variant="caption" weight="medium" style={{ color: c.text }}>
+      {dot && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.dot }} />}
+      <Text variant="fine" style={{ color: c.text }}>
         {children}
       </Text>
     </View>

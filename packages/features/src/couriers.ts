@@ -1,4 +1,9 @@
-import type { CourierEnvironment, CourierProvider, ShipmentStatus } from '@orderloop/contracts';
+import type {
+  CourierEntry,
+  CourierEnvironment,
+  CourierProvider,
+  ShipmentStatus,
+} from '@orderloop/contracts';
 import { SIMULATED_EVENTS } from '@orderloop/contracts';
 import type { SelectOption, Tone } from '@orderloop/ui';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
@@ -101,3 +106,51 @@ export const invalidateShipments = async (client: QueryClient) => {
     invalidateOrders(client),
   ]);
 };
+
+/** What each courier is called on screen. */
+export const COURIER_NAME: Record<CourierProvider, string> = {
+  mock: 'Simulated courier',
+  pathao: 'Pathao',
+  steadfast: 'Steadfast',
+};
+
+export type CourierState = 'connected' | 'attention' | 'not_connected';
+
+/** Connected, connected but its last check failed, or not connected. The simulated courier needs no credentials. */
+export function courierState(entry: CourierEntry): CourierState {
+  const c = entry.connection;
+  const connected = !!c && c.enabled && (entry.simulated || c.hasCredentials);
+  if (!connected) return 'not_connected';
+  return c.lastCheckOk === false ? 'attention' : 'connected';
+}
+
+export const COURIER_STATE_LABEL: Record<CourierState, string> = {
+  connected: 'Connected',
+  attention: 'Action required',
+  not_connected: 'Not connected',
+};
+export const COURIER_STATE_TONE: Record<CourierState, Tone> = {
+  connected: 'success',
+  attention: 'warning',
+  not_connected: 'neutral',
+};
+
+/** The status chips above the shipments list: each is one or more shipment statuses, counted from `statusCounts`. */
+export const SHIPMENT_CHIPS: { value: string; label: string; statuses: ShipmentStatus[] }[] = [
+  { value: 'all', label: 'All', statuses: [] },
+  { value: 'awaiting', label: 'Awaiting pickup', statuses: ['booked'] },
+  {
+    value: 'on_the_way',
+    label: 'On the way',
+    statuses: ['picked_up', 'in_transit', 'out_for_delivery'],
+  },
+  { value: 'delivered', label: 'Delivered', statuses: ['delivered', 'partial_delivered'] },
+  { value: 'returned', label: 'Returned', statuses: ['returning', 'returned'] },
+  { value: 'failed', label: 'Delivery failed', statuses: ['delivery_failed', 'on_hold'] },
+  {
+    value: 'attention',
+    label: 'Needs attention',
+    statuses: ['booking', 'booking_failed', 'booking_uncertain', 'unknown'],
+  },
+  { value: 'cancelled', label: 'Cancelled', statuses: ['cancelled'] },
+];

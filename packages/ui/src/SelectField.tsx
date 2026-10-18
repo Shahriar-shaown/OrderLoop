@@ -61,7 +61,7 @@ export function SelectField({
               style={{
                 paddingVertical: space[3],
                 paddingHorizontal: space[2],
-                backgroundColor: o.value === value ? colors.surface : 'transparent',
+                backgroundColor: o.value === value ? colors.subtle : 'transparent',
               }}
             >
               <Text weight={o.value === value ? 'bold' : 'normal'}>{o.label}</Text>

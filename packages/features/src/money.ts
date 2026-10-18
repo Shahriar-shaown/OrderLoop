@@ -23,3 +23,14 @@ export function priceToInput(minor: number): string {
   const frac = minor % 100;
   return frac === 0 ? String(whole) : `${whole}.${String(frac).padStart(2, '0')}`;
 }
+
+/** A short amount for chart axes and tight spaces: ৳850, ৳12k, ৳1.2L (lakh), ৳2.1Cr (crore). Never for a figure a person acts on. */
+export function formatPriceShort(minor: number): string {
+  const taka = Math.abs(minor) / 100;
+  const sign = minor < 0 ? '−' : '';
+  const trim = (n: number) => String(Math.round(n * 10) / 10);
+  if (taka >= 10_000_000) return `${sign}৳${trim(taka / 10_000_000)}Cr`;
+  if (taka >= 100_000) return `${sign}৳${trim(taka / 100_000)}L`;
+  if (taka >= 1_000) return `${sign}৳${trim(taka / 1_000)}k`;
+  return `${sign}৳${Math.round(taka)}`;
+}

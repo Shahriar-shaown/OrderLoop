@@ -1,29 +1,32 @@
-import type { AddressRecord, OrderSummary } from '@orderloop/contracts';
+import type { AddressRecord } from '@orderloop/contracts';
 import { formatBdPhone } from '@orderloop/domain';
 import {
   Badge,
   Button,
   ConfirmDialog,
   DataTable,
+  EmptyState,
+  Grid,
   KeyValueList,
   Link,
   LoadMore,
   PageHeader,
   Row,
   Section,
+  Split,
   Stack,
+  StatCard,
   Text,
+  useNavigation,
   useToast,
-  type Column,
 } from '@orderloop/ui';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AddressDialog } from '../components/AddressDialog';
 import { CustomerDialog } from '../components/CustomerDialog';
-import { OrderStatusBadge } from '../components/OrderStatusBadge';
+import { OrderCard, orderColumns } from '../components/OrderListParts';
 import { QueryBoundary } from '../components/QueryBoundary';
 import { messageFor } from '../errors';
-import { formatWhen } from '../format';
 import { formatPrice } from '../money';
 import { invalidateOrders, useCustomer } from '../orders';
 import { useCan } from '../permissions';
@@ -33,6 +36,7 @@ export function CustomerDetailScreen({ id }: { id: string }) {
   const api = useApi();
   const can = useCan();
   const toast = useToast();
+  const navigation = useNavigation();
   const queryClient = useQueryClient();
   const query = useCustomer(id);
   const [editing, setEditing] = useState(false);
@@ -74,143 +78,152 @@ export function CustomerDetailScreen({ id }: { id: string }) {
     }
   }
 
-  const columns: Column<OrderSummary>[] = [
-    {
-      key: 'n',
-      header: 'Order',
-      minWidth: 100,
-      render: (o) => <Link href={`/orders/${o.id}`} weight="medium">{`#${o.orderNumber}`}</Link>,
-    },
-    {
-      key: 's',
-      header: 'Status',
-      minWidth: 170,
-      flex: 2,
-      render: (o) => <OrderStatusBadge status={o.status} />,
-    },
-    { key: 'i', header: 'Items', align: 'right', minWidth: 70, render: (o) => String(o.itemCount) },
-    {
-      key: 't',
-      header: 'Total',
-      align: 'right',
-      minWidth: 120,
-      render: (o) => formatPrice(o.totalMinor),
-    },
-    { key: 'w', header: 'Created', flex: 2, minWidth: 160, render: (o) => formatWhen(o.createdAt) },
-  ];
-
   return (
     <QueryBoundary {...query} refetch={() => query.refetch()} label="Loading customer">
       {customer && (
         <Stack gap={5}>
           <PageHeader
+            breadcrumbs={[{ label: 'Customers', href: '/customers' }, { label: customer.name }]}
             title={customer.name}
             description={formatBdPhone(customer.phone)}
             actions={
-              <Row gap={2} wrap>
-                <Button href="/customers" variant="secondary">
-                  Back to customers
-                </Button>
+              <>
                 {writable && (
-                  <Button variant="secondary" onPress={() => setEditing(true)}>
+                  <Button variant="secondary" icon="edit" onPress={() => setEditing(true)}>
                     Edit
                   </Button>
                 )}
                 {writable && (
-                  <Button href={`/orders/new?customerId=${customer.id}`}>New order</Button>
+                  <Button icon="plus" href={`/orders/new?customerId=${customer.id}`}>
+                    Create order
+                  </Button>
                 )}
-              </Row>
+              </>
             }
           />
-          <Section
-            title="Order history in numbers"
-            description="Plain counts of what has happened. OrderLoop never labels or scores a customer."
-          >
-            <KeyValueList
-              items={[
-                { label: 'Orders', value: String(customer.stats.ordersCount) },
-                { label: 'Delivered', value: String(customer.stats.deliveredCount) },
-                { label: 'Cancelled', value: String(customer.stats.cancelledCount) },
-                { label: 'Returned', value: String(customer.stats.returnedCount) },
-                {
-                  label: 'Value of delivered orders',
-                  value: formatPrice(customer.stats.deliveredValueMinor),
-                },
-                ...(customer.email ? [{ label: 'Email', value: customer.email }] : []),
-                ...(customer.notes ? [{ label: 'Notes', value: customer.notes }] : []),
-              ]}
+          <Grid columns={{ mobile: 2, tablet: 3, desktop: 5 }}>
+            <StatCard label="Orders" value={String(customer.stats.ordersCount)} />
+            <StatCard label="Delivered" value={String(customer.stats.deliveredCount)} />
+            <StatCard label="Cancelled" value={String(customer.stats.cancelledCount)} />
+            <StatCard label="Returned" value={String(customer.stats.returnedCount)} />
+            <StatCard
+              label="Delivered value"
+              value={formatPrice(customer.stats.deliveredValueMinor)}
+              hint="Orders delivered, not cash collected"
             />
-          </Section>
-          <Section
-            title="Addresses"
-            actions={
-              writable ? (
-                <Button variant="secondary" onPress={() => setAddress({ value: null })}>
-                  Add address
-                </Button>
-              ) : undefined
+          </Grid>
+          <Text variant="caption" tone="muted">
+            Plain counts of what has happened. OrderLoop never labels or scores a customer.
+          </Text>
+          <Split
+            asideWidth={400}
+            main={
+              <Section
+                title="Orders"
+                description={`${total} order${total === 1 ? '' : 's'}, newest first.`}
+              >
+                {history.isError ? (
+                  <QueryBoundary
+                    isPending={false}
+                    isError
+                    error={history.error}
+                    refetch={() => history.refetch()}
+                  >
+                    {null}
+                  </QueryBoundary>
+                ) : (
+                  <Stack gap={3}>
+                    <DataTable
+                      label="Customer orders"
+                      columns={orderColumns({ customer: false })}
+                      rows={orders}
+                      rowKey={(o) => o.id}
+                      loading={history.isPending}
+                      onRowPress={(o) => navigation.push(`/orders/${o.id}`)}
+                      renderCard={(o) => <OrderCard order={o} showCustomer={false} />}
+                      empty={<EmptyState icon="box" title="No orders yet" />}
+                    />
+                    <LoadMore
+                      hasNext={!!history.hasNextPage}
+                      loading={history.isFetchingNextPage}
+                      onPress={() => history.fetchNextPage()}
+                    />
+                  </Stack>
+                )}
+              </Section>
             }
-          >
-            {customer.addresses.length === 0 ? (
-              <Text tone="muted">
-                No saved addresses yet. One is saved automatically with the first order.
-              </Text>
-            ) : (
-              customer.addresses.map((a) => (
-                <Stack key={a.id} gap={1}>
-                  <Row gap={2} wrap>
-                    <Text weight="bold">{a.label ?? a.recipientName}</Text>
-                    {a.isDefault && <Badge tone="info">Default</Badge>}
-                  </Row>
-                  <Text>{`${a.recipientName}, ${formatBdPhone(a.phone)}`}</Text>
-                  <Text>{`${a.line1}, ${a.area}, ${a.district}, ${a.division}${a.postalCode ? ` ${a.postalCode}` : ''}`}</Text>
-                  {writable && (
-                    <Row gap={1} wrap>
+            aside={
+              <>
+                <Section title="Contact">
+                  <KeyValueList
+                    layout="inline"
+                    items={[
+                      {
+                        label: 'Phone',
+                        value: (
+                          <Link href={`tel:${customer.phone}`} external>
+                            {formatBdPhone(customer.phone)}
+                          </Link>
+                        ),
+                      },
+                      ...(customer.email ? [{ label: 'Email', value: customer.email }] : []),
+                      ...(customer.notes ? [{ label: 'Notes', value: customer.notes }] : []),
+                    ]}
+                  />
+                </Section>
+                <Section
+                  title="Addresses"
+                  actions={
+                    writable ? (
                       <Button
-                        size="sm"
                         variant="secondary"
-                        onPress={() => setAddress({ value: a })}
+                        size="sm"
+                        onPress={() => setAddress({ value: null })}
                       >
-                        Edit
+                        Add address
                       </Button>
-                      {!a.isDefault && (
-                        <Button size="sm" variant="secondary" onPress={() => makeDefault(a)}>
-                          Make default
-                        </Button>
-                      )}
-                      <Button size="sm" variant="ghost" onPress={() => setRemoving(a)}>
-                        Remove
-                      </Button>
-                    </Row>
+                    ) : undefined
+                  }
+                >
+                  {customer.addresses.length === 0 ? (
+                    <Text tone="muted">
+                      No saved addresses yet. One is saved automatically with the first order.
+                    </Text>
+                  ) : (
+                    customer.addresses.map((a) => (
+                      <Stack key={a.id} gap={1}>
+                        <Row gap={2} wrap>
+                          <Text weight="bold">{a.label ?? a.recipientName}</Text>
+                          {a.isDefault && <Badge tone="info">Default</Badge>}
+                        </Row>
+                        <Text>{`${a.recipientName}, ${formatBdPhone(a.phone)}`}</Text>
+                        <Text>{`${a.line1}, ${a.area}, ${a.district}, ${a.division}${a.postalCode ? ` ${a.postalCode}` : ''}`}</Text>
+                        {writable && (
+                          <Row gap={1} wrap>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onPress={() => setAddress({ value: a })}
+                            >
+                              Edit
+                            </Button>
+                            {!a.isDefault && (
+                              <Button size="sm" variant="secondary" onPress={() => makeDefault(a)}>
+                                Make default
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" onPress={() => setRemoving(a)}>
+                              Remove
+                            </Button>
+                          </Row>
+                        )}
+                      </Stack>
+                    ))
                   )}
-                </Stack>
-              ))
-            )}
-          </Section>
-          <Section
-            title="Orders"
-            description={`${total} order${total === 1 ? '' : 's'}, newest first.`}
-          >
-            <QueryBoundary {...history} refetch={() => history.refetch()} label="Loading orders">
-              {orders.length === 0 ? (
-                <Text tone="muted">No orders yet.</Text>
-              ) : (
-                <>
-                  <DataTable
-                    label="Customer orders"
-                    columns={columns}
-                    rows={orders}
-                    rowKey={(o) => o.id}
-                  />
-                  <LoadMore
-                    hasNext={!!history.hasNextPage}
-                    loading={history.isFetchingNextPage}
-                    onPress={() => history.fetchNextPage()}
-                  />
-                </>
-              )}
-            </QueryBoundary>
-          </Section>
+                </Section>
+              </>
+            }
+          />
           <CustomerDialog customer={customer} open={editing} onClose={() => setEditing(false)} />
           <AddressDialog
             customerId={customer.id}

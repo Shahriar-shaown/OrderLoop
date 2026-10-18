@@ -2,6 +2,9 @@
 
 // The shared screens use hooks, so Next needs a client boundary. Routes import them from here and stay one-liners.
 export {
+  AnalyticsScreen,
+  CodReconciliationScreen,
+  ShipmentsScreen,
   AcceptInvitationScreen,
   AppShell,
   CategoriesScreen,
@@ -10,8 +13,6 @@ export {
   DashboardScreen,
   CustomersScreen,
   EditOrderScreen,
-  FinanceIssuesScreen,
-  FinanceScreen,
   ForgotPasswordScreen,
   HomeScreen,
   ImportsScreen,
@@ -23,12 +24,10 @@ export {
   OrderDetailScreen,
   OrdersImportScreen,
   OrdersScreen,
-  OutstandingCodScreen,
   ProductDetailScreen,
   ProductsScreen,
   ResetPasswordScreen,
   SettlementDetailScreen,
-  SettlementsScreen,
   SignupScreen,
   SuppliersScreen,
   TeamScreen,

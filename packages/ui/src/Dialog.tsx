@@ -3,14 +3,23 @@ import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { DIALOG_WIDTHS, type DialogProps } from './dialogTypes';
 import { Content } from './Content';
 import { Stack } from './Stack';
-import { Text } from './Text';
 import { useTheme } from './theme';
+import { DialogHeader } from './DialogHeader';
 import { radius, space } from './tokens';
 
 export type { DialogProps } from './dialogTypes';
 
 /** Native implementation: the system modal (with the hardware back button). Dialog.web.tsx uses the browser's `<dialog>`. */
-export function Dialog({ open, onClose, title, children, footer, size = 'md' }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  size = 'md',
+  icon,
+  iconTone,
+}: DialogProps) {
   const { colors } = useTheme();
   const titleId = useId();
   return (
@@ -37,8 +46,8 @@ export function Dialog({ open, onClose, title, children, footer, size = 'md' }: 
             width: '100%',
             maxWidth: DIALOG_WIDTHS[size],
             maxHeight: '90%',
-            backgroundColor: colors.background,
-            borderRadius: radius.lg,
+            backgroundColor: colors.surface,
+            borderRadius: radius.xl,
             borderWidth: 1,
             borderColor: colors.border,
           }}
@@ -47,9 +56,7 @@ export function Dialog({ open, onClose, title, children, footer, size = 'md' }: 
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ padding: space[5], gap: space[4] }}
           >
-            <Text nativeID={titleId} variant="heading" role="heading" aria-level={2}>
-              {title}
-            </Text>
+            <DialogHeader titleId={titleId} title={title} icon={icon} iconTone={iconTone} />
             <Content>{children}</Content>
             {footer && (
               <Stack direction="row" gap={2} justify="end" wrap>

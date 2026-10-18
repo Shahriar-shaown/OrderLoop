@@ -8,17 +8,24 @@ import { palettes, type Palette } from './tokens';
  */
 type Flat = Record<string, string>;
 
-const TONES = ['info', 'success', 'warning', 'error', 'neutral'] as const;
-const TONE_PARTS = ['background', 'border', 'text'] as const;
+import { TONES } from './tokens';
+const TONE_PARTS = ['background', 'border', 'text', 'dot'] as const;
 const SIMPLE = [
   'background',
   'foreground',
   'muted',
   'border',
+  'borderStrong',
   'surface',
+  'subtle',
   'primary',
   'primaryHover',
+  'primarySoft',
+  'primaryTint',
   'onPrimary',
+  'accent',
+  'accentSoft',
+  'accentText',
   'danger',
   'dangerHover',
   'onDanger',
@@ -62,10 +69,10 @@ export function themeStyleSheet(): string {
     `:root{${light};color-scheme:light}`,
     `@media (prefers-color-scheme:dark){:root:not([data-scheme="light"]){${dark};color-scheme:dark}}`,
     `:root[data-scheme="dark"]{${dark};color-scheme:dark}`,
-    `body{background:var(--ol-background);color:var(--ol-foreground)}`,
+    `body{background:var(--ol-background);color:var(--ol-foreground);font-family:'Inter Variable',Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}`,
     `.ol-skip{position:absolute;left:-9999px;top:8px;z-index:1000;padding:8px 12px;border-radius:8px;background:var(--ol-primary);color:var(--ol-on-primary);font:500 14px system-ui,sans-serif}`,
     `.ol-skip:focus{left:8px}`,
-    `dialog.ol-dialog{width:calc(100% - 32px);padding:0;border:1px solid var(--ol-border);border-radius:12px;background:var(--ol-background);color:var(--ol-foreground)}`,
+    `dialog.ol-dialog{width:calc(100% - 32px);padding:0;border:1px solid var(--ol-border);border-radius:16px;background:var(--ol-surface);color:var(--ol-foreground)}`,
     `dialog.ol-dialog::backdrop{background:var(--ol-overlay)}`,
   ].join('\n');
 }

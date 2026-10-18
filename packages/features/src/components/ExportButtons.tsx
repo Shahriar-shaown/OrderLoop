@@ -1,4 +1,4 @@
-import { Button, Row, useToast } from '@orderloop/ui';
+import { Button, Row, useToast, type MenuItem } from '@orderloop/ui';
 import { useState } from 'react';
 import { messageFor } from '../errors';
 import { useCan } from '../permissions';
@@ -8,8 +8,8 @@ import { saveTextFile } from '../saveFile';
 type Kind = 'products' | 'stock';
 const LABEL: Record<Kind, string> = { products: 'Export catalog CSV', stock: 'Export stock CSV' };
 
-/** Download the catalog or the stock levels as CSV. Only offered for what the person's role may read. */
-export function ExportButtons({ kinds }: { kinds: Kind[] }) {
+/** Downloading the catalog or the stock levels as CSV; only for what the person's role may read. Shared by the buttons and menus. */
+export function useCsvExport(kinds: Kind[]) {
   const api = useApi();
   const can = useCan();
   const toast = useToast();
@@ -28,15 +28,40 @@ export function ExportButtons({ kinds }: { kinds: Kind[] }) {
     }
   }
 
+  const allowed = kinds.filter((k) => can(k === 'products' ? 'catalog:read' : 'inventory:read'));
+  return {
+    busy,
+    kinds: allowed,
+    run,
+    label: (k: Kind) => LABEL[k],
+    /** The same exports as entries for a `Menu`. */
+    menuItems: (): MenuItem[] =>
+      allowed.map((k) => ({
+        key: `export-${k}`,
+        label: LABEL[k],
+        icon: 'download' as const,
+        disabled: busy !== null,
+        onPress: () => void run(k),
+      })),
+  };
+}
+
+/** Download the catalog or the stock levels as CSV. Only offered for what the person's role may read. */
+export function ExportButtons({ kinds }: { kinds: Kind[] }) {
+  const exporter = useCsvExport(kinds);
   return (
     <Row gap={2} wrap>
-      {kinds
-        .filter((k) => can(k === 'products' ? 'catalog:read' : 'inventory:read'))
-        .map((k) => (
-          <Button key={k} variant="secondary" loading={busy === k} onPress={() => run(k)}>
-            {LABEL[k]}
-          </Button>
-        ))}
+      {exporter.kinds.map((k) => (
+        <Button
+          key={k}
+          variant="secondary"
+          icon="download"
+          loading={exporter.busy === k}
+          onPress={() => exporter.run(k)}
+        >
+          {exporter.label(k)}
+        </Button>
+      ))}
     </Row>
   );
 }

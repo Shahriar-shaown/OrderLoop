@@ -10,11 +10,12 @@ import {
 } from 'react';
 import { Platform, View, type ViewStyle } from 'react-native';
 import { Button } from './Button';
+import { Icon } from './Icon';
 import type { Tone } from './Badge';
 import { Stack } from './Stack';
 import { Text } from './Text';
 import { useTheme } from './theme';
-import { radius, space } from './tokens';
+import { radius, shadow, space } from './tokens';
 
 interface ToastItem {
   id: number;
@@ -79,6 +80,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
+const TOAST_ICON = {
+  success: 'check-circle',
+  error: 'alert',
+  info: 'info',
+  warning: 'alert',
+  neutral: 'info',
+  brand: 'info',
+} as const;
+
 function ToastView({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) => void }) {
   const { colors } = useTheme();
   const c = colors.tones[item.tone];
@@ -90,25 +100,37 @@ function ToastView({ item, onDismiss }: { item: ToastItem; onDismiss: (id: numbe
     <View
       role={item.tone === 'error' ? 'alert' : 'status'}
       style={{
-        maxWidth: 520,
+        maxWidth: 440,
         width: '100%',
-        backgroundColor: c.background,
-        borderColor: c.border,
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
         borderWidth: 1,
-        borderRadius: radius.md,
+        borderRadius: radius.lg,
         padding: space[3],
+        ...({ boxShadow: shadow.md } as object),
       }}
     >
       <Stack direction="row" gap={3} align="center" justify="between">
-        <Text style={{ color: c.text, flexShrink: 1 }}>{item.message}</Text>
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: c.background,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name={TOAST_ICON[item.tone]} size={16} color={c.text} />
+        </View>
+        <Text style={{ flexShrink: 1, flexGrow: 1 }}>{item.message}</Text>
         <Button
           variant="ghost"
           size="sm"
+          icon="x"
+          accessibilityLabel="Dismiss message"
           onPress={() => onDismiss(item.id)}
-          aria-label="Dismiss message"
-        >
-          Dismiss
-        </Button>
+        />
       </Stack>
     </View>
   );

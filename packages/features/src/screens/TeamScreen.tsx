@@ -9,21 +9,29 @@ import {
 import { canAssignRole, canManageMemberWithRole, ROLE_PERMISSIONS } from '@orderloop/domain';
 import {
   Alert,
+  Avatar,
   Badge,
   Button,
   ConfirmDialog,
   DataTable,
   EmptyState,
+  FieldGrid,
   FormDialog,
+  Icon,
+  Menu,
   PageHeader,
   Row,
   Section,
   SelectField,
   Stack,
+  TableSection,
   Text,
   TextField,
+  useBreakpoint,
+  useTheme,
   useToast,
   type Column,
+  type Tone,
 } from '@orderloop/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -44,6 +52,13 @@ const ROLE_LABEL: Record<Role, string> = {
   MANAGER: 'Manager',
   STAFF: 'Staff',
   ACCOUNTANT: 'Accountant',
+};
+const ROLE_TONE: Record<Role, Tone> = {
+  OWNER: 'brand',
+  ADMIN: 'info',
+  MANAGER: 'success',
+  STAFF: 'neutral',
+  ACCOUNTANT: 'warning',
 };
 const ROLE_NOTE: Record<Role, string> = {
   OWNER: 'Everything, including other owners and admins.',
@@ -69,15 +84,8 @@ const CAPABILITIES: { permission: Permission; label: string }[] = [
   { permission: 'audit:read', label: 'See the audit log' },
 ];
 
-function InviteDialog({
-  open,
-  assignable,
-  onClose,
-}: {
-  open: boolean;
-  assignable: Role[];
-  onClose: () => void;
-}) {
+/** Invite someone by email with a role: validated with the API's own rules before it is sent. */
+function InviteSection({ assignable }: { assignable: Role[] }) {
   const api = useApi();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -85,7 +93,6 @@ function InviteDialog({
     email: '',
     role: assignable.includes('STAFF') ? 'STAFF' : (assignable[0] ?? 'STAFF'),
   });
-  if (!open) return null;
   async function submit() {
     const checked = validate(InviteBody, { email: form.values.email, role: form.values.role });
     form.setFormError('');
@@ -97,36 +104,42 @@ function InviteDialog({
     });
     if (ok) {
       toast.success(`Invitation sent to ${body.email}`);
-      onClose();
+      form.set('email', '');
     }
   }
   return (
-    <FormDialog
-      open
-      onClose={onClose}
+    <Section
       title="Invite someone"
-      onSubmit={submit}
-      submitLabel="Send invitation"
-      busy={form.busy}
-      error={form.formError}
-      size="sm"
+      description="They get a link by email that is valid for a few days."
     >
-      <TextField
-        label="Email"
-        kind="email"
-        required
-        autoFocus
-        hint="They get a link by email that is valid for a few days."
-        {...form.field('email')}
-      />
-      <SelectField
-        label="Role"
-        options={assignable.map((r) => ({ value: r, label: `${ROLE_LABEL[r]}: ${ROLE_NOTE[r]}` }))}
-        value={form.values.role}
-        onChange={(v) => form.set('role', v)}
-        error={form.errors.role}
-      />
-    </FormDialog>
+      <Stack gap={4}>
+        {form.formError ? <Alert tone="error">{form.formError}</Alert> : null}
+        <FieldGrid minWidth={240}>
+          <TextField
+            label="Email"
+            kind="email"
+            required
+            leadingIcon="message"
+            {...form.field('email')}
+          />
+          <SelectField
+            label="Role"
+            options={assignable.map((r) => ({
+              value: r,
+              label: `${ROLE_LABEL[r]}: ${ROLE_NOTE[r]}`,
+            }))}
+            value={form.values.role}
+            onChange={(v) => form.set('role', v)}
+            error={form.errors.role}
+          />
+        </FieldGrid>
+        <Row>
+          <Button icon="plus" loading={form.busy} onPress={submit}>
+            Send invitation
+          </Button>
+        </Row>
+      </Stack>
+    </Section>
   );
 }
 
@@ -180,15 +193,45 @@ function RoleDialog({
   );
 }
 
+/** A person's initials, name and email, with a "You" marker on your own row. */
+function Person({ member, you }: { member: Member; you: boolean }) {
+  return (
+    <Row gap={3}>
+      <Avatar name={member.name} size={36} />
+      <Stack gap={1} style={{ flexShrink: 1 }}>
+        <Row gap={2} wrap>
+          <Text weight="medium">{member.name}</Text>
+          {you && <Badge tone="info">You</Badge>}
+        </Row>
+        <Text variant="caption" tone="muted">
+          {member.email}
+        </Text>
+      </Stack>
+    </Row>
+  );
+}
+
+type Capability = (typeof CAPABILITIES)[number];
+
+/** Whether a role has a permission, as an icon with a word for assistive technology. */
+function Has({ yes }: { yes: boolean }) {
+  const { colors } = useTheme();
+  return yes ? (
+    <Icon name="check" size={18} color={colors.tones.success.text} label="Yes" />
+  ) : (
+    <Icon name="minus" size={18} color={colors.muted} label="No" />
+  );
+}
+
 export function TeamScreen() {
   const api = useApi();
   const can = useCan();
   const { session } = useAuth();
+  const { isMobile } = useBreakpoint();
   const toast = useToast();
   const queryClient = useQueryClient();
   const myRole = session?.role ?? 'STAFF';
   const assignable = ROLE_VALUES.filter((r) => canAssignRole(myRole, r));
-  const [inviting, setInviting] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
   const [removing, setRemoving] = useState<Member | null>(null);
   const [revoking, setRevoking] = useState<Invitation | null>(null);
@@ -230,35 +273,59 @@ export function TeamScreen() {
     }
   }
 
+  const canActOn = (m: Member) =>
+    can('members:manage') &&
+    m.userId !== session?.user.id &&
+    canManageMemberWithRole(myRole, m.role);
+  const memberMenu = (m: Member) =>
+    canActOn(m) ? (
+      <Menu
+        label={`Actions for ${m.name}`}
+        items={[
+          { key: 'role', label: 'Change role', icon: 'edit', onPress: () => setEditing(m) },
+          {
+            key: 'remove',
+            label: 'Remove',
+            icon: 'trash',
+            danger: true,
+            onPress: () => setRemoving(m),
+          },
+        ]}
+      />
+    ) : null;
+
+  const revokeButton = (invitation: Invitation) => (
+    <Button
+      size="sm"
+      variant="secondary"
+      icon="trash"
+      accessibilityLabel={`Revoke invitation for ${invitation.email}`}
+      onPress={() => setRevoking(invitation)}
+    >
+      Revoke
+    </Button>
+  );
+
   const memberColumns: Column<Member>[] = [
     {
       key: 'name',
       header: 'Person',
       flex: 3,
-      minWidth: 220,
-      render: (m) => (
-        <Stack gap={1}>
-          <Row gap={2} wrap>
-            <Text weight="medium">{m.name}</Text>
-            {m.userId === session?.user.id && <Badge tone="info">You</Badge>}
-          </Row>
-          <Text variant="caption" tone="muted">
-            {m.email}
-          </Text>
-        </Stack>
-      ),
+      minWidth: 240,
+      render: (m) => <Person member={m} you={m.userId === session?.user.id} />,
     },
     {
       key: 'role',
       header: 'Role',
       minWidth: 110,
-      render: (m) => <Badge>{ROLE_LABEL[m.role]}</Badge>,
+      render: (m) => <Badge tone={ROLE_TONE[m.role]}>{ROLE_LABEL[m.role]}</Badge>,
     },
     {
       key: 'joined',
       header: 'Joined',
       flex: 2,
       minWidth: 150,
+      show: 'wide',
       render: (m) => formatWhen(m.joinedAt),
     },
     ...(can('members:manage')
@@ -266,24 +333,9 @@ export function TeamScreen() {
           {
             key: 'actions',
             header: 'Actions',
-            flex: 2,
-            minWidth: 220,
-            render: (m: Member) => {
-              const manageable =
-                m.userId !== session?.user.id && canManageMemberWithRole(myRole, m.role);
-              return manageable ? (
-                <Row gap={1} wrap>
-                  <Button size="sm" variant="secondary" onPress={() => setEditing(m)}>
-                    {`Change role for ${m.name}`}
-                  </Button>
-                  <Button size="sm" variant="ghost" onPress={() => setRemoving(m)}>
-                    {`Remove ${m.name}`}
-                  </Button>
-                </Row>
-              ) : (
-                <Text tone="muted">—</Text>
-              );
-            },
+            align: 'right' as const,
+            minWidth: 90,
+            render: (m: Member) => memberMenu(m),
           },
         ]
       : []),
@@ -295,80 +347,87 @@ export function TeamScreen() {
       key: 'role',
       header: 'Role',
       minWidth: 110,
-      render: (i) => <Badge>{ROLE_LABEL[i.role]}</Badge>,
+      render: (i) => <Badge tone={ROLE_TONE[i.role]}>{ROLE_LABEL[i.role]}</Badge>,
     },
     {
       key: 'exp',
       header: 'Expires',
       flex: 2,
       minWidth: 150,
+      show: 'wide',
       render: (i) => formatWhen(i.expiresAt),
     },
     {
       key: 'actions',
       header: 'Actions',
-      minWidth: 130,
-      render: (i) => (
-        <Button size="sm" variant="ghost" onPress={() => setRevoking(i)}>
-          {`Revoke invitation for ${i.email}`}
-        </Button>
-      ),
+      align: 'right',
+      minWidth: 120,
+      render: (i) => revokeButton(i),
     },
   ];
 
-  const matrixColumns: Column<(typeof CAPABILITIES)[number]>[] = [
+  const matrixColumns: Column<Capability>[] = [
     { key: 'cap', header: 'Can…', flex: 4, minWidth: 260, render: (c) => c.label },
     ...ROLE_VALUES.map((r) => ({
       key: r,
       header: ROLE_LABEL[r],
       align: 'right' as const,
       minWidth: 96,
-      render: (c: (typeof CAPABILITIES)[number]) =>
-        ROLE_PERMISSIONS[r].includes(c.permission) ? (
-          <Text weight="bold">Yes</Text>
-        ) : (
-          <Text tone="muted">No</Text>
-        ),
+      render: (c: Capability) => <Has yes={ROLE_PERMISSIONS[r].includes(c.permission)} />,
     })),
   ];
 
   return (
-    <Stack gap={5}>
+    <Stack gap={isMobile ? 4 : 6}>
       <PageHeader
-        title="Team and permissions"
+        title="Team & staff"
         description="Who can do what in this business. Roles apply only here: the same person can have a different role in another business."
-        actions={
-          can('members:invite') ? (
-            <Button onPress={() => setInviting(true)}>Invite someone</Button>
-          ) : undefined
-        }
       />
       <Alert tone="info">{`Your role: ${ROLE_LABEL[myRole]}. ${ROLE_NOTE[myRole]}`}</Alert>
 
+      {can('members:invite') && assignable.length > 0 && <InviteSection assignable={assignable} />}
+
       {can('members:read') ? (
-        <Section title="People">
+        <TableSection title="Team members" description="Everyone with access to this business.">
           <QueryBoundary {...members} refetch={() => members.refetch()} label="Loading the team">
             <DataTable
               label="Team members"
               columns={memberColumns}
               rows={members.data ?? []}
               rowKey={(m) => m.id}
+              renderCard={(m) => (
+                <Row justify="between" align="start" gap={2}>
+                  <Stack gap={2} grow>
+                    <Person member={m} you={m.userId === session?.user.id} />
+                    <Row gap={2} wrap>
+                      <Badge tone={ROLE_TONE[m.role]}>{ROLE_LABEL[m.role]}</Badge>
+                      <Text variant="caption" tone="muted">
+                        {`Joined ${formatWhen(m.joinedAt)}`}
+                      </Text>
+                    </Row>
+                  </Stack>
+                  {memberMenu(m)}
+                </Row>
+              )}
             />
           </QueryBoundary>
-        </Section>
+        </TableSection>
       ) : (
         <Alert tone="warning">Your role cannot see the team list.</Alert>
       )}
 
       {can('members:invite') && (
-        <Section title="Pending invitations" description="People invited who have not joined yet.">
+        <TableSection
+          title="Pending invitations"
+          description="People invited who have not joined yet."
+        >
           <QueryBoundary
             {...invitations}
             refetch={() => invitations.refetch()}
             label="Loading invitations"
           >
             {(invitations.data ?? []).length === 0 ? (
-              <EmptyState title="No pending invitations">
+              <EmptyState title="No pending invitations" icon="clock">
                 Invite a team member and they will appear here until they join.
               </EmptyState>
             ) : (
@@ -377,13 +436,27 @@ export function TeamScreen() {
                 columns={inviteColumns}
                 rows={invitations.data ?? []}
                 rowKey={(i) => i.id}
+                renderCard={(i) => (
+                  <Stack gap={2}>
+                    <Text weight="medium">{i.email}</Text>
+                    <Row gap={2} wrap justify="between">
+                      <Row gap={2} wrap>
+                        <Badge tone={ROLE_TONE[i.role]}>{ROLE_LABEL[i.role]}</Badge>
+                        <Text variant="caption" tone="muted">
+                          {`Expires ${formatWhen(i.expiresAt)}`}
+                        </Text>
+                      </Row>
+                      {revokeButton(i)}
+                    </Row>
+                  </Stack>
+                )}
               />
             )}
           </QueryBoundary>
-        </Section>
+        </TableSection>
       )}
 
-      <Section
+      <TableSection
         title="What each role can do"
         description="The same rules are enforced by the server on every request, not just hidden here."
       >
@@ -392,6 +465,19 @@ export function TeamScreen() {
           columns={matrixColumns}
           rows={CAPABILITIES}
           rowKey={(c) => c.permission}
+          rowHeight={48}
+          renderCard={(c) => (
+            <Stack gap={2}>
+              <Text weight="medium">{c.label}</Text>
+              <Row gap={1} wrap>
+                {ROLE_VALUES.filter((r) => ROLE_PERMISSIONS[r].includes(c.permission)).map((r) => (
+                  <Badge key={r} tone={ROLE_TONE[r]}>
+                    {ROLE_LABEL[r]}
+                  </Badge>
+                ))}
+              </Row>
+            </Stack>
+          )}
         />
         <Stack gap={1}>
           {ROLE_VALUES.map((r) => (
@@ -402,7 +488,7 @@ export function TeamScreen() {
             >{`${ROLE_LABEL[r]}: ${ROLE_NOTE[r]}`}</Text>
           ))}
         </Stack>
-      </Section>
+      </TableSection>
 
       {can('audit:read') && (
         <Section
@@ -428,7 +514,6 @@ export function TeamScreen() {
         </Section>
       )}
 
-      <InviteDialog open={inviting} assignable={assignable} onClose={() => setInviting(false)} />
       <RoleDialog
         key={editing?.id ?? 'none'}
         member={editing}

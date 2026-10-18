@@ -1,9 +1,10 @@
-import { Alert, Button, Form, Link, Text, useNavigation } from '@orderloop/ui';
+import { Alert, Button, Form, useNavigation } from '@orderloop/ui';
 import { z } from 'zod';
 import { useAuth } from '../auth';
 import { useRuntime } from '../runtime';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormError } from '../components/FormError';
+import { FormPasswordField } from '../components/FormPasswordField';
 import { FormTextField } from '../components/FormTextField';
 import { useZodForm } from '../zodForm';
 
@@ -32,18 +33,25 @@ export function AcceptInvitationScreen({ token }: { token?: string | undefined }
   });
 
   return (
-    <AuthLayout title="Accept your invitation">
+    <AuthLayout
+      title="Accept your invitation"
+      description={
+        token
+          ? 'You have been invited to join a business. New to OrderLoop? Enter your name and choose a password. Already have an account? Leave the name empty and enter your current password.'
+          : undefined
+      }
+      footer={
+        <Button href="/login" variant="link">
+          Back to sign in
+        </Button>
+      }
+    >
       {!token ? (
         <Alert tone="error">
           This invitation link is incomplete. Open the link from your email again.
         </Alert>
       ) : (
         <Form onSubmit={submit}>
-          <Text tone="muted">
-            You have been invited to join a workspace. New to OrderLoop? Enter your name and choose
-            a password. Already have an account? Leave the name empty and enter your current
-            password.
-          </Text>
           <FormError message={form.formError} />
           <FormTextField
             control={form.control}
@@ -51,19 +59,18 @@ export function AcceptInvitationScreen({ token }: { token?: string | undefined }
             label="Your name (new accounts only)"
             autoComplete="name"
           />
-          <FormTextField
+          <FormPasswordField
             control={form.control}
             name="password"
             label="Password"
             kind="password"
             required
           />
-          <Button type="submit" loading={form.formState.isSubmitting} fullWidth>
+          <Button type="submit" size="lg" loading={form.formState.isSubmitting} fullWidth>
             Join workspace
           </Button>
         </Form>
       )}
-      <Link href="/login">Back to sign in</Link>
     </AuthLayout>
   );
 }

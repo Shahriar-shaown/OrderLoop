@@ -1,43 +1,48 @@
-import type { OrderQuery, OrderStatus, OrderSummary } from '@orderloop/contracts';
+import {
+  ORDER_STATUS_VALUES,
+  type OrderQuery,
+  type OrderStatus,
+  type OrderSummary,
+} from '@orderloop/contracts';
+import { canTransition, editScope } from '@orderloop/domain';
 import {
   Alert,
   Button,
-  Checkbox,
+  Card,
   DataTable,
+  DateRangeFilter,
   EmptyState,
-  FieldGrid,
-  Link,
-  LoadMore,
+  FilterMenu,
+  Menu,
   PageHeader,
+  Pagination,
   Row,
-  SelectField,
+  SearchField,
   Stack,
+  Tabs,
   Text,
-  TextField,
+  useNavigation,
   useToast,
   type Column,
+  type MenuItem,
 } from '@orderloop/ui';
-import { formatBdPhone } from '@orderloop/domain';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { OrderStatusBadge } from '../components/OrderStatusBadge';
+import { OrderCard, orderColumns, selectOrderLabel } from '../components/OrderListParts';
 import { QueryBoundary } from '../components/QueryBoundary';
 import { ReasonDialog } from '../components/ReasonDialog';
 import { messageFor } from '../errors';
-import { formatWhen } from '../format';
+import { dayBefore, formatShortDay } from '../format';
 import { useDebounced } from '../hooks';
-import { formatPrice } from '../money';
-import {
-  invalidateOrders,
-  SOURCE_LABEL,
-  SOURCE_OPTIONS,
-  STATUS_LABEL,
-  STATUS_OPTIONS,
-} from '../orders';
+import { invalidateOrders, SOURCE_OPTIONS, STATUS_LABEL } from '../orders';
 import { useCan } from '../permissions';
 import { useApi } from '../runtime';
 import { saveTextFile } from '../saveFile';
 
+const PAGE_SIZE = 25;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Sorting. The first is the default and is what the chip's "all" option stands for. */
 const SORTS: { value: string; label: string; sort: OrderQuery['sort']; dir: OrderQuery['dir'] }[] =
   [
     { value: 'new', label: 'Newest first', sort: 'createdAt', dir: 'desc' },
@@ -47,8 +52,6 @@ const SORTS: { value: string; label: string; sort: OrderQuery['sort']; dir: Orde
     { value: 'number', label: 'Order number', sort: 'orderNumber', dir: 'desc' },
     { value: 'status', label: 'Status', sort: 'status', dir: 'asc' },
   ];
-const ALL = { value: '', label: 'All' };
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** What the bulk bar offers. Each is the same status change the order page offers, applied to every selected order. */
 const BULK: { status: OrderStatus; label: string; reason?: boolean }[] = [
@@ -56,6 +59,12 @@ const BULK: { status: OrderStatus; label: string; reason?: boolean }[] = [
   { status: 'ready_to_ship', label: 'Ready to ship' },
   { status: 'shipped', label: 'Mark shipped' },
   { status: 'cancelled', label: 'Cancel…', reason: true },
+];
+
+const DATE_PRESETS = () => [
+  { label: 'Today', from: dayBefore(0), to: dayBefore(0) },
+  { label: 'Last 7 days', from: dayBefore(6), to: dayBefore(0) },
+  { label: 'Last 30 days', from: dayBefore(29), to: dayBefore(0) },
 ];
 
 export function OrdersScreen({
@@ -70,17 +79,21 @@ export function OrdersScreen({
   const api = useApi();
   const can = useCan();
   const toast = useToast();
+  const navigation = useNavigation();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState(
-    STATUS_OPTIONS.some((o) => o.value === initialStatus) ? (initialStatus as string) : '',
+    (ORDER_STATUS_VALUES as readonly string[]).includes(initialStatus ?? '')
+      ? (initialStatus as string)
+      : '',
   );
   const [source, setSource] = useState('');
   const [from, setFrom] = useState(initialFrom && DATE_RE.test(initialFrom) ? initialFrom : '');
   const [to, setTo] = useState(initialTo && DATE_RE.test(initialTo) ? initialTo : '');
-  const [sortKey, setSortKey] = useState('new');
+  // '' is the default sort (the filter chip's "all").
+  const [sortKey, setSortKey] = useState('');
   const q = useDebounced(search.trim());
-  const sort = SORTS.find((s) => s.value === sortKey)!;
+  const sort = SORTS.find((s) => s.value === (sortKey || 'new'))!;
 
   // The list endpoint takes statuses and sources as comma-separated text (`confirmed,ready_to_ship`).
   const filters = useMemo(
@@ -93,39 +106,38 @@ export function OrdersScreen({
     }),
     [q, status, source, from, to],
   );
+  const filtered = Object.keys(filters).length > 0;
 
-  const orders = useInfiniteQuery({
-    queryKey: ['orders', filters, sortKey],
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) =>
+  // The API reads by cursor, so Previous needs the cursors already passed: a stack with the first page (no cursor) at the bottom.
+  const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);
+  const cursor = cursors[cursors.length - 1];
+  useEffect(() => setCursors([undefined]), [filters, sortKey]);
+
+  const orders = useQuery({
+    queryKey: ['orders', filters, sortKey, cursor ?? null],
+    placeholderData: keepPreviousData,
+    queryFn: () =>
       api.orders.list({
         ...(filters as object),
         sort: sort.sort,
         dir: sort.dir,
-        limit: 25,
-        ...(pageParam ? { cursor: pageParam } : {}),
+        limit: PAGE_SIZE,
+        ...(cursor ? { cursor } : {}),
       } as never),
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
-  const rows = orders.data?.pages.flatMap((p) => p.items) ?? [];
-  const total = orders.data?.pages[0]?.total ?? 0;
-  const filtered = Object.keys(filters).length > 0;
+  const page = orders.data;
+  const rows = page?.items ?? [];
+  const total = page?.total ?? 0;
+  const counts = page?.statusCounts;
+  const firstShown = (cursors.length - 1) * PAGE_SIZE + 1;
 
   // ---- selection and bulk actions ------------------------------------------------------------------------------------
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<string[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
+  const [cancelling, setCancelling] = useState<'bulk' | OrderSummary | null>(null);
   const [bulkIssues, setBulkIssues] = useState<string[]>([]);
   // A different list means a different selection: never act on rows the person can no longer see.
-  useEffect(() => setSelected(new Set()), [filters, sortKey]);
-  const toggle = (id: string, on: boolean) =>
-    setSelected((s) => {
-      const next = new Set(s);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  const allShown = rows.length > 0 && rows.every((r) => selected.has(r.id));
+  useEffect(() => setSelected([]), [filters, sortKey, cursor]);
 
   async function bulk(target: OrderStatus, reason?: string) {
     setBulkBusy(true);
@@ -149,12 +161,18 @@ export function OrdersScreen({
         );
       if (result.succeeded > 0 && result.failed > 0)
         toast.info(`${result.succeeded} updated, ${result.failed} could not be`);
-      setSelected(new Set(result.results.filter((r) => !r.ok).map((r) => r.orderId)));
+      setSelected(result.results.filter((r) => !r.ok).map((r) => r.orderId));
     } catch (error) {
       toast.error(messageFor(error));
     } finally {
       setBulkBusy(false);
     }
+  }
+
+  async function cancelOne(order: OrderSummary, reason: string) {
+    await api.orders.changeStatus(order.id, { status: 'cancelled', reason });
+    await invalidateOrders(queryClient);
+    toast.success(`Order #${order.orderNumber}: cancelled`);
   }
 
   async function exportCsv() {
@@ -167,164 +185,168 @@ export function OrdersScreen({
     }
   }
 
-  const columns: Column<OrderSummary>[] = [
-    ...(can('orders:write')
+  function clearFilters() {
+    setSearch('');
+    setStatus('');
+    setSource('');
+    setFrom('');
+    setTo('');
+  }
+
+  const write = can('orders:write');
+  const rowMenu = (o: OrderSummary): MenuItem[] => [
+    { key: 'view', label: 'View details', icon: 'file', href: `/orders/${o.id}` },
+    ...(write && editScope(o.status) !== 'none'
+      ? [{ key: 'edit', label: 'Edit', icon: 'edit' as const, href: `/orders/${o.id}/edit` }]
+      : []),
+    ...(write && canTransition(o.status, 'cancelled')
       ? [
           {
-            key: 'select',
-            header: 'Select',
-            minWidth: 70,
-            flex: 0,
-            render: (o: OrderSummary) => (
-              <Checkbox
-                label={`Select order ${o.orderNumber}`}
-                hideLabel
-                checked={selected.has(o.id)}
-                onChange={(on) => toggle(o.id, on)}
-              />
-            ),
+            key: 'cancel',
+            label: 'Cancel…',
+            icon: 'x' as const,
+            danger: true,
+            onPress: () => setCancelling(o),
           },
         ]
       : []),
+  ];
+
+  const columns: Column<OrderSummary>[] = [
+    ...orderColumns(),
     {
-      key: 'number',
-      header: 'Order',
-      minWidth: 110,
-      render: (o) => (
-        <Link href={`/orders/${o.id}`} weight="medium">
-          {`#${o.orderNumber}`}
-        </Link>
-      ),
-    },
-    {
-      key: 'customer',
-      header: 'Customer',
-      flex: 3,
-      minWidth: 200,
-      render: (o) => (
-        <Stack gap={1}>
-          <Text weight="medium">{o.customerName}</Text>
-          <Text variant="caption" tone="muted">
-            {formatBdPhone(o.phone)} · {o.district}
-          </Text>
-        </Stack>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      minWidth: 170,
-      flex: 2,
-      render: (o) => <OrderStatusBadge status={o.status} />,
-    },
-    { key: 'source', header: 'Source', minWidth: 110, render: (o) => SOURCE_LABEL[o.source] },
-    {
-      key: 'items',
-      header: 'Items',
+      key: 'actions',
+      header: 'Actions',
       align: 'right',
-      minWidth: 70,
-      render: (o) => String(o.itemCount),
-    },
-    {
-      key: 'total',
-      header: 'Total',
-      align: 'right',
-      minWidth: 120,
-      render: (o) => formatPrice(o.totalMinor),
-    },
-    {
-      key: 'cod',
-      header: 'COD',
-      align: 'right',
-      minWidth: 120,
-      render: (o) => formatPrice(o.codAmountMinor),
-    },
-    {
-      key: 'when',
-      header: 'Created',
-      flex: 2,
-      minWidth: 160,
-      render: (o) => formatWhen(o.createdAt),
+      flex: 0,
+      minWidth: 84,
+      render: (o) => <Menu label={`Actions for order ${o.orderNumber}`} items={rowMenu(o)} />,
     },
   ];
+
+  const chips = [
+    {
+      value: '',
+      label: 'All',
+      count: counts ? Object.values(counts).reduce((a, b) => a + b, 0) : undefined,
+    },
+    ...ORDER_STATUS_VALUES.map((s) => ({
+      value: s,
+      label: STATUS_LABEL[s],
+      count: counts ? (counts[s] ?? 0) : undefined,
+    })),
+  ];
+
+  const empty = (
+    <EmptyState
+      icon="box"
+      title={filtered ? 'No orders match' : 'No orders yet'}
+      action={
+        filtered ? (
+          <Button variant="secondary" onPress={clearFilters}>
+            Clear filters
+          </Button>
+        ) : write ? (
+          <Button href="/orders/new">Create your first order</Button>
+        ) : undefined
+      }
+    >
+      {filtered
+        ? 'Try a different search or filter.'
+        : 'Orders from Facebook, Instagram, WhatsApp and calls all live here.'}
+    </EmptyState>
+  );
 
   return (
     <Stack gap={5}>
       <PageHeader
         title="Orders"
-        description="Every order, from the chat to the doorstep."
+        description={`${total} order${total === 1 ? '' : 's'} · ${selected.length} selected`}
         actions={
-          <Row gap={2} wrap>
-            <Button variant="secondary" onPress={exportCsv}>
-              Export CSV
-            </Button>
-            {can('orders:write') && (
-              <Button variant="secondary" href="/orders/import">
+          <>
+            {write && (
+              <Button variant="secondary" icon="upload" href="/orders/import">
                 Import
               </Button>
             )}
-            {can('orders:write') && <Button href="/orders/new">New order</Button>}
-          </Row>
+            <Button variant="secondary" icon="download" onPress={exportCsv}>
+              Export
+            </Button>
+            {write && (
+              <Button icon="plus" href="/orders/new">
+                Create order
+              </Button>
+            )}
+          </>
         }
       />
-      <FieldGrid minWidth={170}>
-        <TextField
-          label="Search"
-          kind="search"
-          placeholder="Number, name, phone, SKU"
-          value={search}
-          onChangeText={setSearch}
-        />
-        <SelectField
-          label="Status"
-          options={[ALL, ...STATUS_OPTIONS]}
-          value={status}
-          onChange={setStatus}
-        />
-        <SelectField
-          label="Source"
-          options={[ALL, ...SOURCE_OPTIONS]}
-          value={source}
-          onChange={setSource}
-        />
-        <SelectField label="Sort by" options={SORTS} value={sortKey} onChange={setSortKey} />
-        <TextField
-          label="From date"
-          placeholder="2026-10-01"
-          autoCapitalize="none"
-          value={from}
-          onChangeText={setFrom}
-          error={from && !DATE_RE.test(from) ? 'Use YYYY-MM-DD' : undefined}
-        />
-        <TextField
-          label="To date"
-          placeholder="2026-10-31"
-          autoCapitalize="none"
-          value={to}
-          onChangeText={setTo}
-          error={to && !DATE_RE.test(to) ? 'Use YYYY-MM-DD' : undefined}
-        />
-      </FieldGrid>
 
-      {selected.size > 0 && (
+      <Tabs
+        variant="chips"
+        label="Order status"
+        items={chips}
+        value={status}
+        onChange={setStatus}
+      />
+
+      <Row gap={2} wrap>
+        <Stack grow style={{ minWidth: 240 }}>
+          <SearchField
+            label="Search"
+            placeholder="Order number, name, phone or SKU"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </Stack>
+        <FilterMenu label="Source" value={source} options={SOURCE_OPTIONS} onChange={setSource} />
+        <DateRangeFilter
+          from={from}
+          to={to}
+          presets={DATE_PRESETS()}
+          format={formatShortDay}
+          onChange={(f, t) => {
+            setFrom(f);
+            setTo(t);
+          }}
+        />
+        <FilterMenu
+          label="Sort"
+          allLabel={SORTS[0]!.label}
+          value={sortKey}
+          options={SORTS.slice(1).map((s) => ({ value: s.value, label: s.label }))}
+          onChange={setSortKey}
+        />
+      </Row>
+
+      {selected.length > 0 && (
         <Stack gap={2}>
-          <Row gap={2} wrap>
-            <Text weight="bold">{`${selected.size} selected`}</Text>
-            {BULK.map((b) => (
-              <Button
-                key={b.status}
-                size="sm"
-                variant={b.status === 'cancelled' ? 'danger' : 'secondary'}
-                loading={bulkBusy}
-                onPress={() => (b.reason ? setCancelling(true) : bulk(b.status))}
-              >
-                {b.label}
-              </Button>
-            ))}
-            <Button size="sm" variant="ghost" onPress={() => setSelected(new Set())}>
-              Clear selection
-            </Button>
-          </Row>
+          <Card variant="filled" padding="sm" role="toolbar" aria-label="Selected orders">
+            <Row gap={2} wrap justify="between">
+              <Text
+                variant="label"
+                tone="primary"
+              >{`${selected.length} order${selected.length === 1 ? '' : 's'} selected`}</Text>
+              <Row gap={1} wrap>
+                {BULK.map((b) => (
+                  <Button
+                    key={b.status}
+                    size="sm"
+                    variant={b.status === 'cancelled' ? 'danger' : 'tertiary'}
+                    loading={bulkBusy}
+                    onPress={() => (b.reason ? setCancelling('bulk') : bulk(b.status))}
+                  >
+                    {b.label}
+                  </Button>
+                ))}
+                <Button size="sm" variant="tertiary" onPress={exportCsv}>
+                  Export CSV
+                </Button>
+                <Button size="sm" variant="ghost" onPress={() => setSelected([])}>
+                  Clear
+                </Button>
+              </Row>
+            </Row>
+          </Card>
           {bulkIssues.length > 0 && (
             <Alert tone="warning" title="Some orders could not be updated">
               <Stack gap={1}>
@@ -337,47 +359,56 @@ export function OrdersScreen({
         </Stack>
       )}
 
-      <QueryBoundary {...orders} refetch={() => orders.refetch()} label="Loading orders">
-        {rows.length === 0 ? (
-          <EmptyState
-            title={filtered ? 'No orders match' : 'No orders yet'}
-            action={
-              !filtered && can('orders:write') ? (
-                <Button href="/orders/new">Create your first order</Button>
-              ) : undefined
-            }
-          >
-            {filtered
-              ? 'Try a different search or filter.'
-              : 'Orders from Facebook, Instagram, WhatsApp and calls all live here.'}
-          </EmptyState>
-        ) : (
-          <Stack gap={3}>
-            <Row gap={3} wrap>
-              <Text tone="muted">{`${total} order${total === 1 ? '' : 's'}${filtered ? ' match' : ''}`}</Text>
-              {can('orders:write') && (
-                <Checkbox
-                  label="Select all shown"
-                  checked={allShown}
-                  onChange={(on) => setSelected(on ? new Set(rows.map((r) => r.id)) : new Set())}
-                />
-              )}
-            </Row>
-            <DataTable label="Orders" columns={columns} rows={rows} rowKey={(o) => o.id} />
-            <LoadMore
-              hasNext={!!orders.hasNextPage}
-              loading={orders.isFetchingNextPage}
-              onPress={() => orders.fetchNextPage()}
-            />
-          </Stack>
-        )}
-      </QueryBoundary>
+      {orders.isError ? (
+        <QueryBoundary
+          isPending={false}
+          isError
+          error={orders.error}
+          refetch={() => orders.refetch()}
+        >
+          {null}
+        </QueryBoundary>
+      ) : (
+        <DataTable
+          label="Orders"
+          columns={columns}
+          rows={rows}
+          rowKey={(o) => o.id}
+          loading={orders.isPending}
+          empty={empty}
+          onRowPress={(o) => navigation.push(`/orders/${o.id}`)}
+          renderCard={(o) => <OrderCard order={o} />}
+          {...(write
+            ? { selection: { selected, onChange: setSelected }, selectLabel: selectOrderLabel }
+            : {})}
+          footer={
+            rows.length > 0 ? (
+              <Pagination
+                summary={`Showing ${firstShown}–${firstShown + rows.length - 1} of ${total} order${total === 1 ? '' : 's'}`}
+                hasPrevious={cursors.length > 1}
+                hasNext={!!page?.nextCursor}
+                onPrevious={() => setCursors((c) => c.slice(0, -1))}
+                onNext={() => page?.nextCursor && setCursors((c) => [...c, page.nextCursor!])}
+              />
+            ) : undefined
+          }
+        />
+      )}
+
       <ReasonDialog
-        open={cancelling}
-        title={`Cancel ${selected.size} order${selected.size === 1 ? '' : 's'}`}
-        submitLabel="Cancel orders"
-        onSubmit={(reason) => bulk('cancelled', reason)}
-        onClose={() => setCancelling(false)}
+        open={cancelling !== null}
+        title={
+          cancelling && cancelling !== 'bulk'
+            ? `Cancel order #${cancelling.orderNumber}`
+            : `Cancel ${selected.length} order${selected.length === 1 ? '' : 's'}`
+        }
+        submitLabel={cancelling && cancelling !== 'bulk' ? 'Cancel order' : 'Cancel orders'}
+        onSubmit={(reason) =>
+          cancelling && cancelling !== 'bulk'
+            ? cancelOne(cancelling, reason)
+            : bulk('cancelled', reason)
+        }
+        onClose={() => setCancelling(null)}
       />
     </Stack>
   );

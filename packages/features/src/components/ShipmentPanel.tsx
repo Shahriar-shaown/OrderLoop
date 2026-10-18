@@ -24,33 +24,28 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
+  COURIER_NAME,
   ENVIRONMENT_LABEL,
   invalidateShipments,
-  SHIPMENT_LABEL,
-  SHIPMENT_TONE,
   SIMULATED_EVENT_LABEL,
   useCouriers,
   useOrderShipments,
   useShipment,
 } from '../couriers';
 import { messageFor } from '../errors';
-import { formatWhen } from '../format';
+import { formatDayTime, formatWhen } from '../format';
 import { newIdempotencyKey } from '../hooks';
 import { useFormState } from '../forms';
 import { formatPrice } from '../money';
 import { useCan } from '../permissions';
 import { useApi } from '../runtime';
+import { ShipmentStatusBadge } from './ShipmentStatusBadge';
 
 const NOT_LIVE: ShipmentStatus[] = ['booking_failed', 'cancelled'];
 
-/** The courier's wording and ours, side by side; colour is never the only signal. */
-function StatusBadge({ status }: { status: ShipmentStatus }) {
-  return <Badge tone={SHIPMENT_TONE[status]}>{SHIPMENT_LABEL[status]}</Badge>;
-}
-
 /** Shown wherever a shipment appears. Nothing about a simulated shipment is real, and it must never look as if it were. */
 function SimulatedBadge() {
-  return <Badge tone="warning">SIMULATED · not a real parcel</Badge>;
+  return <Badge tone="warning">SIMULATED</Badge>;
 }
 
 const RESOLUTION_LABEL: Record<(typeof RESOLUTIONS)[number], string> = {
@@ -209,8 +204,8 @@ function ShipmentCard({
   return (
     <Stack gap={3}>
       <Row gap={2} wrap align="center">
-        <StatusBadge status={s.status} />
-        <Text weight="bold">{providerNames[s.provider] ?? s.provider}</Text>
+        <ShipmentStatusBadge status={s.status} />
+        <Text weight="bold">{providerNames[s.provider] ?? COURIER_NAME[s.provider]}</Text>
         {s.simulated && <SimulatedBadge />}
         {!s.simulated && s.environment === 'sandbox' && (
           <Badge tone="neutral">{ENVIRONMENT_LABEL.sandbox}</Badge>
@@ -230,7 +225,9 @@ function ShipmentCard({
       )}
 
       <KeyValueList
+        layout="inline"
         items={[
+          ...(s.bookedAt ? [{ label: 'Booked', value: formatDayTime(s.bookedAt) }] : []),
           { label: 'Our reference', value: s.reference },
           ...(s.consignmentId
             ? [
@@ -324,7 +321,7 @@ function ShipmentCard({
                 {formatWhen(e.createdAt)}
               </Text>
               <Badge tone="neutral">{e.source}</Badge>
-              {e.mappedStatus && <StatusBadge status={e.mappedStatus} />}
+              {e.mappedStatus && <ShipmentStatusBadge status={e.mappedStatus} />}
               {!e.applied && e.mappedStatus && <Badge tone="warning">Not applied</Badge>}
             </Row>
             {e.providerStatus && <Text>{`Courier's words: ${e.providerStatus}`}</Text>}
@@ -535,7 +532,10 @@ function BookForm({ order, couriers }: { order: OrderDetail; couriers: CourierEn
   );
 }
 
-/** Courier booking and tracking on the order page. */
+/**
+ * "Courier & tracking" on the order page: the booking form when the order is ready to ship and has no live parcel, then each
+ * shipment with its status, reference, tracking and actions. The courier's updates move the order for you.
+ */
 export function ShipmentPanel({ order }: { order: OrderDetail }) {
   const can = useCan();
   const shipments = useOrderShipments(order.id);
@@ -545,17 +545,21 @@ export function ShipmentPanel({ order }: { order: OrderDetail }) {
   const names = Object.fromEntries((couriers.data ?? []).map((c) => [c.provider, c.name]));
   const canBook = can('orders:write') && order.status === 'ready_to_ship' && !live;
 
-  if (!list.length && !canBook) {
-    return order.status === 'confirmed' ? (
-      <Text tone="muted">Mark the order Ready to ship to book a courier.</Text>
-    ) : null;
-  }
   return (
-    <Section
-      title="Courier"
-      description="Book the parcel, then follow it. The courier's updates move the order for you."
-    >
+    <Section title="Courier & tracking">
       <Stack gap={5}>
+        {!list.length && !canBook && (
+          <Text tone="muted">
+            {order.status === 'confirmed' || order.status === 'pending_confirmation'
+              ? 'Once the order is ready to ship you can book a courier here.'
+              : order.status === 'ready_to_ship'
+                ? 'No courier is booked yet.'
+                : order.status === 'cancelled'
+                  ? 'No courier was booked for this order.'
+                  : 'No courier shipment is linked to this order.'}
+          </Text>
+        )}
+        {shipments.isError && <Alert tone="error">{messageFor(shipments.error)}</Alert>}
         {canBook && couriers.data && <BookForm order={order} couriers={couriers.data} />}
         {list.map((s) => (
           <ShipmentCard key={s.id} id={s.id} providerNames={names} />

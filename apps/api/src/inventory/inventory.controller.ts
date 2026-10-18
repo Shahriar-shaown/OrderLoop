@@ -2,6 +2,7 @@ import { Controller } from '@nestjs/common';
 import {
   routes,
   type InventoryPage,
+  type InventorySummary,
   type LowStockItem,
   type MovementPage,
   type ParsedInput,
@@ -74,6 +75,11 @@ export class InventoryController {
     @Input() input: ParsedInput<typeof routes.listMovements>,
   ): Promise<MovementPage> {
     return this.inventory.movements(auth, input.query);
+  }
+
+  @Endpoint(routes.getInventorySummary)
+  summary(@Auth() auth: AuthContext): Promise<InventorySummary> {
+    return this.inventory.summary(auth);
   }
 
   @Endpoint(routes.lowStock)

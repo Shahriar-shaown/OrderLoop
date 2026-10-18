@@ -26,7 +26,7 @@ import type { AuthContext } from '../common/endpoint.js';
 import { evaluate } from './discrepancies.js';
 
 type ItemRow = Prisma.SettlementItemGetPayload<{
-  include: { order: { select: { orderNumber: true } } };
+  include: { order: { select: { orderNumber: true; codAmountMinor: true } } };
 }>;
 type DiscRow = Prisma.DiscrepancyGetPayload<{
   include: { order: { select: { orderNumber: true } } };
@@ -116,6 +116,7 @@ export class SettlementsService {
       returnChargeMinor: r.returnChargeMinor,
       otherDeductionMinor: r.otherDeductionMinor,
       netMinor: r.netMinor,
+      expectedMinor: r.order ? r.order.codAmountMinor : null,
       fileNetMinor: r.fileNetMinor,
       note: r.note,
       matchStatus: r.matchStatus,
@@ -170,6 +171,18 @@ export class SettlementsService {
         OR: [{ item: { batchId } }, ...(orderIds.length ? [{ orderId: { in: orderIds } }] : [])],
       },
     });
+    // What the orders this statement covers were owed, against the cash it reports for them.
+    const covered = orderIds.length
+      ? await tx.order.aggregate({
+          where: { tenantId, id: { in: orderIds } },
+          _sum: { codAmountMinor: true },
+        })
+      : null;
+    const reported = await tx.settlementItem.aggregate({
+      where: { tenantId, batchId, matchStatus: 'matched', kind: 'cod' },
+      _sum: { collectedMinor: true },
+    });
+    const expectedMinor = covered?._sum.codAmountMinor ?? 0;
     const creator = b.createdById
       ? await tx.user.findFirst({ where: { id: b.createdById }, select: { name: true } })
       : null;
@@ -196,6 +209,8 @@ export class SettlementsService {
           (s.otherDeductionMinor ?? 0),
         netMinor: s.netMinor ?? 0,
       },
+      expectedMinor,
+      differenceMinor: (reported._sum.collectedMinor ?? 0) - expectedMinor,
     };
   }
 
@@ -208,7 +223,7 @@ export class SettlementsService {
     const rows = await tx.settlementItem.findMany({
       where: { tenantId, batchId },
       orderBy: { lineNo: 'asc' },
-      include: { order: { select: { orderNumber: true } } },
+      include: { order: { select: { orderNumber: true, codAmountMinor: true } } },
     });
     const issues: string[] = [];
     if (summary.counts.unmatched)
@@ -253,7 +268,7 @@ export class SettlementsService {
         where: { tenantId: auth.tenantId, matchStatus: { in: ['unmatched', 'ambiguous'] } },
         orderBy: [{ itemDate: 'asc' }, { lineNo: 'asc' }],
         take: 1000,
-        include: { order: { select: { orderNumber: true } } },
+        include: { order: { select: { orderNumber: true, codAmountMinor: true } } },
       });
       return this.itemDtos(tx, auth.tenantId, rows);
     });
@@ -262,7 +277,7 @@ export class SettlementsService {
   private async itemDetail(tx: Tx, tenantId: string, id: string): Promise<SettlementItemDetail> {
     const row = await tx.settlementItem.findFirst({
       where: { id, tenantId },
-      include: { order: { select: { orderNumber: true } } },
+      include: { order: { select: { orderNumber: true, codAmountMinor: true } } },
     });
     if (!row) throw ApiError.notFound('Statement line not found');
     const [dto] = await this.itemDtos(tx, tenantId, [row]);

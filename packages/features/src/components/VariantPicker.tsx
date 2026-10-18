@@ -1,5 +1,5 @@
 import type { Product, Variant } from '@orderloop/contracts';
-import { Button, Row, Stack, Text, TextField } from '@orderloop/ui';
+import { Button, Card, Row, SearchField, Stack, Text } from '@orderloop/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { variantLabel } from '../format';
@@ -13,6 +13,10 @@ export interface PickedVariant {
   label: string;
   priceMinor: number;
   available: number;
+  /** Stock level at which the variant is flagged as low. */
+  reorderPoint: number;
+  /** What one unit costs you, when you have entered it. */
+  costMinor: number | null;
 }
 
 /** Search the catalog and pick a variant to put on an order. Only sellable (active) variants are offered. */
@@ -36,45 +40,59 @@ export function VariantPicker({
   );
   return (
     <Stack gap={2}>
-      <TextField
+      <SearchField
         label="Add an item"
-        kind="search"
-        placeholder="Search products by name or SKU"
+        placeholder="Search product name or SKU"
         value={search}
         onChangeText={setSearch}
-        hint="Type at least 2 letters."
       />
+      {q.length < 2 && (
+        <Text variant="caption" tone="muted">
+          Type at least 2 letters.
+        </Text>
+      )}
       {q.length >= 2 && !results.isPending && options.length === 0 && (
         <Text tone="muted">No products match “{q}”.</Text>
       )}
-      {options.map(({ product, variant }) => (
-        <Row key={variant.id} gap={2} wrap justify="between">
-          <Stack gap={1} grow>
-            <Text weight="medium">{variantLabel(product.name, variant.name)}</Text>
-            <Text variant="caption" tone="muted">
-              {variant.sku} · {formatPrice(variant.priceMinor)} · {variant.stock.available}{' '}
-              available
-            </Text>
+      {options.length > 0 && (
+        <Card variant="outlined" padding="sm">
+          <Stack gap={3}>
+            {options.map(({ product, variant }) => {
+              const added = disabledIds.includes(variant.id);
+              return (
+                <Row key={variant.id} gap={2} wrap justify="between">
+                  <Stack gap={1} grow>
+                    <Text weight="medium">{variantLabel(product.name, variant.name)}</Text>
+                    <Text variant="caption" tone="muted">
+                      {variant.sku} · {formatPrice(variant.priceMinor)} · {variant.stock.available}{' '}
+                      available
+                    </Text>
+                  </Stack>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={added}
+                    onPress={() => {
+                      onPick({
+                        id: variant.id,
+                        sku: variant.sku,
+                        label: variantLabel(product.name, variant.name),
+                        priceMinor: variant.priceMinor,
+                        available: variant.stock.available,
+                        reorderPoint: variant.reorderPoint,
+                        costMinor: variant.costMinor,
+                      });
+                      setSearch('');
+                    }}
+                  >
+                    {added ? 'Added' : 'Add'}
+                  </Button>
+                </Row>
+              );
+            })}
           </Stack>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={disabledIds.includes(variant.id)}
-            onPress={() => {
-              onPick({
-                id: variant.id,
-                sku: variant.sku,
-                label: variantLabel(product.name, variant.name),
-                priceMinor: variant.priceMinor,
-                available: variant.stock.available,
-              });
-              setSearch('');
-            }}
-          >
-            {disabledIds.includes(variant.id) ? 'Added' : 'Add'}
-          </Button>
-        </Row>
-      ))}
+        </Card>
+      )}
     </Stack>
   );
 }

@@ -7,9 +7,10 @@ import {
   Link,
   LoadMore,
   PageHeader,
+  Row,
+  SearchField,
   Stack,
   Text,
-  TextField,
   useNavigation,
   type Column,
 } from '@orderloop/ui';
@@ -17,7 +18,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { CustomerDialog } from '../components/CustomerDialog';
 import { QueryBoundary } from '../components/QueryBoundary';
-import { formatWhen } from '../format';
+import { formatDayTime } from '../format';
 import { useDebounced } from '../hooks';
 import { formatPrice } from '../money';
 import { useCan } from '../permissions';
@@ -65,35 +66,46 @@ export function CustomersScreen() {
       header: 'Orders',
       align: 'right',
       minWidth: 80,
-      render: (c) => String(c.stats.ordersCount),
+      render: (c) => <Text numeric>{String(c.stats.ordersCount)}</Text>,
     },
     {
       key: 'delivered',
       header: 'Delivered',
       align: 'right',
       minWidth: 90,
-      render: (c) => String(c.stats.deliveredCount),
+      show: 'wide',
+      render: (c) => <Text numeric>{String(c.stats.deliveredCount)}</Text>,
     },
     {
       key: 'returned',
       header: 'Returned',
       align: 'right',
       minWidth: 90,
-      render: (c) => String(c.stats.returnedCount),
+      show: 'wide',
+      render: (c) => <Text numeric>{String(c.stats.returnedCount)}</Text>,
     },
     {
       key: 'value',
       header: 'Delivered value',
       align: 'right',
       minWidth: 130,
-      render: (c) => formatPrice(c.stats.deliveredValueMinor),
+      render: (c) => (
+        <Text numeric weight="medium">
+          {formatPrice(c.stats.deliveredValueMinor)}
+        </Text>
+      ),
     },
     {
       key: 'last',
       header: 'Last order',
       flex: 2,
-      minWidth: 150,
-      render: (c) => (c.stats.lastOrderAt ? formatWhen(c.stats.lastOrderAt) : '—'),
+      minWidth: 140,
+      show: 'wide',
+      render: (c) => (
+        <Text tone="muted" numeric>
+          {c.stats.lastOrderAt ? formatDayTime(c.stats.lastOrderAt) : '—'}
+        </Text>
+      ),
     },
   ];
 
@@ -104,35 +116,70 @@ export function CustomersScreen() {
         description="People who order from you. A phone number is one customer."
         actions={
           can('orders:write') ? (
-            <Button onPress={() => setAdding(true)}>New customer</Button>
+            <Button icon="plus" onPress={() => setAdding(true)}>
+              New customer
+            </Button>
           ) : undefined
         }
       />
-      <TextField
-        label="Search"
-        kind="search"
-        placeholder="Name or phone"
-        value={search}
-        onChangeText={setSearch}
-      />
-      <QueryBoundary {...customers} refetch={() => customers.refetch()} label="Loading customers">
-        {rows.length === 0 ? (
-          <EmptyState title={q ? 'No customers match' : 'No customers yet'}>
-            {q
-              ? 'Try a different name or number.'
-              : 'Customers appear here when you take an order, or add one yourself.'}
-          </EmptyState>
-        ) : (
-          <>
-            <DataTable label="Customers" columns={columns} rows={rows} rowKey={(c) => c.id} />
-            <LoadMore
-              hasNext={!!customers.hasNextPage}
-              loading={customers.isFetchingNextPage}
-              onPress={() => customers.fetchNextPage()}
-            />
-          </>
-        )}
-      </QueryBoundary>
+      <Row>
+        <Stack grow style={{ maxWidth: 480 }}>
+          <SearchField
+            label="Search"
+            placeholder="Name or phone"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </Stack>
+      </Row>
+      {customers.isError ? (
+        <QueryBoundary
+          isPending={false}
+          isError
+          error={customers.error}
+          refetch={() => customers.refetch()}
+        >
+          {null}
+        </QueryBoundary>
+      ) : (
+        <Stack gap={3}>
+          <DataTable
+            label="Customers"
+            columns={columns}
+            rows={rows}
+            rowKey={(c) => c.id}
+            loading={customers.isPending}
+            onRowPress={(c) => navigation.push(`/customers/${c.id}`)}
+            renderCard={(c) => (
+              <Stack gap={1}>
+                <Row justify="between" gap={2}>
+                  <Link href={`/customers/${c.id}`} weight="medium">
+                    {c.name}
+                  </Link>
+                  <Text numeric weight="medium">
+                    {formatPrice(c.stats.deliveredValueMinor)}
+                  </Text>
+                </Row>
+                <Text variant="caption" tone="muted">
+                  {`${formatBdPhone(c.phone)} · ${c.stats.ordersCount} order${c.stats.ordersCount === 1 ? '' : 's'}`}
+                </Text>
+              </Stack>
+            )}
+            empty={
+              <EmptyState icon="users" title={q ? 'No customers match' : 'No customers yet'}>
+                {q
+                  ? 'Try a different name or number.'
+                  : 'Customers appear here when you take an order, or add one yourself.'}
+              </EmptyState>
+            }
+          />
+          <LoadMore
+            hasNext={!!customers.hasNextPage}
+            loading={customers.isFetchingNextPage}
+            onPress={() => customers.fetchNextPage()}
+          />
+        </Stack>
+      )}
       <CustomerDialog
         customer={null}
         open={adding}

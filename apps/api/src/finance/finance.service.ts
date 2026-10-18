@@ -3,9 +3,11 @@ import { Injectable } from '@nestjs/common';
 import type {
   CreateCostBody,
   Discrepancy as DiscrepancyDto,
+  Analytics,
   FinanceFigure,
   FinanceSummary,
   ManualCost as ManualCostDto,
+  OrderCash,
   OutstandingCod,
   OutstandingRow,
 } from '@orderloop/contracts';
@@ -566,9 +568,230 @@ export class FinanceService {
         to,
         timezone: tz,
         figures,
+        manualCostsByKind: manual.map((m) => ({
+          kind: m.kind,
+          amountMinor: m._sum.amountMinor ?? 0,
+        })),
         estimatedProfitMinor: profit.estimatedProfitMinor,
         profitWithheldReason: profit.withheldReason,
         caveats,
+      };
+    });
+  }
+
+  // ---- one order's cash, and analytics --------------------------------------------------------------------------------
+
+  async getOrderCash(auth: AuthContext, orderId: string): Promise<OrderCash> {
+    return this.db.withContext({ tenantId: auth.tenantId }, async (tx) => {
+      const o = await tx.order.findFirst({
+        where: { id: orderId, tenantId: auth.tenantId },
+        select: { status: true, codAmountMinor: true },
+      });
+      if (!o) throw ApiError.notFound('Order not found');
+      const sums = await tx.settlementItem.aggregate({
+        where: { tenantId: auth.tenantId, orderId, matchStatus: 'matched' },
+        _sum: {
+          collectedMinor: true,
+          deliveryChargeMinor: true,
+          codFeeMinor: true,
+          returnChargeMinor: true,
+          otherDeductionMinor: true,
+          netMinor: true,
+        },
+        _count: { _all: true },
+      });
+      const cod = await tx.settlementItem.aggregate({
+        where: { tenantId: auth.tenantId, orderId, matchStatus: 'matched', kind: 'cod' },
+        _sum: { collectedMinor: true },
+      });
+      const real = await tx.shipment.count({
+        where: {
+          tenantId: auth.tenantId,
+          orderId,
+          simulated: false,
+          status: { in: LIVE_SHIPMENT as never },
+        },
+      });
+      const pos = cashPosition({
+        status: o.status as OrderStatusName,
+        codAmountMinor: o.codAmountMinor,
+        collectedMinor: cod._sum.collectedMinor ?? 0,
+      });
+      const s = sums._sum;
+      return {
+        state: pos.state,
+        expectedMinor: o.codAmountMinor,
+        collectedMinor: pos.collectedMinor,
+        chargesMinor:
+          (s.deliveryChargeMinor ?? 0) +
+          (s.codFeeMinor ?? 0) +
+          (s.returnChargeMinor ?? 0) +
+          (s.otherDeductionMinor ?? 0),
+        netMinor: s.netMinor ?? 0,
+        outstandingMinor: pos.outstandingMinor,
+        hasCourierShipment: real > 0,
+        lines: sums._count._all,
+      };
+    });
+  }
+
+  getAnalytics(
+    auth: AuthContext,
+    q: { from?: string | undefined; to?: string | undefined; source?: string | undefined },
+  ): Promise<Analytics> {
+    return this.db.withContext({ tenantId: auth.tenantId }, async (tx) => {
+      const t = auth.tenantId;
+      const tenant = await tx.tenant.findUnique({ where: { id: t }, select: { timezone: true } });
+      const tz = tenant?.timezone ?? 'Asia/Dhaka';
+      const to = q.to ?? dayIn(tz, new Date());
+      const from = q.from ?? addDays(to, -6);
+      if (!DAY_RE.test(from) || !DAY_RE.test(to) || from > to)
+        throw new ApiError(400, 'validation_failed', 'Request validation failed', [
+          { path: 'query.from', message: 'The period must start on or before it ends' },
+        ]);
+      if (
+        new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime() >
+        366 * 86_400_000
+      )
+        throw new ApiError(400, 'validation_failed', 'Request validation failed', [
+          { path: 'query.to', message: 'The period can be at most a year' },
+        ]);
+      const src = q.source ? Prisma.sql`AND o.source = ${q.source}::"OrderSource"` : Prisma.empty;
+
+      // Orders delivered in the period (dated by their latest delivery), with their lines.
+      const delivered = await tx.$queryRaw<
+        {
+          day: string;
+          revenue: bigint;
+          delivery: bigint;
+          lines: number;
+          costed: number;
+          cost: bigint;
+        }[]
+      >`
+        WITH d AS (
+          SELECT o.id, o.subtotal_minor - o.discount_minor AS goods, o.delivery_charge_minor AS delivery,
+                 to_char(dh.at AT TIME ZONE ${tz}, 'YYYY-MM-DD') AS day
+          FROM orders o
+          JOIN LATERAL (SELECT max(h.created_at) AS at FROM order_status_history h
+                        WHERE h.tenant_id = o.tenant_id AND h.order_id = o.id AND h.to_status = 'delivered') dh ON true
+          WHERE o.tenant_id = ${t}::uuid AND o.status = 'delivered' ${src}
+            AND dh.at >= (${from}::date)::timestamp AT TIME ZONE ${tz}
+            AND dh.at <  ((${to}::date) + 1)::timestamp AT TIME ZONE ${tz})
+        SELECT d.day, sum(d.goods + d.delivery) AS revenue, sum(d.delivery) AS delivery,
+               (SELECT count(*) FROM order_items i JOIN d d2 ON d2.id = i.order_id WHERE d2.day = d.day AND i.tenant_id = ${t}::uuid)::int AS lines,
+               (SELECT count(*) FROM order_items i JOIN d d2 ON d2.id = i.order_id WHERE d2.day = d.day AND i.tenant_id = ${t}::uuid AND i.cost_minor IS NOT NULL)::int AS costed,
+               COALESCE((SELECT sum(i.quantity::bigint * i.cost_minor) FROM order_items i JOIN d d2 ON d2.id = i.order_id
+                         WHERE d2.day = d.day AND i.tenant_id = ${t}::uuid AND i.cost_minor IS NOT NULL), 0) AS cost
+        FROM d GROUP BY d.day`;
+      const byDay = new Map(delivered.map((r) => [r.day, r]));
+      const daily: Analytics['daily'] = [];
+      for (let day = from; day <= to; day = addDays(day, 1)) {
+        const r = byDay.get(day);
+        daily.push({
+          date: day,
+          revenueMinor: num(r?.revenue),
+          grossProfitMinor: !r ? 0 : r.lines === r.costed ? num(r.revenue) - num(r.cost) : null,
+        });
+      }
+      const deliveredOrders = await tx.$queryRaw<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM orders o
+        JOIN LATERAL (SELECT max(h.created_at) AS at FROM order_status_history h
+                      WHERE h.tenant_id = o.tenant_id AND h.order_id = o.id AND h.to_status = 'delivered') dh ON true
+        WHERE o.tenant_id = ${t}::uuid AND o.status = 'delivered' ${src}
+          AND dh.at >= (${from}::date)::timestamp AT TIME ZONE ${tz}
+          AND dh.at <  ((${to}::date) + 1)::timestamp AT TIME ZONE ${tz}`;
+
+      const channels = await tx.$queryRaw<
+        { source: Analytics['channels'][number]['source']; orders: number; revenue: bigint }[]
+      >`
+        SELECT o.source, count(*)::int AS orders, sum(o.subtotal_minor - o.discount_minor + o.delivery_charge_minor) AS revenue
+        FROM orders o
+        JOIN LATERAL (SELECT max(h.created_at) AS at FROM order_status_history h
+                      WHERE h.tenant_id = o.tenant_id AND h.order_id = o.id AND h.to_status = 'delivered') dh ON true
+        WHERE o.tenant_id = ${t}::uuid AND o.status = 'delivered' ${src}
+          AND dh.at >= (${from}::date)::timestamp AT TIME ZONE ${tz}
+          AND dh.at <  ((${to}::date) + 1)::timestamp AT TIME ZONE ${tz}
+        GROUP BY o.source ORDER BY revenue DESC`;
+
+      const products = await tx.$queryRaw<
+        {
+          product_name: string;
+          variant_name: string;
+          sku: string;
+          units: bigint;
+          revenue: bigint;
+          lines: number;
+          costed: number;
+          cost: bigint;
+        }[]
+      >`
+        SELECT i.product_name, i.variant_name, i.sku, sum(i.quantity) AS units, sum(i.line_total_minor) AS revenue,
+               count(*)::int AS lines, (count(*) FILTER (WHERE i.cost_minor IS NOT NULL))::int AS costed,
+               COALESCE(sum(i.quantity::bigint * i.cost_minor) FILTER (WHERE i.cost_minor IS NOT NULL), 0) AS cost
+        FROM order_items i
+        JOIN orders o ON o.tenant_id = i.tenant_id AND o.id = i.order_id
+        JOIN LATERAL (SELECT max(h.created_at) AS at FROM order_status_history h
+                      WHERE h.tenant_id = o.tenant_id AND h.order_id = o.id AND h.to_status = 'delivered') dh ON true
+        WHERE o.tenant_id = ${t}::uuid AND o.status = 'delivered' ${src}
+          AND dh.at >= (${from}::date)::timestamp AT TIME ZONE ${tz}
+          AND dh.at <  ((${to}::date) + 1)::timestamp AT TIME ZONE ${tz}
+        GROUP BY i.product_name, i.variant_name, i.sku ORDER BY revenue DESC`;
+      const topProducts = products.slice(0, 5).map((p) => ({
+        productName: p.product_name,
+        variantName: p.variant_name,
+        sku: p.sku,
+        units: num(p.units),
+        revenueMinor: num(p.revenue),
+        costMinor: p.lines === p.costed ? num(p.cost) : null,
+        grossProfitMinor: p.lines === p.costed ? num(p.revenue) - num(p.cost) : null,
+      }));
+      const withoutCost = products.reduce((n, p) => n + (p.lines - p.costed), 0);
+
+      const [placed] = await tx.$queryRaw<{ n: number; total: bigint; delivered_total: bigint }[]>`
+        SELECT count(*) FILTER (WHERE status <> 'cancelled')::int AS n,
+               COALESCE(sum(total_minor) FILTER (WHERE status <> 'cancelled'), 0) AS total,
+               COALESCE(sum(total_minor) FILTER (WHERE status = 'delivered'), 0) AS delivered_total
+        FROM orders o
+        WHERE o.tenant_id = ${t}::uuid ${src}
+          AND created_at >= (${from}::date)::timestamp AT TIME ZONE ${tz}
+          AND created_at <  ((${to}::date) + 1)::timestamp AT TIME ZONE ${tz}`;
+      const statusRows = await tx.$queryRaw<{ status: string; n: number }[]>`
+        SELECT status::text AS status, count(*)::int AS n FROM orders o
+        WHERE o.tenant_id = ${t}::uuid ${src}
+          AND created_at >= (${from}::date)::timestamp AT TIME ZONE ${tz}
+          AND created_at <  ((${to}::date) + 1)::timestamp AT TIME ZONE ${tz}
+        GROUP BY status`;
+      const statusCounts = Object.fromEntries(statusRows.map((r) => [r.status, r.n]));
+      const finished =
+        (statusCounts['delivered'] ?? 0) +
+        (statusCounts['delivery_failed'] ?? 0) +
+        (statusCounts['returned'] ?? 0);
+      const totalRevenue = daily.reduce((n, d) => n + d.revenueMinor, 0);
+      const totalUnits = products.reduce((n, p) => n + num(p.units), 0);
+      const deliveredCount = deliveredOrders[0]?.n ?? 0;
+      return {
+        from,
+        to,
+        timezone: tz,
+        daily,
+        channels: channels.map((c) => ({
+          source: c.source,
+          orders: c.orders,
+          revenueMinor: num(c.revenue),
+        })),
+        topProducts,
+        totalUnits,
+        totalRevenueMinor: products.reduce((n, p) => n + num(p.revenue), 0),
+        totalCostMinor: withoutCost === 0 ? products.reduce((n, p) => n + num(p.cost), 0) : null,
+        deliveredOrders: deliveredCount,
+        placedOrders: placed?.n ?? 0,
+        placedMinor: num(placed?.total),
+        notDeliveredMinor: Math.max(0, num(placed?.total) - num(placed?.delivered_total)),
+        averageOrderMinor: deliveredCount > 0 ? Math.round(totalRevenue / deliveredCount) : null,
+        deliverySuccessRate: finished > 0 ? (statusCounts['delivered'] ?? 0) / finished : null,
+        statusCounts,
+        linesWithoutCost: withoutCost,
       };
     });
   }

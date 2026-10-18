@@ -1,7 +1,7 @@
 import { createElement, useEffect, useId, useRef } from 'react';
 import { Content } from './Content';
 import { Stack } from './Stack';
-import { Text } from './Text';
+import { DialogHeader } from './DialogHeader';
 import { space } from './tokens';
 import { DIALOG_WIDTHS, type DialogProps } from './dialogTypes';
 
@@ -19,7 +19,16 @@ type DialogElement = {
  * sits above all other content, closes on Escape and returns focus to what opened it, so none of that is hand-built here.
  * The backdrop and box styling is in the theme stylesheet (cssVars.ts).
  */
-export function Dialog({ open, onClose, title, children, footer, size = 'md' }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  size = 'md',
+  icon,
+  iconTone,
+}: DialogProps) {
   const ref = useRef<DialogElement | null>(null);
   const titleId = useId();
 
@@ -68,9 +77,7 @@ export function Dialog({ open, onClose, title, children, footer, size = 'md' }: 
           'div',
           { style: { maxHeight: '85vh', overflowY: 'auto', padding: space[5] } },
           <Stack gap={4}>
-            <Text nativeID={titleId} variant="heading" role="heading" aria-level={2}>
-              {title}
-            </Text>
+            <DialogHeader titleId={titleId} title={title} icon={icon} iconTone={iconTone} />
             <Content>{children}</Content>
             {footer && (
               <Stack direction="row" gap={2} justify="end" wrap>

@@ -12,15 +12,15 @@ const useCardStyle = createVariants((t) => ({
       outlined: {
         borderWidth: 1,
         borderColor: t.colors.border,
-        backgroundColor: t.colors.background,
+        backgroundColor: t.colors.surface,
       },
-      filled: { backgroundColor: t.colors.surface, borderWidth: 1, borderColor: t.colors.border },
+      filled: { backgroundColor: t.colors.subtle, borderWidth: 1, borderColor: t.colors.border },
       plain: {},
     },
     padding: {
       none: { padding: 0 },
       sm: { padding: space[3] },
-      md: { padding: space[4] },
+      md: { padding: space[5] },
       lg: { padding: space[6] },
     },
   },
@@ -50,7 +50,7 @@ export function Section({
       <Stack gap={4}>
         <Stack direction="row" justify="between" align="start" gap={3} wrap>
           <Stack gap={1} grow>
-            <Text variant="heading" role="heading" aria-level={2}>
+            <Text variant="title" role="heading" aria-level={2}>
               {title}
             </Text>
             {description && (

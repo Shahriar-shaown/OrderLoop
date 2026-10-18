@@ -1,5 +1,5 @@
 import { ForgotPasswordBody } from '@orderloop/contracts';
-import { Alert, Button, Form, Link, Text } from '@orderloop/ui';
+import { Alert, Button, Form } from '@orderloop/ui';
 import { useState } from 'react';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormError } from '../components/FormError';
@@ -25,23 +25,29 @@ export function ForgotPasswordScreen() {
           If an account exists for that address, we have sent a link to reset the password. It works
           once and expires in one hour.
         </Alert>
-        <Link href="/login">Back to sign in</Link>
+        <Button href="/login" variant="secondary" fullWidth>
+          Back to sign in
+        </Button>
       </AuthLayout>
     );
   }
   return (
-    <AuthLayout title="Reset your password">
-      <Text tone="muted">
-        Enter your email and we will send you a link to choose a new password.
-      </Text>
+    <AuthLayout
+      title="Reset your password"
+      description="Enter your email and we will send you a link to choose a new password."
+      footer={
+        <Button href="/login" variant="link">
+          Back to sign in
+        </Button>
+      }
+    >
       <Form onSubmit={submit}>
         <FormError message={form.formError} />
         <FormTextField control={form.control} name="email" label="Email" kind="email" required />
-        <Button type="submit" loading={form.formState.isSubmitting} fullWidth>
+        <Button type="submit" size="lg" loading={form.formState.isSubmitting} fullWidth>
           Send reset link
         </Button>
       </Form>
-      <Link href="/login">Back to sign in</Link>
     </AuthLayout>
   );
 }

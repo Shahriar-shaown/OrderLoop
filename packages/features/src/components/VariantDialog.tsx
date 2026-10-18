@@ -62,6 +62,7 @@ function VariantForm({
       open
       onClose={onClose}
       title={editing ? 'Edit variant' : 'Add variant'}
+      icon="tag"
       onSubmit={submit}
       submitLabel={editing ? 'Save changes' : 'Add variant'}
       busy={form.busy}

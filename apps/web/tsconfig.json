@@ -32,7 +32,10 @@
     "build/e2e/types/**/*.ts",
     "build/e2e/dev/types/**/*.ts",
     "build/verify/types/**/*.ts",
-    "build/verify/dev/types/**/*.ts"
+    "build/verify/dev/types/**/*.ts",
+    "build/dbg/types/**/*.ts",
+    "build/dbg/dev/types/**/*.ts",
+    "build/e2e/dev/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules", "playwright-report", "test-results"]
 }

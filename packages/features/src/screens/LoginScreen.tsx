@@ -1,9 +1,10 @@
 import { LoginBody } from '@orderloop/contracts';
-import { Button, Form, Link, Row, useNavigation } from '@orderloop/ui';
+import { Button, Form, Link, Row, Text, useNavigation } from '@orderloop/ui';
 import { useEffect } from 'react';
 import { useAuth } from '../auth';
 import { AuthLayout } from '../components/AuthLayout';
 import { FormError } from '../components/FormError';
+import { FormPasswordField } from '../components/FormPasswordField';
 import { FormTextField } from '../components/FormTextField';
 import { safeNext } from '../errors';
 import { useRuntime } from '../runtime';
@@ -26,25 +27,32 @@ export function LoginScreen({ next }: { next?: string | undefined }) {
   });
 
   return (
-    <AuthLayout title="Sign in">
+    <AuthLayout
+      title="Sign in"
+      description="Welcome back. Sign in to manage your orders, couriers and cash."
+      footer={
+        <Text tone="muted">
+          New to OrderLoop? <Link href="/signup">Create an account</Link>
+        </Text>
+      }
+    >
       <Form onSubmit={submit}>
         <FormError message={form.formError} />
         <FormTextField control={form.control} name="email" label="Email" kind="email" required />
-        <FormTextField
+        <FormPasswordField
           control={form.control}
           name="password"
           label="Password"
           kind="password"
           required
         />
-        <Button type="submit" loading={form.formState.isSubmitting} fullWidth>
+        <Row justify="end">
+          <Link href="/forgot-password">Forgot your password?</Link>
+        </Row>
+        <Button type="submit" size="lg" loading={form.formState.isSubmitting} fullWidth>
           Sign in
         </Button>
       </Form>
-      <Row justify="between" wrap gap={2}>
-        <Link href="/forgot-password">Forgot your password?</Link>
-        <Link href="/signup">Create an account</Link>
-      </Row>
     </AuthLayout>
   );
 }

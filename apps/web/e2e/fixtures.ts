@@ -79,7 +79,8 @@ export async function signIn(page: Page, email: string, password = PASSWORD) {
 /** Sign in through the UI and wait until the app shell shows. */
 export async function signInToApp(page: Page, email: string) {
   await signIn(page, email);
-  await expect(page.getByTestId('user-email')).toHaveText(email);
+  // The shell is up once the account menu exists; the email itself lives inside that menu.
+  await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
 }
 
 interface MailpitMessage {

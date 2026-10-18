@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Email, Uuid } from './auth.js';
 import { IdempotencyKey, PriceMinor } from './catalog.js';
+import { CourierProvider, ShipmentStatus } from './couriers.js';
 import { normalizeBdPhone } from './phone.js';
 
 // ---- vocabulary -------------------------------------------------------------------------------------------------------
@@ -357,6 +358,33 @@ export const OrderDetail = Order.extend({
 });
 export type OrderDetail = z.infer<typeof OrderDetail>;
 
+/** What the order's cash looks like, in words a seller uses. Delivery alone never makes it collected. */
+export const PAYMENT_STATE_VALUES = [
+  /** Nothing to collect on delivery (paid in advance). */
+  'prepaid',
+  /** COD, the order has not been delivered yet. */
+  'cod_pending',
+  /** Delivered, and no courier statement has reported the cash. */
+  'cod_unpaid',
+  /** Delivered, and a statement reports part of the cash. */
+  'cod_partial',
+  /** A courier statement reports the full COD. */
+  'cod_collected',
+  /** Delivered without a real courier shipment: no statement can confirm the cash. */
+  'cod_untracked',
+  /** Cancelled or returned: nothing due. */
+  'not_due',
+] as const;
+export const PaymentState = z.enum(PAYMENT_STATE_VALUES);
+export type PaymentState = z.infer<typeof PaymentState>;
+
+export const OrderCourier = z.object({
+  provider: CourierProvider,
+  simulated: z.boolean(),
+  status: ShipmentStatus,
+});
+export type OrderCourier = z.infer<typeof OrderCourier>;
+
 export const OrderSummary = z.object({
   id: Uuid,
   orderNumber: z.number().int(),
@@ -370,6 +398,12 @@ export const OrderSummary = z.object({
   totalMinor: z.number().int(),
   codAmountMinor: z.number().int(),
   createdAt: z.string(),
+  /** The first item and how many more, ready to show in a table cell: "Matte Lipstick Set ×2 +1". */
+  itemsSummary: z.string(),
+  /** Cash status in a seller's words (see PaymentState). */
+  payment: PaymentState,
+  /** The order's latest real or simulated courier shipment, if any. */
+  courier: OrderCourier.nullable(),
 });
 export type OrderSummary = z.infer<typeof OrderSummary>;
 
@@ -421,6 +455,8 @@ export const OrderPage = z.object({
   nextCursor: z.string().nullable(),
   /** How many orders match the filters in all (not just this page). */
   total: z.number().int(),
+  /** How many orders are in each status for the same filters, ignoring the status filter itself (for the status chips). */
+  statusCounts: z.record(z.string(), z.number().int()),
 });
 export type OrderPage = z.infer<typeof OrderPage>;
 

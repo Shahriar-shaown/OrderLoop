@@ -17,7 +17,8 @@
   },
   "peerDependencies": {
     "react": "19.2.3",
-    "react-native": "*"
+    "react-native": "*",
+    "react-native-svg": "*"
   },
   "devDependencies": {
     "@orderloop/config": "workspace:*",
@@ -31,6 +32,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.4",
     "typescript": "6.0.3",
     "vitest": "^3.0.0"

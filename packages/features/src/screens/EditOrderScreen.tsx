@@ -24,6 +24,11 @@ export function EditOrderScreen({ id }: { id: string }) {
       {order && (
         <Stack gap={5}>
           <PageHeader
+            breadcrumbs={[
+              { label: 'Orders', href: '/orders' },
+              { label: `#${order.orderNumber}`, href: `/orders/${order.id}` },
+              { label: 'Edit' },
+            ]}
             title={`Edit order #${order.orderNumber}`}
             description={SCOPE_NOTE[editScope(order.status)]}
           />

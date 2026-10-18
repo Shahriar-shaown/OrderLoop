@@ -2,9 +2,13 @@ import { ProductBody } from '@orderloop/contracts';
 import {
   Alert,
   Button,
+  Card,
   Form,
+  KeyValueList,
   PageHeader,
+  Row,
   Section,
+  Split,
   Stack,
   Text,
   useNavigation,
@@ -17,6 +21,7 @@ import { parseImageLinks, ProductDetailsFields } from '../components/ProductDeta
 import { VariantFields } from '../components/VariantFields';
 import { validate, type FormErrors } from '../errors';
 import { useFormState } from '../forms';
+import { formatPrice, parsePrice } from '../money';
 import { useCan } from '../permissions';
 import { useApi } from '../runtime';
 import { emptyVariant, toVariantInput, type VariantValues } from '../variants';
@@ -72,59 +77,99 @@ export function NewProductScreen() {
     if (ok) navigation.push(`/products/${createdId}`);
   }
 
+  const prices = variants.map((v) => parsePrice(v.price)).filter((n): n is number => n !== null);
+  const priceSummary =
+    prices.length === 0
+      ? '—'
+      : Math.min(...prices) === Math.max(...prices)
+        ? formatPrice(prices[0] ?? 0)
+        : `${formatPrice(Math.min(...prices))} – ${formatPrice(Math.max(...prices))}`;
+
   return (
     <Stack gap={5}>
       <PageHeader
         title="New product"
-        actions={
-          <Button href="/products" variant="secondary">
-            Cancel
-          </Button>
-        }
+        description="Add what you sell, then give it one or more variants (SKUs) that carry the price and the stock."
+        breadcrumbs={[{ label: 'Products', href: '/products' }, { label: 'New product' }]}
       />
       <Form onSubmit={submit} gap={5}>
         <FormError message={form.formError} />
-        <Section title="Details">
-          <ProductDetailsFields form={form} />
-        </Section>
-        <Section
-          title="Variants"
-          description="Each variant is something you can stock and sell, such as a size or colour."
-          actions={
-            <Button variant="secondary" onPress={() => setVariants((v) => [...v, emptyVariant()])}>
-              Add another variant
-            </Button>
-          }
-        >
-          {form.errors.variants ? <Alert tone="error">{form.errors.variants}</Alert> : null}
-          {variants.map((v, i) => (
-            <Stack key={v.key} gap={3}>
-              <Text weight="bold">Variant {i + 1}</Text>
-              <VariantFields
-                value={v}
-                prefix={`variants.${i}`}
-                errors={form.errors}
-                onChange={(next) => setVariants((all) => all.map((x, j) => (j === i ? next : x)))}
-              />
-              {variants.length > 1 && (
-                <Stack align="start">
+        <Split
+          sticky
+          main={
+            <>
+              <Section title="Details">
+                <ProductDetailsFields form={form} />
+              </Section>
+              <Section
+                title="Variants"
+                description="Each variant is something you can stock and sell, such as a size or colour."
+                actions={
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    onPress={() => setVariants((all) => all.filter((_, j) => j !== i))}
+                    variant="secondary"
+                    icon="plus"
+                    onPress={() => setVariants((v) => [...v, emptyVariant()])}
                   >
-                    Remove variant {i + 1}
+                    Add another variant
+                  </Button>
+                }
+              >
+                {form.errors.variants ? <Alert tone="error">{form.errors.variants}</Alert> : null}
+                {variants.map((v, i) => (
+                  <Card key={v.key} variant="filled" padding="md">
+                    <Stack gap={3}>
+                      <Row justify="between" align="center" gap={2}>
+                        <Text variant="heading">{`Variant ${i + 1}`}</Text>
+                        {variants.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onPress={() => setVariants((all) => all.filter((_, j) => j !== i))}
+                          >
+                            {`Remove variant ${i + 1}`}
+                          </Button>
+                        )}
+                      </Row>
+                      <VariantFields
+                        value={v}
+                        prefix={`variants.${i}`}
+                        errors={form.errors}
+                        onChange={(next) =>
+                          setVariants((all) => all.map((x, j) => (j === i ? next : x)))
+                        }
+                      />
+                    </Stack>
+                  </Card>
+                ))}
+              </Section>
+            </>
+          }
+          aside={
+            <Card variant="outlined" padding="md">
+              <Stack gap={4}>
+                <Text variant="title" role="heading" aria-level={2}>
+                  Summary
+                </Text>
+                <KeyValueList
+                  layout="inline"
+                  items={[
+                    { label: 'Product', value: form.values.name.trim() || '—' },
+                    { label: 'Variants', value: String(variants.length) },
+                    { label: 'Price', value: priceSummary },
+                  ]}
+                />
+                <Stack gap={2}>
+                  <Button type="submit" loading={form.busy} fullWidth>
+                    Create product
+                  </Button>
+                  <Button href="/products" variant="secondary" fullWidth>
+                    Cancel
                   </Button>
                 </Stack>
-              )}
-            </Stack>
-          ))}
-        </Section>
-        <Stack align="start">
-          <Button type="submit" loading={form.busy}>
-            Create product
-          </Button>
-        </Stack>
+              </Stack>
+            </Card>
+          }
+        />
       </Form>
     </Stack>
   );

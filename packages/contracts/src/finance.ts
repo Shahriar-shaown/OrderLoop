@@ -134,6 +134,8 @@ export const SettlementItem = z.object({
   returnChargeMinor: Minor,
   otherDeductionMinor: Minor,
   netMinor: Minor,
+  /** COD due on the matched order, when matched. */
+  expectedMinor: Minor.nullable(),
   fileNetMinor: Minor.nullable(),
   note: z.string().nullable(),
   matchStatus: SettlementMatchStatus,
@@ -165,6 +167,10 @@ export const SettlementBatch = z.object({
   counts: SettlementCounts,
   openDiscrepancies: z.number().int(),
   totals: SettlementTotals,
+  /** COD of the orders this statement's matched lines cover (each order once). */
+  expectedMinor: Minor,
+  /** Cash the statement reports for those orders, less the COD expected: negative means short. */
+  differenceMinor: Minor,
 });
 export type SettlementBatch = z.infer<typeof SettlementBatch>;
 
@@ -280,12 +286,15 @@ export const FinanceFigure = z.object({
 });
 export type FinanceFigure = z.infer<typeof FinanceFigure>;
 
+export const ManualCostBreakdown = z.object({ kind: CostKind, amountMinor: Minor });
 export const SummaryQuery = z.object({ from: Day.optional(), to: Day.optional() });
 export const FinanceSummary = z.object({
   from: Day,
   to: Day,
   timezone: z.string(),
   figures: z.array(FinanceFigure),
+  /** The recorded costs of the period, by kind (their total is the `manual_costs` figure). */
+  manualCostsByKind: z.array(ManualCostBreakdown),
   estimatedProfitMinor: Minor.nullable(),
   profitWithheldReason: z.string().nullable(),
   /** Things a reader should know before trusting the figures. */

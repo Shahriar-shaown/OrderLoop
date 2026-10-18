@@ -3,11 +3,15 @@ import {
   Alert,
   Badge,
   Button,
+  Card,
   DataTable,
+  EmptyState,
   Form,
   PageHeader,
+  ProgressBar,
   Row,
   Section,
+  Split,
   Stack,
   Text,
   TextField,
@@ -16,6 +20,7 @@ import {
 } from '@orderloop/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { CsvFilePicker } from '../components/CsvFilePicker';
 import { ExportButtons } from '../components/ExportButtons';
 import { FormError } from '../components/FormError';
 import { QueryBoundary } from '../components/QueryBoundary';
@@ -23,6 +28,7 @@ import { formatWhen } from '../format';
 import { useFormState } from '../forms';
 import { useCan } from '../permissions';
 import { useApi } from '../runtime';
+import { saveTextFile } from '../saveFile';
 
 const TEMPLATE =
   'product_name,sku,price,category,unit,size,colour,cost,reorder_point,supplier,opening_stock\nCotton tee,TEE-RED-M,850,Clothing,pcs,M,Red,500,5,Dhaka Weavers,20\n';
@@ -32,6 +38,50 @@ const TONE = {
   COMPLETED: 'success',
   FAILED: 'error',
 } as const;
+const statusLabel = (s: ImportJob['status']) => s.charAt(0) + s.slice(1).toLowerCase();
+
+/** Rows with a problem, as a table (the first rows; the server reports the first 100). */
+function ProblemRows({
+  errors,
+  total,
+}: {
+  errors: { row: number; message: string }[];
+  total: number;
+}) {
+  const columns: Column<{ row: number; message: string }>[] = [
+    {
+      key: 'row',
+      header: 'Row',
+      minWidth: 70,
+      flex: 0,
+      render: (e) => <Text numeric>{String(e.row)}</Text>,
+    },
+    { key: 'message', header: 'Problem', flex: 5, minWidth: 240, render: (e) => e.message },
+  ];
+  return (
+    <Stack gap={2}>
+      <DataTable
+        label="Rows with problems"
+        columns={columns}
+        rows={errors.slice(0, 50)}
+        rowKey={(e) => `${e.row}:${e.message}`}
+        rowHeight={44}
+        renderCard={(e) => (
+          <Text>
+            <Text weight="medium">{`Row ${e.row}: `}</Text>
+            {e.message}
+          </Text>
+        )}
+      />
+      {total > Math.min(errors.length, 50) && (
+        <Text
+          variant="small"
+          tone="muted"
+        >{`…and ${total - Math.min(errors.length, 50)} more.`}</Text>
+      )}
+    </Stack>
+  );
+}
 
 function JobStatus({ id }: { id: string }) {
   const api = useApi();
@@ -56,12 +106,25 @@ function JobStatus({ id }: { id: string }) {
         : 1500,
   });
   const job = query.data;
+  const done = job?.status === 'COMPLETED' || job?.status === 'FAILED';
+  const processed = job ? job.created + job.updated + job.failed : 0;
+  const progress = done ? 1 : job?.totalRows ? processed / job.totalRows : 0;
   return (
     <QueryBoundary {...query} refetch={() => query.refetch()} label="Starting the import">
       {job && (
         <Stack gap={3}>
-          <Badge tone={TONE[job.status]}>{job.status.toLowerCase()}</Badge>
-          {job.status === 'COMPLETED' || job.status === 'FAILED' ? (
+          <Row gap={2} align="center">
+            <Badge tone={TONE[job.status]} dot>
+              {statusLabel(job.status)}
+            </Badge>
+            {job.totalRows !== null && (
+              <Text variant="small" tone="muted" numeric>
+                {`${Math.min(processed, job.totalRows)} of ${job.totalRows} rows`}
+              </Text>
+            )}
+          </Row>
+          <ProgressBar value={progress} label="Import progress" />
+          {done ? (
             <Text>
               {job.created} created, {job.updated} updated, {job.failed} failed
               {job.totalRows !== null ? ` of ${job.totalRows} rows` : ''}.
@@ -96,12 +159,16 @@ function Preview({ preview }: { preview: ImportPreview }) {
   return (
     <Stack gap={3}>
       <Row gap={2} wrap>
-        <Badge tone="success">{`${preview.willCreate} to create`}</Badge>
-        <Badge tone="info">{`${preview.willUpdate} to update`}</Badge>
-        <Badge tone={preview.errorCount ? 'error' : 'neutral'}>
+        <Badge tone="success" dot>{`${preview.willCreate} to create`}</Badge>
+        <Badge tone="info" dot>{`${preview.willUpdate} to update`}</Badge>
+        <Badge tone={preview.errorCount ? 'error' : 'neutral'} dot>
           {`${preview.errorCount} with problems`}
         </Badge>
       </Row>
+      <ProgressBar
+        label="Rows that are fine"
+        value={preview.totalRows ? preview.validRows / preview.totalRows : 0}
+      />
       <Text>
         {preview.totalRows} rows checked. Nothing has been changed yet.
         {preview.errorCount > 0
@@ -109,16 +176,7 @@ function Preview({ preview }: { preview: ImportPreview }) {
           : ' Every row is fine.'}
       </Text>
       {preview.errors.length > 0 && (
-        <Alert tone="warning" title="Rows that would be skipped">
-          <Stack gap={1}>
-            {preview.errors.slice(0, 20).map((e) => (
-              <Text key={`${e.row}:${e.message}`}>
-                Row {e.row}: {e.message}
-              </Text>
-            ))}
-            {preview.errorCount > 20 && <Text>…and {preview.errorCount - 20} more.</Text>}
-          </Stack>
-        </Alert>
+        <ProblemRows errors={preview.errors} total={preview.errorCount} />
       )}
     </Stack>
   );
@@ -165,6 +223,7 @@ export function ImportsScreen() {
     }
   }
 
+  const result = (j: ImportJob) => `${j.created} created, ${j.updated} updated, ${j.failed} failed`;
   const columns: Column<ImportJob>[] = [
     {
       key: 'when',
@@ -176,16 +235,14 @@ export function ImportsScreen() {
     {
       key: 'status',
       header: 'Status',
-      minWidth: 120,
-      render: (j) => <Badge tone={TONE[j.status]}>{j.status.toLowerCase()}</Badge>,
+      minWidth: 130,
+      render: (j) => (
+        <Badge tone={TONE[j.status]} dot>
+          {statusLabel(j.status)}
+        </Badge>
+      ),
     },
-    {
-      key: 'result',
-      header: 'Result',
-      flex: 3,
-      minWidth: 220,
-      render: (j) => `${j.created} created, ${j.updated} updated, ${j.failed} failed`,
-    },
+    { key: 'result', header: 'Result', flex: 3, minWidth: 220, render: result },
   ];
 
   return (
@@ -193,62 +250,121 @@ export function ImportsScreen() {
       <PageHeader
         title="Import products"
         description="Add or update many products at once from a CSV. Rows with the same SKU update the existing variant. You see what would happen before anything changes."
-        actions={<ExportButtons kinds={['products']} />}
+        breadcrumbs={[{ label: 'Products & inventory', href: '/products' }, { label: 'Import' }]}
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              icon="download"
+              onPress={() => saveTextFile('orderloop-products-template.csv', TEMPLATE)}
+            >
+              Download template
+            </Button>
+            <ExportButtons kinds={['products']} />
+          </>
+        }
       />
-      <Section
-        title="Paste your CSV"
-        description="Required columns: product_name, sku, price. Optional: category, unit, variant_name, size, colour, cost, reorder_point, barcode, description, supplier, opening_stock, location. An exported catalog file can be edited and imported back."
-      >
-        <Form onSubmit={check}>
-          <FormError message={form.formError} />
-          <TextField
-            label="CSV"
-            multiline
-            numberOfLines={8}
-            placeholder={TEMPLATE}
-            autoCapitalize="none"
-            autoCorrect={false}
-            {...form.field('csv')}
-          />
-          <Stack direction="row" gap={2} wrap>
-            <Button type="submit" loading={form.busy && !current}>
-              Check file
-            </Button>
-            <Button variant="secondary" onPress={() => form.set('csv', TEMPLATE)}>
-              Use the example
-            </Button>
-          </Stack>
-        </Form>
-      </Section>
-      {current && (
-        <Section title="Check result">
-          <Preview preview={current} />
-          {!current.fatal && current.validRows > 0 && (
-            <Stack align="start">
-              <Button loading={form.busy} onPress={start}>
-                {current.errorCount > 0
-                  ? `Import ${current.validRows} fine rows, skip ${current.errorCount}`
-                  : `Import ${current.validRows} rows`}
-              </Button>
+      <Split
+        main={
+          <>
+            <Section
+              title="Paste your CSV"
+              description="Choose a CSV file or paste its text. An exported catalog file can be edited and imported back."
+            >
+              <Form onSubmit={check}>
+                <FormError message={form.formError} />
+                <CsvFilePicker
+                  onText={(text) => {
+                    form.set('csv', text);
+                    setChecked(null);
+                  }}
+                />
+                <TextField
+                  label="CSV"
+                  multiline
+                  numberOfLines={8}
+                  placeholder={TEMPLATE}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  {...form.field('csv')}
+                />
+                <Stack direction="row" gap={2} wrap>
+                  <Button type="submit" loading={form.busy && !current}>
+                    Check file
+                  </Button>
+                  <Button variant="secondary" onPress={() => form.set('csv', TEMPLATE)}>
+                    Use the example
+                  </Button>
+                </Stack>
+              </Form>
+            </Section>
+            {current && (
+              <Section title="Check result">
+                <Preview preview={current} />
+                {!current.fatal && current.validRows > 0 && (
+                  <Stack align="start">
+                    <Button loading={form.busy} onPress={start}>
+                      {current.errorCount > 0
+                        ? `Import ${current.validRows} fine rows, skip ${current.errorCount}`
+                        : `Import ${current.validRows} rows`}
+                    </Button>
+                  </Stack>
+                )}
+              </Section>
+            )}
+            {jobId && (
+              <Section title="This import">
+                <JobStatus id={jobId} />
+              </Section>
+            )}
+          </>
+        }
+        aside={
+          <Card variant="outlined" padding="md">
+            <Stack gap={3}>
+              <Text variant="title" role="heading" aria-level={2}>
+                Columns
+              </Text>
+              <Stack gap={1}>
+                <Text variant="label">Required</Text>
+                <Text tone="muted">product_name, sku, price</Text>
+              </Stack>
+              <Stack gap={1}>
+                <Text variant="label">Optional</Text>
+                <Text tone="muted">
+                  category, unit, variant_name, size, colour, cost, reorder_point, barcode,
+                  description, supplier, opening_stock, location
+                </Text>
+              </Stack>
             </Stack>
-          )}
-        </Section>
-      )}
-      {jobId && (
-        <Section title="This import">
-          <JobStatus id={jobId} />
-        </Section>
-      )}
+          </Card>
+        }
+      />
       <Section title="Recent imports">
         <QueryBoundary {...history} refetch={() => history.refetch()} label="Loading imports">
           {(history.data ?? []).length === 0 ? (
-            <Text tone="muted">No imports yet.</Text>
+            <EmptyState icon="upload" title="No imports yet">
+              Imports you run appear here with what they created and updated.
+            </EmptyState>
           ) : (
             <DataTable
               label="Recent imports"
               columns={columns}
               rows={history.data ?? []}
               rowKey={(j) => j.id}
+              renderCard={(j) => (
+                <Stack gap={2}>
+                  <Row justify="between" gap={2}>
+                    <Text weight="medium">{formatWhen(j.createdAt)}</Text>
+                    <Badge tone={TONE[j.status]} dot>
+                      {statusLabel(j.status)}
+                    </Badge>
+                  </Row>
+                  <Text variant="small" tone="muted">
+                    {result(j)}
+                  </Text>
+                </Stack>
+              )}
             />
           )}
         </QueryBoundary>

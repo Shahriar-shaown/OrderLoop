@@ -1,7 +1,7 @@
 import { TextField, type TextFieldProps } from '@orderloop/ui';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 
-type Props<T extends FieldValues, O extends FieldValues> = Omit<
+export type FormTextFieldProps<T extends FieldValues, O extends FieldValues> = Omit<
   TextFieldProps,
   'value' | 'onChangeText' | 'onBlur' | 'error'
 > & {
@@ -14,7 +14,7 @@ export function FormTextField<T extends FieldValues, O extends FieldValues>({
   control,
   name,
   ...field
-}: Props<T, O>) {
+}: FormTextFieldProps<T, O>) {
   return (
     <Controller
       control={control as never}

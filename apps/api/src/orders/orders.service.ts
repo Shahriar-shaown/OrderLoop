@@ -142,8 +142,19 @@ export class OrdersService {
                o.ship_phone AS phone, o.ship_district AS district, o.total_minor, o.cod_amount_minor, o.created_at,
                (SELECT COALESCE(SUM(i.quantity), 0) FROM order_items i
                  WHERE i.tenant_id = o.tenant_id AND i.order_id = o.id) AS item_count,
+               (SELECT i.product_name || CASE WHEN i.variant_name <> '' THEN ' ' || i.variant_name ELSE '' END
+                  FROM order_items i WHERE i.tenant_id = o.tenant_id AND i.order_id = o.id ORDER BY i.position LIMIT 1) AS first_item,
+               (SELECT i.quantity FROM order_items i WHERE i.tenant_id = o.tenant_id AND i.order_id = o.id ORDER BY i.position LIMIT 1) AS first_qty,
+               (SELECT count(*) FROM order_items i WHERE i.tenant_id = o.tenant_id AND i.order_id = o.id) AS line_count,
+               sh.provider AS courier_provider, sh.status AS courier_status, sh.simulated AS courier_simulated,
+               COALESCE((SELECT sum(si.collected_minor) FROM settlement_items si
+                          WHERE si.tenant_id = o.tenant_id AND si.order_id = o.id AND si.match_status = 'matched' AND si.kind = 'cod'), 0) AS collected,
                ${sortColumn(query.sort)} AS sv
         FROM orders o JOIN customers c ON c.tenant_id = o.tenant_id AND c.id = o.customer_id
+        LEFT JOIN LATERAL (
+          SELECT s.provider, s.status, s.simulated FROM shipments s
+          WHERE s.tenant_id = o.tenant_id AND s.order_id = o.id AND s.status NOT IN ('booking_failed', 'cancelled')
+          ORDER BY s.attempt DESC LIMIT 1) sh ON true
         WHERE ${paged}
         ORDER BY ${orderBy(query.sort, query.dir)}
         LIMIT ${query.limit + 1}`);
@@ -152,11 +163,21 @@ export class OrdersService {
         FROM orders o JOIN customers c ON c.tenant_id = o.tenant_id AND c.id = o.customer_id
         WHERE ${where}`);
 
+      // How many orders each status has under the same filters (but not the status filter), for the status chips.
+      const withoutStatus = { ...filters, status: undefined };
+      const byStatus = await tx.$queryRaw<{ status: string; n: number }[]>(Prisma.sql`
+        SELECT o.status::text AS status, count(*)::int AS n
+        FROM orders o JOIN customers c ON c.tenant_id = o.tenant_id AND c.id = o.customer_id
+        WHERE ${orderWhere(auth.tenantId, withoutStatus, tz)}
+        GROUP BY o.status`);
+      const statusCounts = Object.fromEntries(byStatus.map((r) => [r.status, r.n]));
+
       const page = rows.slice(0, query.limit);
       const last = page.at(-1);
       return {
         items: page.map(toSummary),
         total: counted[0]?.total ?? 0,
+        statusCounts,
         nextCursor:
           rows.length > query.limit && last
             ? encodeOrderCursor({

@@ -489,7 +489,7 @@ describe('order calls', () => {
       status: 'cancelled',
       reason: 'Customer changed mind',
     });
-    await make(200, { items: [], nextCursor: null, total: 0 }, seen).orders.list({
+    await make(200, { items: [], nextCursor: null, total: 0, statusCounts: {} }, seen).orders.list({
       status: 'confirmed,shipped',
       sort: 'totalMinor',
       dir: 'desc',
@@ -512,7 +512,7 @@ describe('order calls', () => {
     const cid = '0197b0a0-0000-7000-8000-000000000002';
     const aid = '0197b0a0-0000-7000-8000-000000000009';
     await make(200, {}, seen).customers.removeAddress(cid, aid);
-    await make(200, { items: [], nextCursor: null, total: 0 }, seen).customers.orders(cid, {
+    await make(200, { items: [], nextCursor: null, total: 0, statusCounts: {} }, seen).customers.orders(cid, {
       limit: 5,
     });
     expect(seen.map((s) => `${s.init.method} ${s.url}`)).toEqual([

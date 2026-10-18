@@ -3,6 +3,7 @@ import { themeInitScript } from '@orderloop/ui/theme-script';
 import type { ReactNode } from 'react';
 import { Providers } from '@/components/providers';
 import { RNWRegistry } from './rnw-registry';
+import '@fontsource-variable/inter';
 import './globals.css';
 
 export const metadata: Metadata = {

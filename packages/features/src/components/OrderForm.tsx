@@ -17,14 +17,15 @@ import {
   Button,
   FieldGrid,
   Form,
-  KeyValueList,
   Link,
-  Row,
   Section,
   SelectField,
+  Split,
   Stack,
+  StickyActions,
   Text,
   TextField,
+  useBreakpoint,
   useNavigation,
   useToast,
 } from '@orderloop/ui';
@@ -33,22 +34,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { validate, type FormErrors } from '../errors';
 import { useFormState } from '../forms';
 import { newIdempotencyKey, useDebounced } from '../hooks';
-import { formatPrice, parsePrice, priceToInput } from '../money';
+import { parsePrice, priceToInput } from '../money';
 import { DIVISION_OPTIONS, invalidateOrders, SOURCE_OPTIONS } from '../orders';
 import { useApi } from '../runtime';
 import { FormError } from './FormError';
-import { VariantPicker, type PickedVariant } from './VariantPicker';
-
-interface Line {
-  variantId: string;
-  sku: string;
-  label: string;
-  catalogPriceMinor: number;
-  available: number | null;
-  quantity: string;
-  unitPrice: string;
-  discount: string;
-}
+import { OrderCustomerSection } from './OrderCustomerSection';
+import { first, lineFromVariant, OrderLines, stockIssues, type Line } from './OrderLines';
+import { OrderSummaryCard, type ChecklistItem } from './OrderSummaryCard';
 
 const EMPTY = {
   phone: '',
@@ -68,24 +60,22 @@ const EMPTY = {
   notes: '',
 };
 
-const first = (errors: FormErrors, ...paths: string[]): string | undefined =>
-  paths.map((p) => errors[p]).find(Boolean);
-
 /** An amount box: blank means "none"; anything else must be a valid taka amount. Returns undefined for blank, null for invalid. */
 const amount = (text: string): number | undefined | null =>
   text.trim() === '' ? undefined : parsePrice(text);
 
 /**
- * The order form, used to make an order and to edit one. Customer lookup, saved addresses, a catalog search for items,
- * a live estimate of the totals (the same functions the server uses, labelled as an estimate: the server's figures win),
- * a warning about possible repeat orders, and one idempotency key per form so pressing Create twice, or retrying after a
- * dropped connection, can only ever make one order.
+ * The order form, used to make an order and to edit one: four numbered cards (customer, delivery address, products,
+ * payment and source) and a sticky summary. The summary uses the same totals function as the server and is labelled as an
+ * estimate: the server's figures win. One idempotency key per form, so pressing Confirm twice, or retrying after a dropped
+ * connection, can only ever make one order.
  */
 export function OrderForm({ order, customerId }: { order?: OrderDetail; customerId?: string }) {
   const api = useApi();
   const navigation = useNavigation();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { isMobile } = useBreakpoint();
   const editing = order !== undefined;
   const scope = order ? editScope(order.status) : 'full';
   const [key] = useState(newIdempotencyKey);
@@ -119,46 +109,23 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
       label: i.variantName ? `${i.productName} — ${i.variantName}` : i.productName,
       catalogPriceMinor: i.unitPriceMinor,
       available: null,
+      reorderPoint: 0,
+      costMinor: null,
       quantity: String(i.quantity),
       unitPrice: priceToInput(i.unitPriceMinor),
       discount: i.discountMinor ? priceToInput(i.discountMinor) : '',
     })),
   );
-  const [pickedCustomer, setPickedCustomer] = useState<string | null>(customerId ?? null);
 
-  // ---- customer lookup (a new order only) ----------------------------------------------------------------------------
-  const normalized = normalizeBdPhone(form.values.phone);
-  const lookupPhone = useDebounced(normalized);
-  const byPhone = useQuery({
-    queryKey: ['customers', 'byPhone', lookupPhone],
-    enabled: !editing && lookupPhone !== null,
-    queryFn: async (): Promise<CustomerDetail | null> => {
-      const found = await api.customers.list({ q: lookupPhone!, limit: 5 });
-      const match = found.items.find((c) => c.phone === lookupPhone);
-      return match ? api.customers.get(match.id) : null;
-    },
+  // ---- customer (a new order only) -----------------------------------------------------------------------------------
+  const [pickedId, setPickedId] = useState<string | null>(customerId ?? null);
+  const [mode, setMode] = useState<'search' | 'new'>('search');
+  const picked = useQuery({
+    queryKey: ['customer', pickedId],
+    enabled: !editing && !!pickedId,
+    queryFn: () => api.customers.get(pickedId!),
   });
-  const preset = useQuery({
-    queryKey: ['customer', customerId],
-    enabled: !editing && !!customerId,
-    queryFn: () => api.customers.get(customerId!),
-  });
-  const existing = editing ? null : (byPhone.data ?? (customerId ? preset.data : null) ?? null);
   const { set } = form;
-  useEffect(() => {
-    if (!preset.data) return;
-    set('phone', preset.data.phone);
-    set('customerName', preset.data.name);
-    const a = preset.data.addresses.find((x) => x.isDefault) ?? preset.data.addresses[0];
-    if (a) fillAddress(a);
-  }, [preset.data]);
-  useEffect(() => {
-    if (existing && !editing) {
-      setPickedCustomer(existing.id);
-      if (!form.values.customerName) set('customerName', existing.name);
-    } else if (!customerId) setPickedCustomer(null);
-  }, [existing?.id]);
-
   function fillAddress(a: CustomerDetail['addresses'][number]) {
     set('recipientName', a.recipientName);
     set('addrPhone', formatBdPhone(a.phone));
@@ -168,6 +135,31 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
     set('division', a.division);
     set('postalCode', a.postalCode ?? '');
   }
+  useEffect(() => {
+    const c = picked.data;
+    if (!c) return;
+    set('phone', c.phone);
+    set('customerName', c.name);
+    const a = c.addresses.find((x) => x.isDefault) ?? c.addresses[0];
+    if (a) fillAddress(a);
+  }, [picked.data?.id]);
+
+  // A phone number typed for a new customer that is already on file is that customer: pick them instead of adding twice.
+  const normalized = normalizeBdPhone(form.values.phone);
+  const lookupPhone = useDebounced(normalized);
+  const byPhone = useQuery({
+    queryKey: ['customers', 'byPhone', lookupPhone],
+    enabled: !editing && mode === 'new' && !pickedId && lookupPhone !== null,
+    queryFn: async () => {
+      const found = await api.customers.list({ q: lookupPhone!, limit: 5 });
+      return found.items.find((c) => c.phone === lookupPhone) ?? null;
+    },
+  });
+  useEffect(() => {
+    if (byPhone.data) setPickedId(byPhone.data.id);
+  }, [byPhone.data?.id]);
+
+  const existing = editing ? null : (picked.data ?? null);
   const addressOptions = useMemo(
     () => [
       { value: '', label: 'Choose a saved address…' },
@@ -214,6 +206,11 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
       throw error;
     }
   }, [lines, form.values.discount, form.values.delivery, form.values.advance]);
+  const okTotals = estimate && !('problem' in estimate) ? estimate : null;
+  const productCost =
+    lines.length > 0 && lines.every((l) => l.costMinor !== null)
+      ? lines.reduce((n, l) => n + l.costMinor! * (Number(l.quantity) || 0), 0)
+      : null;
 
   // ---- possible repeats ----------------------------------------------------------------------------------------------
   const variantKey = lines.map((l) => l.variantId).join(',');
@@ -229,25 +226,6 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
       }),
   });
 
-  function addLine(v: PickedVariant) {
-    setLines((all) =>
-      all.some((l) => l.variantId === v.id)
-        ? all
-        : [
-            ...all,
-            {
-              variantId: v.id,
-              sku: v.sku,
-              label: v.label,
-              catalogPriceMinor: v.priceMinor,
-              available: v.available,
-              quantity: '1',
-              unitPrice: '',
-              discount: '',
-            },
-          ],
-    );
-  }
   const patchLine = (i: number, patch: Partial<Line>) =>
     setLines((all) => all.map((l, j) => (j === i ? { ...l, ...patch } : l)));
 
@@ -336,8 +314,8 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
     }
 
     const payload = {
-      ...(pickedCustomer
-        ? { customerId: pickedCustomer }
+      ...(pickedId
+        ? { customerId: pickedId }
         : { customer: { name: v.customerName, phone: v.phone } }),
       address,
       items,
@@ -346,8 +324,18 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
       confirm,
       idempotencyKey: key,
     };
+    // The schema's own customer checks only run once everything else is valid, so say it here too.
+    const customerErrors: FormErrors = {};
+    if (!pickedId && mode === 'search')
+      customerErrors.customer = 'Choose a customer or enter their details';
+    if (!pickedId && mode === 'new') {
+      if (v.customerName.trim().length < 2)
+        customerErrors['customer.name'] = 'Enter the customer’s name';
+      if (!normalizeBdPhone(v.phone))
+        customerErrors['customer.phone'] = 'Enter a Bangladeshi mobile number like 01712-345678';
+    }
     const checked = validate(CreateOrderBody, payload);
-    const local = { ...lineErrors, ...money };
+    const local = { ...lineErrors, ...money, ...customerErrors };
     if (Object.keys(local).length || !checked.data)
       return form.setErrors({ ...(checked.errors ?? {}), ...local });
     const body = checked.data;
@@ -366,57 +354,76 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
   const showAddress = scope === 'full' || scope === 'contact';
   const field = (name: keyof typeof EMPTY) => form.field(name);
 
-  return (
-    <Form onSubmit={() => submit(false)} gap={5}>
+  const issues = stockIssues(lines);
+  const short = issues.filter((x) => x.short).length;
+  const v = form.values;
+  const checklist: ChecklistItem[] | undefined = editing
+    ? undefined
+    : [
+        { label: 'Customer selected', ok: !!pickedId || (!!v.customerName.trim() && !!normalized) },
+        {
+          label: 'Address complete',
+          ok: [v.recipientName, v.line1, v.area, v.district].every((t) => t.trim() !== ''),
+        },
+        lines.length === 0
+          ? { label: 'Add at least one product', ok: false }
+          : short > 0
+            ? { label: `${short} product${short === 1 ? '' : 's'} short of stock`, ok: false }
+            : {
+                label: `${lines.length} product${lines.length === 1 ? '' : 's'} in stock`,
+                ok: true,
+              },
+      ];
+
+  const actions = editing ? (
+    <Stack gap={2}>
+      <Button type="submit" loading={form.busy} fullWidth>
+        Save changes
+      </Button>
+      <Button variant="secondary" href={`/orders/${order!.id}`} fullWidth>
+        Cancel
+      </Button>
+    </Stack>
+  ) : (
+    <Stack gap={2}>
+      <Button loading={form.busy} fullWidth onPress={() => submit(true)}>
+        Confirm order
+      </Button>
+      <Button variant="secondary" type="submit" loading={form.busy} fullWidth>
+        Save as draft
+      </Button>
+      <Text variant="caption" tone="muted">
+        Confirming holds the stock for this order. A draft holds nothing until you confirm.
+      </Text>
+    </Stack>
+  );
+
+  const main = (
+    <>
       <FormError message={form.formError} />
 
-      {!editing && (
-        <Section
-          title="Customer"
-          description="A phone number already on file is the same customer: nobody is added twice."
-        >
-          <FieldGrid>
-            <TextField
-              label="Phone"
-              required
-              kind="text"
-              keyboardType="phone-pad"
-              placeholder="01712-345678"
-              {...field('phone')}
-              error={first(e, 'customer.phone', 'customerId', 'phone')}
-            />
-            {!existing && (
-              <TextField
-                label="Customer name"
-                required
-                {...field('customerName')}
-                error={first(e, 'customer.name')}
-              />
-            )}
-          </FieldGrid>
-          {existing && (
-            <Alert tone="info" title={`Existing customer: ${existing.name}`}>
-              <Stack gap={1}>
-                <Text>
-                  {existing.stats.ordersCount} order{existing.stats.ordersCount === 1 ? '' : 's'}:{' '}
-                  {existing.stats.deliveredCount} delivered, {existing.stats.returnedCount}{' '}
-                  returned, {existing.stats.cancelledCount} cancelled.
-                </Text>
-                <Link href={`/customers/${existing.id}`}>Open customer</Link>
-              </Stack>
-            </Alert>
-          )}
-        </Section>
-      )}
-      {editing && (
-        <Section title="Customer">
-          <KeyValueList
-            items={[
-              { label: 'Name', value: order!.customer.name },
-              { label: 'Phone', value: formatBdPhone(order!.customer.phone) },
-            ]}
-          />
-        </Section>
+      <OrderCustomerSection
+        fixed={editing ? { name: order!.customer.name, phone: order!.customer.phone } : undefined}
+        picked={editing ? null : (picked.data ?? null)}
+        loading={!!pickedId && picked.isPending && !editing}
+        mode={mode}
+        onMode={setMode}
+        onPick={setPickedId}
+        onClear={() => {
+          setPickedId(null);
+          setMode('search');
+          set('phone', '');
+          set('customerName', '');
+        }}
+        phone={field('phone')}
+        name={field('customerName')}
+        phoneError={first(e, 'customer.phone', 'customerId', 'phone')}
+        nameError={first(e, 'customer.name')}
+      />
+      {!editing && !pickedId && mode === 'search' && first(e, 'customer') && (
+        <Text variant="small" tone="danger" role="alert">
+          {first(e, 'customer')}
+        </Text>
       )}
 
       {duplicates.data && duplicates.data.length > 0 && (
@@ -436,7 +443,7 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
       )}
 
       {showAddress && (
-        <Section title="Delivery address">
+        <Section title="2 · Delivery address">
           {existing && existing.addresses.length > 0 && (
             <SelectField
               label="Saved addresses"
@@ -466,7 +473,8 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
           <TextField
             label="Address"
             required
-            placeholder="House, road, village"
+            placeholder="House / flat, road, village"
+            hint="Used on the courier label."
             {...field('line1')}
             error={first(e, 'address.line1')}
           />
@@ -474,6 +482,7 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
             <TextField
               label="Thana / upazila"
               required
+              hint="Required for courier routing."
               {...field('area')}
               error={first(e, 'address.area')}
             />
@@ -502,107 +511,57 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
 
       {showItems && (
         <Section
-          title="Items"
+          title="3 · Products"
           description="Prices come from the catalog. Change one only for a negotiated price."
         >
-          {first(e, 'items') && <Alert tone="error">{first(e, 'items')}</Alert>}
-          <VariantPicker onPick={addLine} disabledIds={lines.map((l) => l.variantId)} />
-          {lines.map((l, i) => (
-            <Stack key={l.variantId} gap={2}>
-              <Row gap={2} wrap justify="between">
-                <Stack gap={1} grow>
-                  <Text weight="bold">{l.label}</Text>
-                  <Text variant="caption" tone="muted">
-                    {l.sku}
-                    {l.available !== null ? ` · ${l.available} available` : ''}
-                  </Text>
-                </Stack>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onPress={() => setLines((all) => all.filter((_, j) => j !== i))}
-                >
-                  {`Remove ${l.sku}`}
-                </Button>
-              </Row>
-              <FieldGrid minWidth={150}>
-                <TextField
-                  label={`Quantity (${l.sku})`}
-                  kind="integer"
-                  value={l.quantity}
-                  onChangeText={(t) => patchLine(i, { quantity: t })}
-                  error={first(e, `items.${i}.quantity`, `lines.${i}.quantity`)}
-                />
-                <TextField
-                  label={`Price ৳ (${l.sku})`}
-                  kind="decimal"
-                  placeholder={priceToInput(l.catalogPriceMinor)}
-                  value={l.unitPrice}
-                  onChangeText={(t) => patchLine(i, { unitPrice: t })}
-                  error={first(e, `items.${i}.unitPriceMinor`, `lines.${i}.unitPriceMinor`)}
-                />
-                <TextField
-                  label={`Discount ৳ (${l.sku})`}
-                  kind="decimal"
-                  value={l.discount}
-                  onChangeText={(t) => patchLine(i, { discount: t })}
-                  error={first(e, `items.${i}.discountMinor`, `lines.${i}.discountMinor`)}
-                />
-              </FieldGrid>
-            </Stack>
-          ))}
-        </Section>
-      )}
-
-      {showItems && (
-        <Section
-          title="Discount, delivery and advance"
-          description="Cash on delivery is the total minus the advance. It is worked out for you."
-        >
-          <FieldGrid minWidth={170}>
-            <TextField
-              label="Discount (৳)"
-              kind="decimal"
-              {...field('discount')}
-              error={first(e, 'discountMinor')}
-            />
-            <TextField
-              label="Delivery charge (৳)"
-              kind="decimal"
-              {...field('delivery')}
-              error={first(e, 'deliveryChargeMinor')}
-            />
-            <TextField
-              label="Advance paid (৳)"
-              kind="decimal"
-              {...field('advance')}
-              error={first(e, 'advancePaidMinor')}
-            />
-          </FieldGrid>
-          {estimate && 'problem' in estimate ? (
-            <Alert tone="error">{estimate.problem}</Alert>
-          ) : estimate ? (
-            <Stack gap={1}>
-              <KeyValueList
-                items={[
-                  { label: 'Items', value: formatPrice(estimate.subtotalMinor) },
-                  { label: 'Discount', value: `−${formatPrice(estimate.discountMinor)}` },
-                  { label: 'Delivery', value: formatPrice(estimate.deliveryChargeMinor) },
-                  { label: 'Total', value: formatPrice(estimate.totalMinor) },
-                  { label: 'Advance paid', value: formatPrice(estimate.advancePaidMinor) },
-                  { label: 'Cash on delivery', value: formatPrice(estimate.codAmountMinor) },
-                ]}
-              />
-              <Text variant="caption" tone="muted">
-                An estimate. The final figures are worked out when you save.
-              </Text>
-            </Stack>
-          ) : null}
+          <OrderLines
+            lines={lines}
+            lineTotals={okTotals?.lineTotalsMinor}
+            errors={e}
+            onAdd={(variant) =>
+              setLines((all) =>
+                all.some((l) => l.variantId === variant.id)
+                  ? all
+                  : [...all, lineFromVariant(variant)],
+              )
+            }
+            onPatch={patchLine}
+            onRemove={(i) => setLines((all) => all.filter((_, j) => j !== i))}
+          />
         </Section>
       )}
 
       {(scope === 'full' || scope === 'contact' || scope === 'notes') && (
-        <Section title="Source and notes">
+        <Section
+          title="4 · Payment & source"
+          description={
+            showItems
+              ? 'Cash on delivery is the total minus the advance. It is worked out for you.'
+              : undefined
+          }
+        >
+          {showItems && (
+            <FieldGrid minWidth={170}>
+              <TextField
+                label="Advance paid (৳)"
+                kind="decimal"
+                {...field('advance')}
+                error={first(e, 'advancePaidMinor')}
+              />
+              <TextField
+                label="Discount (৳)"
+                kind="decimal"
+                {...field('discount')}
+                error={first(e, 'discountMinor')}
+              />
+              <TextField
+                label="Delivery charge (৳)"
+                kind="decimal"
+                {...field('delivery')}
+                error={first(e, 'deliveryChargeMinor')}
+              />
+            </FieldGrid>
+          )}
           <FieldGrid>
             {scope !== 'notes' && (
               <SelectField
@@ -621,35 +580,36 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
               />
             )}
           </FieldGrid>
-          <TextField label="Notes" multiline {...field('notes')} error={first(e, 'notes')} />
+          <TextField
+            label="Internal notes"
+            multiline
+            hint="Only your team can see this."
+            {...field('notes')}
+            error={first(e, 'notes')}
+          />
         </Section>
       )}
+    </>
+  );
 
-      <Row gap={2} wrap>
-        {editing ? (
-          <Button type="submit" loading={form.busy}>
-            Save changes
-          </Button>
-        ) : (
-          <>
-            <Button type="submit" loading={form.busy}>
-              Create order
-            </Button>
-            <Button variant="secondary" loading={form.busy} onPress={() => submit(true)}>
-              Create and confirm
-            </Button>
-          </>
-        )}
-        <Button variant="ghost" href={editing ? `/orders/${order!.id}` : '/orders'}>
-          Cancel
-        </Button>
-      </Row>
-      {!editing && (
-        <Text variant="caption" tone="muted">
-          “Create and confirm” also holds the stock for this order. Plain “Create” holds nothing
-          until you confirm.
-        </Text>
-      )}
+  const aside = (
+    <OrderSummaryCard
+      lines={lines.map((l, i) => ({
+        label: l.label,
+        quantity: Number(l.quantity) || 0,
+        totalMinor: okTotals?.lineTotalsMinor[i],
+      }))}
+      totals={estimate}
+      productCostMinor={productCost}
+      {...(checklist ? { checklist } : {})}
+      actions={isMobile ? undefined : actions}
+    />
+  );
+
+  return (
+    <Form onSubmit={() => submit(false)} gap={5}>
+      <Split sticky asideWidth={360} main={<>{main}</>} aside={aside} />
+      {isMobile && <StickyActions>{actions}</StickyActions>}
     </Form>
   );
 }

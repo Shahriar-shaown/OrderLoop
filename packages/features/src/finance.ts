@@ -1,4 +1,5 @@
 import type {
+  BatchStatus,
   CashState,
   CostKind,
   DiscrepancyType,
@@ -24,6 +25,17 @@ export const MATCH_TONE: Record<SettlementMatchStatus, Tone> = {
   unallocated: 'neutral',
   duplicate: 'neutral',
   ignored: 'neutral',
+};
+
+export const BATCH_LABEL: Record<BatchStatus, string> = {
+  reconciled: 'Reconciled',
+  ready: 'Ready',
+  needs_attention: 'Needs attention',
+};
+export const BATCH_TONE: Record<BatchStatus, Tone> = {
+  reconciled: 'success',
+  ready: 'info',
+  needs_attention: 'warning',
 };
 
 export const DISCREPANCY_LABEL: Record<DiscrepancyType, string> = {
@@ -103,6 +115,18 @@ export const useBatches = () => {
 export const useBatch = (id: string) => {
   const api = useApi();
   return useQuery({ queryKey: ['finance', 'batch', id], queryFn: () => api.finance.batch(id) });
+};
+
+export const useUnmatched = () => {
+  const api = useApi();
+  return useQuery({ queryKey: ['finance', 'unmatched'], queryFn: () => api.finance.unmatched() });
+};
+export const useOpenDiscrepancies = () => {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['finance', 'discrepancies', 'open'],
+    queryFn: () => api.finance.discrepancies({ status: 'open' }),
+  });
 };
 
 /** Money figures depend on one another, so a change anywhere refreshes them all (and the orders and shipments they read). */

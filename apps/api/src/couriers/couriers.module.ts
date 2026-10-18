@@ -4,6 +4,7 @@ import { OrdersModule } from '../orders/orders.module.js';
 import { CouriersController } from './couriers.controller.js';
 import { COURIER_HTTP, CouriersService } from './couriers.service.js';
 import { CredentialVault } from './credential-vault.js';
+import { ShipmentReportsService } from './shipment-reports.service.js';
 import { ShipmentsService } from './shipments.service.js';
 import { WebhooksController } from './webhooks.controller.js';
 import { WebhooksService } from './webhooks.service.js';
@@ -17,6 +18,7 @@ import { WebhooksService } from './webhooks.service.js';
     CredentialVault,
     CouriersService,
     ShipmentsService,
+    ShipmentReportsService,
     WebhooksService,
   ],
 })

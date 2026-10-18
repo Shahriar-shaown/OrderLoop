@@ -1,190 +1,169 @@
 import type { Product } from '@orderloop/contracts';
-import {
-  Badge,
-  Button,
-  DataTable,
-  EmptyState,
-  FieldGrid,
-  Link,
-  LoadMore,
-  PageHeader,
-  SelectField,
-  Stack,
-  Text,
-  TextField,
-  type Column,
-} from '@orderloop/ui';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
-import { QueryBoundary } from '../components/QueryBoundary';
-import { useCategories, useDebounced } from '../hooks';
+import { Button, Grid, Menu, PageHeader, Stack, StatCard, Tabs } from '@orderloop/ui';
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { CategoriesPanel } from '../components/CategoriesPanel';
+import { useCsvExport } from '../components/ExportButtons';
+import { LowStockTab } from '../components/LowStockTab';
+import { MovementsTab } from '../components/MovementsTab';
+import { ProductsTab } from '../components/ProductsTab';
+import { ReservationsTab } from '../components/ReservationsTab';
+import { StockDialog, type StockMode, type VariantRef } from '../components/StockDialog';
+import { useCategories } from '../hooks';
 import { formatPrice } from '../money';
 import { useCan } from '../permissions';
 import { useApi } from '../runtime';
 
-function priceRange(p: Product): string {
-  const prices = p.variants.filter((v) => !v.archived).map((v) => v.priceMinor);
-  if (prices.length === 0) return '—';
-  const lo = Math.min(...prices);
-  const hi = Math.max(...prices);
-  return lo === hi ? formatPrice(lo) : `${formatPrice(lo)} – ${formatPrice(hi)}`;
+export type ProductsTabName = 'products' | 'movements' | 'low' | 'categories' | 'reservations';
+const TAB_NAMES: ProductsTabName[] = ['products', 'movements', 'low', 'categories', 'reservations'];
+
+/** `?tab=low` in the address (web), else the screen's own default. */
+function tabFromUrl(fallback: ProductsTabName): ProductsTabName {
+  try {
+    const wanted = new URLSearchParams(globalThis.location?.search ?? '').get('tab');
+    return TAB_NAMES.find((t) => t === wanted) ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-const STATUS_OPTIONS = [
-  { value: 'ACTIVE', label: 'Active' },
-  { value: 'ARCHIVED', label: 'Archived' },
-  { value: 'ALL', label: 'All' },
-];
+type StockRequest = {
+  mode: StockMode;
+  variant: VariantRef | null;
+  product: Product | null;
+  picker: boolean;
+} | null;
 
-export function ProductsScreen() {
+/**
+ * Products & inventory: the catalogue and its stock in one place. The tab decides what is below the figures; `/inventory` and
+ * `/categories` open this same page on their own tab.
+ */
+export function ProductsScreen({ initialTab = 'products' }: { initialTab?: ProductsTabName }) {
   const api = useApi();
   const can = useCan();
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<'ACTIVE' | 'ARCHIVED' | 'ALL'>('ACTIVE');
-  const [categoryId, setCategoryId] = useState('');
-  const q = useDebounced(search.trim());
+  const [tab, setTab] = useState<ProductsTabName>(() => tabFromUrl(initialTab));
+  const [request, setRequest] = useState<StockRequest>(null);
   const categories = useCategories();
-  const categoryName = useMemo(
-    () => new Map((categories.data ?? []).map((c) => [c.id, c.name])),
-    [categories.data],
-  );
-  const categoryOptions = useMemo(
-    () => [
-      { value: '', label: 'All categories' },
-      ...(categories.data ?? []).map((c) => ({ value: c.id, label: c.name })),
-    ],
-    [categories.data],
-  );
-
-  const products = useInfiniteQuery({
-    queryKey: ['products', { q, status, categoryId }],
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) =>
-      api.products.list({
-        limit: 25,
-        ...(q ? { q } : {}),
-        ...(status !== 'ALL' ? { status } : {}),
-        ...(categoryId ? { categoryId } : {}),
-        ...(pageParam ? { cursor: pageParam } : {}),
-      }),
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  const exporter = useCsvExport(['products', 'stock']);
+  const summary = useQuery({
+    queryKey: ['inventory', 'summary'],
+    queryFn: () => api.inventory.summary(),
+    enabled: can('inventory:read'),
   });
-  const items = products.data?.pages.flatMap((p) => p.items) ?? [];
-  const filtered = q !== '' || status !== 'ACTIVE' || categoryId !== '';
+  const s = summary.data;
 
-  const columns: Column<Product>[] = [
-    {
-      key: 'name',
-      header: 'Product',
-      flex: 3,
-      minWidth: 220,
-      render: (p) => (
-        <Stack gap={1}>
-          <Link href={`/products/${p.id}`} weight="medium">
-            {p.name}
-          </Link>
-          <Text variant="caption" tone="muted">
-            {p.variants
-              .map((v) => v.sku)
-              .slice(0, 3)
-              .join(', ')}
-            {p.variants.length > 3 ? '…' : ''}
-          </Text>
-        </Stack>
-      ),
-    },
-    {
-      key: 'category',
-      header: 'Category',
-      flex: 2,
-      render: (p) => (p.categoryId ? (categoryName.get(p.categoryId) ?? '—') : 'None'),
-    },
-    {
-      key: 'variants',
-      header: 'Variants',
-      minWidth: 90,
-      flex: 1,
-      render: (p) => String(p.variants.length),
-    },
-    { key: 'price', header: 'Price', flex: 2, minWidth: 140, render: priceRange },
-    {
-      key: 'available',
-      header: 'Available',
-      align: 'right',
-      minWidth: 110,
-      flex: 1,
-      render: (p) => `${p.variants.reduce((n, v) => n + v.stock.available, 0)} ${p.unit}`,
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      minWidth: 100,
-      flex: 1,
-      render: (p) => (
-        <Badge tone={p.status === 'ACTIVE' ? 'success' : 'neutral'}>
-          {p.status === 'ACTIVE' ? 'Active' : 'Archived'}
-        </Badge>
-      ),
-    },
-  ];
+  const description = s
+    ? `${s.products} product${s.products === 1 ? '' : 's'} · ${s.variants} SKU${
+        s.variants === 1 ? '' : 's'
+      } · inventory value ${formatPrice(s.inventoryValueCostMinor)} at cost`
+    : undefined;
+
+  const askProduct = (mode: 'receive' | 'adjust', product: Product) =>
+    setRequest({ mode, variant: null, product, picker: true });
 
   return (
     <Stack gap={5}>
       <PageHeader
-        title="Products"
-        description="Everything you sell. Each product has one or more variants (SKUs) that carry the price and the stock."
+        title="Products & inventory"
+        {...(description ? { description } : {})}
         actions={
-          can('catalog:write') ? <Button href="/products/new">New product</Button> : undefined
-        }
-      />
-      <FieldGrid minWidth={200}>
-        <TextField
-          label="Search"
-          kind="search"
-          placeholder="Name or SKU"
-          value={search}
-          onChangeText={setSearch}
-        />
-        <SelectField
-          label="Category"
-          options={categoryOptions}
-          value={categoryId}
-          onChange={setCategoryId}
-        />
-        <SelectField
-          label="Status"
-          options={STATUS_OPTIONS}
-          value={status}
-          onChange={(v) => setStatus(v as typeof status)}
-        />
-      </FieldGrid>
-      <QueryBoundary {...products} refetch={() => products.refetch()} label="Loading products">
-        {items.length === 0 ? (
-          <EmptyState
-            title={filtered ? 'No products match' : 'No products yet'}
-            action={
-              !filtered && can('catalog:write') ? (
-                <Button href="/products/new">Add your first product</Button>
-              ) : undefined
-            }
-          >
-            {filtered
-              ? 'Try a different search or filter.'
-              : can('catalog:write')
-                ? 'Add a product, or import a CSV.'
-                : 'Ask someone with catalog access to add products.'}
-          </EmptyState>
-        ) : (
           <>
-            <DataTable label="Products" columns={columns} rows={items} rowKey={(p) => p.id} />
-            <LoadMore
-              hasNext={!!products.hasNextPage}
-              loading={products.isFetchingNextPage}
-              onPress={() => products.fetchNextPage()}
+            {can('catalog:write') && (
+              <Button variant="secondary" icon="upload" href="/imports">
+                Bulk import
+              </Button>
+            )}
+            {can('inventory:write') && (
+              <Button
+                variant="secondary"
+                icon="edit"
+                onPress={() =>
+                  setRequest({ mode: 'adjust', variant: null, product: null, picker: true })
+                }
+              >
+                Adjust stock
+              </Button>
+            )}
+            {can('catalog:write') && (
+              <Button icon="plus" href="/products/new">
+                Add product
+              </Button>
+            )}
+            <Menu
+              label="More actions"
+              items={[
+                { key: 'suppliers', label: 'Suppliers', icon: 'store', href: '/suppliers' },
+                { key: 'locations', label: 'Locations', icon: 'pin', href: '/locations' },
+                ...exporter.menuItems(),
+              ]}
             />
           </>
-        )}
-      </QueryBoundary>
+        }
+      />
+      {s && (
+        <Grid columns={{ mobile: 2, desktop: 4 }}>
+          <StatCard
+            label="Inventory value (cost)"
+            value={formatPrice(s.inventoryValueCostMinor)}
+            icon="layers"
+            hint={
+              s.missingCostVariants > 0
+                ? `${s.missingCostVariants} item${s.missingCostVariants === 1 ? ' has' : 's have'} no cost price`
+                : 'On hand × cost price'
+            }
+          />
+          <StatCard
+            label="Retail value"
+            value={formatPrice(s.retailValueMinor)}
+            icon="tag"
+            hint="On hand × selling price"
+          />
+          <StatCard
+            label="Low stock"
+            value={String(s.lowStockCount)}
+            icon="alert"
+            tone={s.lowStockCount > 0 ? 'warning' : 'default'}
+            hint="At or below the reorder point"
+          />
+          <StatCard
+            label="Out of stock"
+            value={String(s.outOfStockCount)}
+            icon="box"
+            tone={s.outOfStockCount > 0 ? 'danger' : 'default'}
+            hint="No units available"
+          />
+        </Grid>
+      )}
+      <Tabs
+        label="Products and inventory views"
+        value={tab}
+        onChange={(v) => setTab(v as ProductsTabName)}
+        items={[
+          { value: 'products', label: 'Products', count: s?.products },
+          { value: 'movements', label: 'Stock movements' },
+          { value: 'low', label: 'Low stock', count: s?.lowStockCount },
+          { value: 'categories', label: 'Categories', count: categories.data?.length },
+          { value: 'reservations', label: 'Reservations' },
+        ]}
+      />
+      {tab === 'products' && <ProductsTab total={s?.products} onStock={askProduct} />}
+      {tab === 'movements' && <MovementsTab />}
+      {tab === 'low' && (
+        <LowStockTab
+          onReceive={(variant) =>
+            setRequest({ mode: 'receive', variant, product: null, picker: false })
+          }
+        />
+      )}
+      {tab === 'categories' && <CategoriesPanel />}
+      {tab === 'reservations' && <ReservationsTab />}
+      <StockDialog
+        mode={request?.mode ?? 'receive'}
+        variant={request?.variant ?? null}
+        picker={request?.picker ?? false}
+        product={request?.product ?? null}
+        onClose={() => setRequest(null)}
+      />
     </Stack>
   );
 }

@@ -54,7 +54,7 @@ export function SuppliersScreen() {
         <Stack gap={1}>
           <Row gap={2} wrap>
             <Text weight="medium">{s.name}</Text>
-            {s.archived ? <Badge>Archived</Badge> : null}
+            {s.archived ? <Badge dot>Archived</Badge> : null}
           </Row>
           {s.contactName ? (
             <Text variant="caption" tone="muted">
@@ -98,15 +98,28 @@ export function SuppliersScreen() {
       <PageHeader
         title="Suppliers"
         description="The people and companies you buy stock from."
+        breadcrumbs={[{ label: 'Products & inventory', href: '/products' }, { label: 'Suppliers' }]}
         actions={
           writable ? (
-            <Button onPress={() => setEditing({ supplier: null })}>New supplier</Button>
+            <Button icon="plus" onPress={() => setEditing({ supplier: null })}>
+              New supplier
+            </Button>
           ) : undefined
         }
       />
       <QueryBoundary {...query} refetch={() => query.refetch()} label="Loading suppliers">
         {(query.data ?? []).length === 0 ? (
-          <EmptyState title="No suppliers yet">
+          <EmptyState
+            icon="store"
+            title="No suppliers yet"
+            action={
+              writable ? (
+                <Button icon="plus" onPress={() => setEditing({ supplier: null })}>
+                  New supplier
+                </Button>
+              ) : undefined
+            }
+          >
             Add the businesses you buy from, then pick one on each product.
           </EmptyState>
         ) : (
@@ -115,6 +128,37 @@ export function SuppliersScreen() {
             columns={columns}
             rows={query.data ?? []}
             rowKey={(s) => s.id}
+            renderCard={(s) => (
+              <Stack gap={2}>
+                <Row gap={2} wrap>
+                  <Text weight="medium">{s.name}</Text>
+                  {s.archived ? <Badge dot>Archived</Badge> : null}
+                </Row>
+                <Text variant="small" tone="muted">
+                  {[s.contactName, s.phone, s.email].filter(Boolean).join(' · ') ||
+                    'No contact details'}
+                </Text>
+                {writable && (
+                  <Row gap={1} wrap>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onPress={() => setEditing({ supplier: s })}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      loading={working === s.id}
+                      onPress={() => toggleArchived(s)}
+                    >
+                      {s.archived ? 'Restore' : 'Archive'}
+                    </Button>
+                  </Row>
+                )}
+              </Stack>
+            )}
           />
         )}
       </QueryBoundary>

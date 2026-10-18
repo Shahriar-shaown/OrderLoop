@@ -1,4 +1,4 @@
-import { FormDialog, TextField, useToast } from '@orderloop/ui';
+import { FormDialog, TextField, useToast, type IconName } from '@orderloop/ui';
 import { useFormState } from '../forms';
 
 function NameForm({
@@ -9,6 +9,7 @@ function NameForm({
   success,
   onSubmit,
   onClose,
+  icon,
 }: Omit<NameDialogProps, 'open'>) {
   const toast = useToast();
   const form = useFormState({ name: initial });
@@ -30,6 +31,7 @@ function NameForm({
       busy={form.busy}
       error={form.formError}
       size="sm"
+      {...(icon ? { icon } : {})}
     >
       <TextField label={label} autoFocus required {...form.field('name')} />
     </FormDialog>
@@ -46,6 +48,8 @@ interface NameDialogProps {
   success: string;
   onSubmit: (name: string) => Promise<unknown>;
   onClose: () => void;
+  /** A round icon above the title. */
+  icon?: IconName;
 }
 
 /** A one-field dialog for creating or renaming something with a name (a category, a stock location). */

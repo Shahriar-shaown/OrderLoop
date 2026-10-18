@@ -2,8 +2,10 @@ import type { ReactNode } from 'react';
 import { Alert } from './Alert';
 import { Button } from './Button';
 import { Dialog } from './Dialog';
+import type { IconName } from './icons';
 import { Form } from './Form';
 import { Stack } from './Stack';
+import type { Tone } from './tokens';
 
 /**
  * A dialog that is a form: fields, an error summary, Cancel and a submit button. The form lives inside the dialog (not
@@ -20,6 +22,8 @@ export function FormDialog({
   danger = false,
   children,
   size,
+  icon,
+  iconTone,
 }: {
   open: boolean;
   onClose: () => void;
@@ -31,9 +35,19 @@ export function FormDialog({
   danger?: boolean;
   children: ReactNode;
   size?: 'sm' | 'md';
+  /** A round icon above the title, as in the design's dialogs. */
+  icon?: IconName;
+  iconTone?: Tone;
 }) {
   return (
-    <Dialog open={open} onClose={onClose} title={title} {...(size ? { size } : {})}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={title}
+      {...(size ? { size } : {})}
+      {...(icon ? { icon } : {})}
+      {...(iconTone ? { iconTone } : {})}
+    >
       <Form onSubmit={onSubmit} accessibilityLabel={title}>
         {error ? <Alert tone="error">{error}</Alert> : null}
         {children}

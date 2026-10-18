@@ -1,4 +1,4 @@
-import { LoadingState, Screen, useNavigation } from '@orderloop/ui';
+import { LoadingState, Logo, Screen, Stack, useNavigation } from '@orderloop/ui';
 import { useEffect } from 'react';
 import { useAuth } from '../auth';
 import { useRuntime } from '../runtime';
@@ -14,7 +14,10 @@ export function HomeScreen() {
   }, [status]);
   return (
     <Screen width="sm">
-      <LoadingState label="Loading" />
+      <Stack gap={6} align="center">
+        <Logo size={36} />
+        <LoadingState label="Loading" />
+      </Stack>
     </Screen>
   );
 }

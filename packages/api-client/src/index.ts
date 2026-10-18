@@ -215,6 +215,7 @@ export function createApiClient(options: ApiClientOptions) {
         call(routes.updateSupplier, { params: { id }, body }),
     },
     inventory: {
+      summary: () => call(routes.getInventorySummary),
       list: (query: RouteInput<typeof routes.listInventory>['query'] = {}) =>
         call(routes.listInventory, { query }),
       receive: (body: RouteInput<typeof routes.receiveStock>['body']) =>
@@ -298,6 +299,11 @@ export function createApiClient(options: ApiClientOptions) {
       ) => call(routes.listCourierLocations, { params: { provider }, query }),
     },
     shipments: {
+      /** Every shipment, newest first, with a count per status for the same search. */
+      list: (query: RouteInput<typeof routes.listShipments>['query'] = {}) =>
+        call(routes.listShipments, { query }),
+      /** Courier KPIs and per-courier results. */
+      stats: () => call(routes.getShipmentSummary),
       quote: (orderId: string, body: RouteInput<typeof routes.quoteShipping>['body']) =>
         call(routes.quoteShipping, { params: { id: orderId }, body }),
       /** `idempotencyKey` is required: repeat the same key to retry safely; a new key means a new booking. */
@@ -314,6 +320,9 @@ export function createApiClient(options: ApiClientOptions) {
         call(routes.simulateShipmentEvent, { params: { id }, body }),
     },
     finance: {
+      orderCash: (orderId: string) => call(routes.getOrderCash, { params: { id: orderId } }),
+      analytics: (query: RouteInput<typeof routes.getAnalytics>['query'] = {}) =>
+        call(routes.getAnalytics, { query }),
       /** The same file is never imported twice. `dryRun` checks it and shows what would happen without recording anything. */
       importSettlement: (body: RouteInput<typeof routes.importSettlement>['body']) =>
         call(routes.importSettlement, { body }),

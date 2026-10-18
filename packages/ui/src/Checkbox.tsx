@@ -1,4 +1,5 @@
 import { Pressable, View } from 'react-native';
+import { Icon } from './Icon';
 import { Text } from './Text';
 import { useTheme } from './theme';
 import { radius, space, touchTarget } from './tokens';
@@ -39,25 +40,23 @@ export function Checkbox({
           opacity: disabled ? 0.5 : 1,
         },
         (state as { focused?: boolean }).focused
-          ? { outlineWidth: 2, outlineStyle: 'solid', outlineColor: colors.focus, outlineOffset: 2 }
+          ? { outlineWidth: 3, outlineStyle: 'solid', outlineColor: colors.focus, outlineOffset: 0 }
           : null,
       ]}
     >
       <View
         style={{
-          width: 22,
-          height: 22,
+          width: 18,
+          height: 18,
           borderRadius: radius.sm,
-          borderWidth: 2,
-          borderColor: checked ? colors.primary : colors.muted,
-          backgroundColor: checked ? colors.primary : colors.background,
+          borderWidth: 1.5,
+          borderColor: checked ? colors.primary : colors.borderStrong,
+          backgroundColor: checked ? colors.primary : colors.surface,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        {checked ? (
-          <Text style={{ color: colors.onPrimary, lineHeight: 18, fontWeight: '700' }}>✓</Text>
-        ) : null}
+        {checked ? <Icon name="check" size={14} color={colors.onPrimary} strokeWidth={3} /> : null}
       </View>
       {hideLabel ? null : <Text>{label}</Text>}
     </Pressable>

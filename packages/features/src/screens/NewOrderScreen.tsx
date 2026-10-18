@@ -1,4 +1,4 @@
-import { Alert, PageHeader, Stack } from '@orderloop/ui';
+import { Alert, Button, PageHeader, Stack } from '@orderloop/ui';
 import { OrderForm } from '../components/OrderForm';
 import { useCan } from '../permissions';
 
@@ -10,8 +10,14 @@ export function NewOrderScreen({ customerId }: { customerId?: string | undefined
   return (
     <Stack gap={5}>
       <PageHeader
-        title="New order"
-        description="Customer, delivery address and items. Totals are worked out by the server."
+        breadcrumbs={[{ label: 'Orders', href: '/orders' }, { label: 'Create order' }]}
+        title="Create order"
+        description="Add a customer, products and payment. Totals update as you type."
+        actions={
+          <Button variant="tertiary" href="/orders">
+            Cancel
+          </Button>
+        }
       />
       <OrderForm {...(customerId ? { customerId } : {})} />
     </Stack>

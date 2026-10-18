@@ -48,6 +48,40 @@ export function LocationsScreen() {
     }
   }
 
+  const actions = (l: Location) => (
+    <Row gap={1} wrap>
+      <Button size="sm" variant="secondary" onPress={() => setEditing({ location: l })}>
+        Rename
+      </Button>
+      {!l.isDefault && !l.archived && (
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={working === l.id}
+          onPress={() => change(l, { isDefault: true }, `${l.name} is now the default location`)}
+        >
+          Make default
+        </Button>
+      )}
+      {!l.isDefault && (
+        <Button
+          size="sm"
+          variant="ghost"
+          loading={working === l.id}
+          onPress={() =>
+            change(
+              l,
+              { archived: !l.archived },
+              l.archived ? 'Location restored' : 'Location archived',
+            )
+          }
+        >
+          {l.archived ? 'Restore' : 'Archive'}
+        </Button>
+      )}
+    </Row>
+  );
+
   const columns: Column<Location>[] = [
     {
       key: 'name',
@@ -58,7 +92,7 @@ export function LocationsScreen() {
         <Row gap={2} wrap>
           <Text>{l.name}</Text>
           {l.isDefault ? <Badge tone="info">Default</Badge> : null}
-          {l.archived ? <Badge>Archived</Badge> : null}
+          {l.archived ? <Badge dot>Archived</Badge> : null}
         </Row>
       ),
     },
@@ -69,41 +103,7 @@ export function LocationsScreen() {
             header: 'Actions',
             flex: 3,
             minWidth: 320,
-            render: (l: Location) => (
-              <Row gap={1} wrap>
-                <Button size="sm" variant="secondary" onPress={() => setEditing({ location: l })}>
-                  Rename
-                </Button>
-                {!l.isDefault && !l.archived && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    loading={working === l.id}
-                    onPress={() =>
-                      change(l, { isDefault: true }, `${l.name} is now the default location`)
-                    }
-                  >
-                    Make default
-                  </Button>
-                )}
-                {!l.isDefault && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    loading={working === l.id}
-                    onPress={() =>
-                      change(
-                        l,
-                        { archived: !l.archived },
-                        l.archived ? 'Location restored' : 'Location archived',
-                      )
-                    }
-                  >
-                    {l.archived ? 'Restore' : 'Archive'}
-                  </Button>
-                )}
-              </Row>
-            ),
+            render: (l: Location) => actions(l),
           },
         ]
       : []),
@@ -114,15 +114,18 @@ export function LocationsScreen() {
       <PageHeader
         title="Locations"
         description="Where your stock is kept: a shop, a warehouse, a shelf. New stock goes to the default location unless you pick another."
+        breadcrumbs={[{ label: 'Products & inventory', href: '/products' }, { label: 'Locations' }]}
         actions={
           writable ? (
-            <Button onPress={() => setEditing({ location: null })}>New location</Button>
+            <Button icon="plus" onPress={() => setEditing({ location: null })}>
+              New location
+            </Button>
           ) : undefined
         }
       />
       <QueryBoundary {...query} refetch={() => query.refetch()} label="Loading locations">
         {(query.data ?? []).length === 0 ? (
-          <EmptyState title="No locations yet">
+          <EmptyState icon="pin" title="No locations yet">
             A default location is created automatically the first time you receive stock. You can
             also add one now.
           </EmptyState>
@@ -132,6 +135,16 @@ export function LocationsScreen() {
             columns={columns}
             rows={query.data ?? []}
             rowKey={(l) => l.id}
+            renderCard={(l) => (
+              <Stack gap={2}>
+                <Row gap={2} wrap>
+                  <Text weight="medium">{l.name}</Text>
+                  {l.isDefault ? <Badge tone="info">Default</Badge> : null}
+                  {l.archived ? <Badge dot>Archived</Badge> : null}
+                </Row>
+                {writable && actions(l)}
+              </Stack>
+            )}
           />
         )}
       </QueryBoundary>

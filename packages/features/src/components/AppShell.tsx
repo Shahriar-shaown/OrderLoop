@@ -1,49 +1,34 @@
-import type { Permission } from '@orderloop/contracts';
 import {
   Alert,
-  Badge,
   Button,
-  Link,
-  LoadingState,
-  NavLink,
+  Logo,
+  Menu,
+  NavItem,
   Row,
   Screen,
+  Sheet,
   SkipLink,
   Stack,
   Text,
-  ThemeToggle,
+  useBreakpoint,
   useNavigation,
   useTheme,
   useToast,
+  layout,
 } from '@orderloop/ui';
-import { useEffect, useState, type ReactNode } from 'react';
-import { useWindowDimensions, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Pressable, View, type ViewStyle } from 'react-native';
 import { useAuth, useRequireAuth } from '../auth';
 import { messageFor } from '../errors';
 import { useCan } from '../permissions';
-import { useRuntime } from '../runtime';
-import { WorkspaceSwitcher } from './WorkspaceSwitcher';
+import { useApi, useRuntime } from '../runtime';
+import { AccountMenu } from '../shell/AccountMenu';
+import { GlobalSearch, useSearchShortcut } from '../shell/GlobalSearch';
+import { BOTTOM_HREFS, WEB_NAV, type ShellNavItem } from '../shell/nav';
+import { WorkspaceMenu } from '../shell/WorkspaceMenu';
 
-export interface ShellNavItem {
-  href: string;
-  label: string;
-  needs?: Permission;
-}
-
-const WEB_NAV: ShellNavItem[] = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/orders', label: 'Orders' },
-  { href: '/customers', label: 'Customers' },
-  { href: '/products', label: 'Products' },
-  { href: '/inventory', label: 'Stock' },
-  { href: '/categories', label: 'Categories' },
-  { href: '/locations', label: 'Locations' },
-  { href: '/suppliers', label: 'Suppliers' },
-  { href: '/imports', label: 'Import', needs: 'catalog:write' },
-  { href: '/finance', label: 'Finance', needs: 'finance:read' },
-  { href: '/team', label: 'Team', needs: 'members:read' },
-  { href: '/settings', label: 'Settings' },
-];
+export type { ShellNavItem } from '../shell/nav';
 
 function VerifyBanner() {
   const { session: current } = useAuth();
@@ -96,13 +81,62 @@ function VerifyBanner() {
   );
 }
 
-/** The signed-in frame: header with the workspace and account, the menu, the verification reminder, then the screen. */
+/** Orders waiting to be confirmed: the one count the menu shows, because it is work a person has to do. */
+function usePendingOrders(enabled: boolean) {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['orders', 'pending-count'],
+    enabled,
+    refetchInterval: 60_000,
+    queryFn: async () =>
+      (await api.orders.list({ limit: 1 } as never)).statusCounts['pending_confirmation'] ?? 0,
+  });
+}
+
+const sticky = { position: 'sticky', top: 0 } as unknown as ViewStyle;
+
+function QuickCreate({ compact }: { compact?: boolean }) {
+  const can = useCan();
+  const items = [
+    ...(can('orders:write')
+      ? [{ key: 'order', label: 'New order', icon: 'box' as const, href: '/orders/new' }]
+      : []),
+    ...(can('catalog:write')
+      ? [{ key: 'product', label: 'New product', icon: 'layers' as const, href: '/products/new' }]
+      : []),
+    ...(can('orders:write')
+      ? [{ key: 'customer', label: 'New customer', icon: 'users' as const, href: '/customers' }]
+      : []),
+  ];
+  if (!items.length) return null;
+  return (
+    <Menu
+      items={items}
+      width={220}
+      trigger={(p) => (
+        <Button
+          variant="secondary"
+          icon="plus"
+          iconRight={compact ? undefined : 'chevron-down'}
+          onPress={p.onPress}
+          aria-haspopup="menu"
+          aria-expanded={p['aria-expanded']}
+          accessibilityLabel="Quick create"
+        >
+          {compact ? undefined : 'Quick create'}
+        </Button>
+      )}
+    />
+  );
+}
+
+/** The signed-in frame: sidebar (rail on a tablet, bottom bar on a phone), header, the verification reminder, then the screen. */
 export function AppShell({
   children,
   nav = WEB_NAV,
 }: {
   children: ReactNode;
-  /** The menu. The web app shows the catalog; the mobile app shows what it has built so far. */
+  /** The menu. The web app shows the whole catalogue; the mobile app shows what it has built so far. */
   nav?: ShellNavItem[];
 }) {
   const { status, session: current, signOut } = useAuth();
@@ -110,20 +144,24 @@ export function AppShell({
   const navigation = useNavigation();
   const can = useCan();
   const { colors } = useTheme();
-  const { home } = useRuntime();
+  const { isMobile, isTablet, isDesktop } = useBreakpoint();
   const [leaving, setLeaving] = useState(false);
-  // On a phone the menu folds behind a button instead of wrapping into six rows.
-  const { width } = useWindowDimensions();
-  const narrow = width < 720;
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [more, setMore] = useState(false);
   const { pathname } = navigation;
-  useEffect(() => setMenuOpen(false), [pathname]);
+  useEffect(() => setMore(false), [pathname]);
+  const openSearch = useCallback(() => setSearching(true), []);
+  useSearchShortcut(openSearch);
+  const pending = usePendingOrders(status === 'authenticated' && can('orders:read'));
 
   // While restoring the session (or being sent to sign in) show nothing from the app: no flash of private screens.
   if (status !== 'authenticated' || !current) {
     return (
       <Screen width="sm">
-        <LoadingState label="Loading your workspace" />
+        <Stack align="center" gap={3} style={{ paddingTop: 80 }}>
+          <Logo />
+          <Text tone="muted">Loading your workspace…</Text>
+        </Stack>
       </Screen>
     );
   }
@@ -134,80 +172,273 @@ export function AppShell({
     navigation.replace('/login');
   }
 
-  return (
-    <View style={{ flex: 1 }}>
-      <SkipLink />
+  const items = nav.filter((item) => !item.needs || can(item.needs));
+  const groups = [...new Set(items.map((i) => i.group ?? ''))];
+  const withBadge = (i: ShellNavItem) => (i.href === '/orders' ? pending.data : undefined);
+
+  const sidebar = !isMobile && (
+    <View
+      role="navigation"
+      aria-label="Main"
+      style={[
+        {
+          width: isDesktop ? layout.sidebar : layout.rail,
+          height: '100vh' as unknown as number,
+          borderRightWidth: 1,
+          borderRightColor: colors.border,
+          backgroundColor: colors.surface,
+          paddingVertical: 16,
+          paddingHorizontal: isDesktop ? 16 : 12,
+          gap: 4,
+        },
+        sticky,
+      ]}
+    >
       <View
-        role="banner"
         style={{
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-          paddingVertical: 12,
-          paddingHorizontal: 16,
+          height: 40,
+          justifyContent: 'center',
+          paddingHorizontal: isDesktop ? 4 : 0,
+          marginBottom: 12,
+          alignItems: isDesktop ? 'flex-start' : 'center',
         }}
       >
-        <View style={{ width: '100%', maxWidth: 1100, alignSelf: 'center' }}>
-          <Stack direction="row" justify="between" align="center" gap={3} wrap>
-            <Row gap={3} wrap>
-              <Link href={home} variant="plain">
-                <Text variant="heading">OrderLoop</Text>
-              </Link>
-              <WorkspaceSwitcher
-                fallback={
-                  <Text tone="muted" testID="tenant-name">
-                    {current.tenant.name}
-                  </Text>
-                }
-              />
-              <Badge>{current.role.toLowerCase()}</Badge>
-            </Row>
-            <Row gap={3} wrap>
-              <ThemeToggle />
-              <Text tone="muted" testID="user-email">
-                {current.user.email}
-              </Text>
-              <Button variant="secondary" size="sm" loading={leaving} onPress={leave}>
-                Sign out
-              </Button>
-            </Row>
-          </Stack>
-          {narrow && (
-            <View style={{ marginTop: 8, alignItems: 'flex-start' }}>
-              <Button
-                variant="secondary"
-                size="sm"
-                aria-expanded={menuOpen}
-                aria-controls="main-menu"
-                onPress={() => setMenuOpen((o) => !o)}
-              >
-                {menuOpen ? 'Close menu' : 'Menu'}
-              </Button>
-            </View>
-          )}
-          <View
-            role="navigation"
-            aria-label="Main"
-            nativeID="main-menu"
-            style={{ marginTop: 8, display: narrow && !menuOpen ? 'none' : 'flex' }}
-          >
-            <Row gap={1} wrap>
-              {nav
-                .filter((item) => !item.needs || can(item.needs))
-                .map((item) => (
-                  <NavLink key={item.href} href={item.href}>
-                    {item.label}
-                  </NavLink>
-                ))}
-            </Row>
-          </View>
-        </View>
+        <Pressable
+          role="link"
+          aria-label="OrderLoop home"
+          onPress={() => navigation.push('/dashboard')}
+        >
+          <Logo size={isDesktop ? 30 : 32} wordmark={isDesktop} />
+        </Pressable>
       </View>
-      <Screen>
-        <Stack gap={5}>
-          <VerifyBanner />
-          {children}
-        </Stack>
-      </Screen>
+      {groups.map((g) => (
+        <View key={g || 'all'} style={{ gap: 2, marginBottom: 12 }}>
+          {g && isDesktop && (
+            <Text
+              variant="fine"
+              tone="muted"
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}
+            >
+              {g}
+            </Text>
+          )}
+          {items
+            .filter((i) => (i.group ?? '') === g)
+            .map((i) => (
+              <NavItem
+                key={i.href}
+                href={i.href}
+                label={i.label}
+                icon={i.icon ?? 'box'}
+                collapsed={!isDesktop}
+                badge={withBadge(i)}
+              />
+            ))}
+        </View>
+      ))}
     </View>
+  );
+
+  const header = (
+    <View
+      role="banner"
+      style={[
+        {
+          height: isMobile ? layout.headerMobile : layout.header,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+          backgroundColor: colors.surface,
+          paddingHorizontal: isMobile ? 12 : isTablet ? 24 : 32,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          zIndex: 5,
+        },
+        sticky,
+      ]}
+    >
+      <WorkspaceMenu compact={isMobile} />
+      {isDesktop ? (
+        <Pressable
+          role="button"
+          aria-label="Search orders, customers, products and tracking IDs"
+          onPress={openSearch}
+          style={{
+            flexGrow: 1,
+            flexShrink: 1,
+            maxWidth: 440,
+            minHeight: 40,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            borderWidth: 1,
+            borderColor: colors.borderStrong,
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            backgroundColor: colors.surface,
+          }}
+        >
+          <Text tone="muted" style={{ flexGrow: 1 }}>
+            Search orders, customers, tracking IDs
+          </Text>
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 6,
+              paddingHorizontal: 6,
+              backgroundColor: colors.subtle,
+            }}
+          >
+            <Text variant="caption" tone="muted">
+              ⌘K
+            </Text>
+          </View>
+        </Pressable>
+      ) : null}
+      <View style={{ flexGrow: 1 }} />
+      {!isDesktop && (
+        <Button variant="ghost" icon="search" accessibilityLabel="Search" onPress={openSearch} />
+      )}
+      {!isMobile && <QuickCreate compact={isTablet} />}
+      <AccountMenu onSignOut={leave} leaving={leaving} />
+    </View>
+  );
+
+  const bottom = isMobile && (
+    <View
+      role="navigation"
+      aria-label="Main"
+      style={[
+        {
+          height: layout.bottomBar,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          backgroundColor: colors.surface,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-around',
+          paddingHorizontal: 8,
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 10,
+        } as unknown as ViewStyle,
+      ]}
+    >
+      {BOTTOM_HREFS.slice(0, 2).map((href) => {
+        const i = items.find((x) => x.href === href);
+        return i ? <BottomItem key={href} item={i} /> : null;
+      })}
+      <Menu
+        items={[
+          ...(can('orders:write')
+            ? [{ key: 'order', label: 'New order', icon: 'box' as const, href: '/orders/new' }]
+            : []),
+          ...(can('catalog:write')
+            ? [
+                {
+                  key: 'product',
+                  label: 'New product',
+                  icon: 'layers' as const,
+                  href: '/products/new',
+                },
+              ]
+            : []),
+        ]}
+        align="start"
+        trigger={(p) => (
+          <Pressable
+            role="button"
+            aria-label="Create"
+            aria-haspopup="menu"
+            aria-expanded={p['aria-expanded']}
+            onPress={p.onPress}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: colors.primary,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: colors.onPrimary, fontSize: 24, lineHeight: 26 }}>+</Text>
+          </Pressable>
+        )}
+      />
+      {(() => {
+        const i = items.find((x) => x.href === BOTTOM_HREFS[2]);
+        return i ? <BottomItem item={i} /> : null;
+      })()}
+      <Pressable
+        role="button"
+        aria-label="More"
+        onPress={() => setMore(true)}
+        style={{
+          minWidth: 56,
+          minHeight: 48,
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 2,
+        }}
+      >
+        <Text variant="caption" tone="muted">
+          •••
+        </Text>
+        <Text variant="caption" tone="muted">
+          More
+        </Text>
+      </Pressable>
+    </View>
+  );
+
+  return (
+    <View style={{ flex: 1, flexDirection: 'row' }}>
+      <SkipLink />
+      {sidebar}
+      <View style={{ flex: 1, minWidth: 0, backgroundColor: colors.background }}>
+        {header}
+        <Screen>
+          <Stack gap={5} style={isMobile ? { paddingBottom: layout.bottomBar + 8 } : undefined}>
+            <VerifyBanner />
+            {children}
+          </Stack>
+        </Screen>
+      </View>
+      {bottom}
+      <Sheet open={more} onClose={() => setMore(false)} title="Menu">
+        <Stack gap={1}>
+          {items.map((i) => (
+            <NavItem
+              key={i.href}
+              href={i.href}
+              label={i.label}
+              icon={i.icon ?? 'box'}
+              badge={withBadge(i)}
+              onNavigate={() => setMore(false)}
+            />
+          ))}
+        </Stack>
+      </Sheet>
+      <GlobalSearch open={searching} onClose={() => setSearching(false)} />
+    </View>
+  );
+}
+
+function BottomItem({ item }: { item: ShellNavItem }) {
+  return (
+    <NavItem
+      href={item.href}
+      label={item.label.split(' ')[0] ?? item.label}
+      icon={item.icon ?? 'box'}
+      collapsed
+    />
   );
 }

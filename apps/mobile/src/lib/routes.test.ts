@@ -57,6 +57,6 @@ describe('mobile routes', () => {
   });
 
   it('reports a missing screen rather than assuming it exists', () => {
-    expect(hasRoute('/couriers')).toBe(false);
+    expect(hasRoute('/automations')).toBe(false);
   });
 });

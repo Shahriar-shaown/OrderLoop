@@ -28,6 +28,8 @@ export function ConfirmDialog({
       onClose={onClose}
       title={title}
       size="sm"
+      icon={danger ? 'alert' : 'check'}
+      iconTone={danger ? 'error' : 'brand'}
       footer={
         <>
           <Button variant="secondary" onPress={onClose}>

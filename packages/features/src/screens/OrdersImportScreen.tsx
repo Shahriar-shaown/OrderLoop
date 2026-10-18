@@ -61,6 +61,7 @@ export function OrdersImportScreen() {
   return (
     <Stack gap={5}>
       <PageHeader
+        breadcrumbs={[{ label: 'Orders', href: '/orders' }, { label: 'Import' }]}
         title="Import orders"
         description="One row per order line; rows with the same order_ref are one order. Totals are never read from the file: they are worked out from quantities and prices."
         actions={

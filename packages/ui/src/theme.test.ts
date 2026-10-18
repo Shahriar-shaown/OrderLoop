@@ -14,7 +14,7 @@ describe('web theme', () => {
     const sheet = themeStyleSheet();
     expect(sheet).toContain(`--ol-background:${palettes.light.background}`);
     expect(sheet).toMatch(
-      /@media \(prefers-color-scheme:dark\)\{:root:not\(\[data-scheme="light"\]\)\{[^}]*--ol-background:#09090b/,
+      /@media \(prefers-color-scheme:dark\)\{:root:not\(\[data-scheme="light"\]\)\{[^}]*--ol-background:#0b1120/,
     );
     expect(sheet).toContain(':root[data-scheme="dark"]');
   });
