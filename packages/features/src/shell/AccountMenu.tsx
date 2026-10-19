@@ -18,6 +18,7 @@ export function AccountMenu({ onSignOut, leaving }: { onSignOut: () => void; lea
   if (!session) return null;
   return (
     <Popover
+      triggerAlign="center"
       align="end"
       width={280}
       trigger={(p) => (

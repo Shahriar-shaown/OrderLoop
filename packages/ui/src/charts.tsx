@@ -50,7 +50,7 @@ export function AreaChart({
   const id = useId().replace(/:/g, '');
   const [width, setWidth] = useState(560);
   const [active, setActive] = useState<number | null>(null);
-  const PAD = { left: 48, right: 12, top: 12, bottom: 28 };
+  const PAD = { left: 48, right: 26, top: 12, bottom: 28 };
   const all = series.flatMap((s) => s.values.filter((v): v is number => v !== null));
   const max = niceMax(Math.max(0, ...all));
   const ticks = [0, 1, 2, 3, 4].map((i) => (max / 4) * i);
@@ -406,7 +406,7 @@ export function WaterfallChart({
     >
       <View
         style={{
-          minWidth: Math.max(560, steps.length * 72),
+          minWidth: Math.max(560, steps.length * 84),
           flexDirection: 'row',
           height,
           gap: 8,
@@ -430,7 +430,9 @@ export function WaterfallChart({
                   variant="caption"
                   numeric
                   tone="muted"
-                  style={{ position: 'absolute', top: Math.max(-16, top - 16) }}
+                  numberOfLines={1}
+                  align="center"
+                  style={{ position: 'absolute', top: Math.max(-16, top - 18), width: '100%' }}
                 >
                   {b.s.kind === 'minus' ? `−${format(b.s.value)}` : format(b.s.value)}
                 </Text>

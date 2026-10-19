@@ -22,12 +22,15 @@ export function Popover({
   align = 'start',
   width,
   haspopup = 'menu',
+  triggerAlign = 'flex-start',
 }: {
   trigger: (props: PopoverTriggerProps) => ReactNode;
   children: ReactNode | ((close: () => void) => ReactNode);
   align?: 'start' | 'end';
   width?: number;
   haspopup?: 'menu' | 'listbox' | 'dialog';
+  /** How the trigger sits in a row or column of its siblings. Centre it in a header. */
+  triggerAlign?: 'flex-start' | 'center' | 'flex-end';
 }) {
   const { colors } = useTheme();
   const window = useWindowDimensions();
@@ -71,7 +74,7 @@ export function Popover({
   };
   return (
     <>
-      <View ref={ref} collapsable={false} style={{ alignSelf: 'flex-start' }}>
+      <View ref={ref} collapsable={false} style={{ alignSelf: triggerAlign }}>
         {trigger({
           open: anchor !== null,
           onPress: open,

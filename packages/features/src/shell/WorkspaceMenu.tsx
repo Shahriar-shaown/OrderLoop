@@ -28,6 +28,7 @@ export function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
   const many = (query.data?.length ?? 0) > 1;
   return (
     <Popover
+      triggerAlign="center"
       align="start"
       width={280}
       trigger={(p) => (

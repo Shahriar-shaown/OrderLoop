@@ -72,6 +72,7 @@ export function Menu({
   triggerIcon = 'more',
   align = 'end',
   width = 220,
+  triggerAlign,
 }: {
   items: MenuItem[];
   trigger?: (props: PopoverTriggerProps) => ReactNode;
@@ -80,6 +81,7 @@ export function Menu({
   triggerIcon?: IconName;
   align?: 'start' | 'end';
   width?: number;
+  triggerAlign?: 'flex-start' | 'center' | 'flex-end';
 }) {
   const { colors } = useTheme();
   const safe = items.filter((i) => !i.danger);
@@ -88,6 +90,7 @@ export function Menu({
     <Popover
       align={align}
       width={width}
+      {...(triggerAlign ? { triggerAlign } : {})}
       trigger={
         trigger ??
         ((p) => (

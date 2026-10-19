@@ -144,7 +144,7 @@ function Waterfall({
   return (
     <Section
       title="Profit waterfall · from gross sales to net profit"
-      description="Every bar is a line in the calculation on the right."
+      description="Every bar is a line in the calculation below."
     >
       <WaterfallChart
         title={`Profit waterfall: ${steps.map((s) => `${s.label} ${formatPrice(s.value)}`).join(', ')}`}
@@ -570,7 +570,7 @@ function Body({
             : 'Profit may be overstated until these have a cost price.'}
         </Alert>
       )}
-      <Grid columns={{ mobile: 2, tablet: 3, desktop: 6 }}>
+      <Grid columns={{ mobile: 2, tablet: 3, desktop: 3 }}>
         <StatCard
           icon="wallet"
           label="Gross sales"
@@ -651,30 +651,27 @@ function Body({
         </Text>
       )}
 
+      <Waterfall summary={summary} analytics={analytics} costs={costs} />
+
+      {/* The two columns hold cards of about the same total height, so nothing leaves a gap beside a taller neighbour. */}
       <Split
         asideWidth={420}
-        main={<Waterfall summary={summary} analytics={analytics} costs={costs} />}
+        main={<HowProfitIsCalculated summary={summary} analytics={analytics} costs={costs} />}
         aside={
           <>
-            <HowProfitIsCalculated summary={summary} analytics={analytics} costs={costs} />
             <NotCounted summary={summary} analytics={analytics} outstanding={outstanding} />
+            <Channels analytics={analytics} />
           </>
         }
       />
 
-      <Split
-        asideWidth={420}
-        main={
-          <Section
-            title="Sales & profit"
-            description={`${rangeInWords(from, to)} · delivered orders only`}
-          >
-            <SalesProfitChart days={analytics.daily} from={from} to={to} />
-            <Source>{SOURCE_LABEL.orders ?? ''}</Source>
-          </Section>
-        }
-        aside={<Channels analytics={analytics} />}
-      />
+      <Section
+        title="Sales & profit"
+        description={`${rangeInWords(from, to)} · delivered orders only`}
+      >
+        <SalesProfitChart days={analytics.daily} from={from} to={to} />
+        <Source>{SOURCE_LABEL.orders ?? ''}</Source>
+      </Section>
 
       <Products analytics={analytics} />
 

@@ -113,6 +113,7 @@ function QuickCreate({ compact }: { compact?: boolean }) {
     <Menu
       items={items}
       width={220}
+      triggerAlign="center"
       trigger={(p) => (
         <Button
           variant="secondary"
