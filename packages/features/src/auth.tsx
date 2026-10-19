@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
+import { setBusinessTimezone } from './format';
 import { useRuntime } from './runtime';
 import type { SessionStatus } from './session';
 
@@ -35,6 +36,9 @@ const SERVER_SNAPSHOT = { status: 'loading', session: null } as const;
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { api, session: manager } = useRuntime();
   const snap = useSyncExternalStore(manager.subscribe, manager.getSnapshot, () => SERVER_SNAPSHOT);
+
+  // Set while rendering, not in an effect: the screens below read it in the same pass. Setting it again is harmless.
+  setBusinessTimezone(snap.session?.tenant.timezone);
 
   useEffect(() => {
     // Restore the session from the refresh token. init() shares one request, so StrictMode's double effect is harmless.

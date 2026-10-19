@@ -1,3 +1,5 @@
+import { DEFAULT_TIMEZONE } from '@orderloop/contracts';
+
 /** Format an ISO timestamp for people, in their own locale and time zone. */
 export function formatWhen(iso: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
@@ -33,12 +35,20 @@ export function formatDayTime(iso: string): string {
   return `${new Intl.DateTimeFormat('en-GB', SHORT_DAY).format(d)}, ${new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d)}`;
 }
 
-/** A calendar day (YYYY-MM-DD) in the viewer's own calendar, `days` before today. */
-export function dayBefore(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+let businessTimezone: string = DEFAULT_TIMEZONE;
+/** The signed-in business's time zone. The API groups orders and money into days in this zone, so "today" must be its day. */
+export function setBusinessTimezone(timezone: string | undefined): void {
+  businessTimezone = timezone || DEFAULT_TIMEZONE;
+}
+
+/**
+ * A calendar day (YYYY-MM-DD) `days` before today, in the business's time zone (not the device's): a phone abroad, or a
+ * server in UTC, must ask for the same day the API counts.
+ */
+export function dayBefore(days: number, now: Date = new Date()): string {
+  const today = now.toLocaleDateString('en-CA', { timeZone: businessTimezone });
+  const [y, m, d] = today.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d - days)).toISOString().slice(0, 10);
 }
 
 /** "5 min ago", "3 h ago", "2 days ago". */
