@@ -94,6 +94,22 @@ test.describe('the catalog', () => {
     await expectCell(page, 'STK-1', 'On hand', '7');
   });
 
+  test('an error goes away as soon as its field is filled in, and the others stay until fixed', async ({
+    page,
+  }) => {
+    await page.goto('/products/new');
+    await page.getByRole('button', { name: 'Create product' }).first().click();
+    const nameError = page.locator('[role="alert"]').filter({ hasText: /name/i });
+    await expect(page.getByRole('alert').first()).toBeVisible();
+    const before = await page.getByRole('alert').count();
+    expect(before).toBeGreaterThan(1);
+    await page.getByLabel('Product name').fill('Linen shirt');
+    await expect(nameError).toHaveCount(0);
+    await expect(page.getByRole('alert')).not.toHaveCount(before); // only that one went
+    await page.getByLabel('SKU').fill('LIN-1');
+    await expect(page.getByRole('alert')).not.toHaveCount(before - 1);
+  });
+
   test('stock validation explains itself before sending anything', async ({ page }) => {
     await createProduct(page, { name: 'Check tee', sku: 'CHK-1' });
     const dialog = await catalogOpenStockDialog(page, 'CHK-1', 'Receive');

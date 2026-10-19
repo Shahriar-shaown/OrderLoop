@@ -73,6 +73,7 @@ function VariantForm({
         onChange={setValues}
         errors={errors}
         prefix="variant"
+        onEdit={(path) => form.clearFor(path, path.replace(/^variant\./, ''))}
         lockSku={editing}
       />
     </FormDialog>

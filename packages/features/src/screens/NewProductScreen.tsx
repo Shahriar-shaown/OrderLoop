@@ -108,7 +108,10 @@ export function NewProductScreen() {
                   <Button
                     variant="secondary"
                     icon="plus"
-                    onPress={() => setVariants((v) => [...v, emptyVariant()])}
+                    onPress={() => {
+                      setVariants((v) => [...v, emptyVariant()]);
+                      form.clearFor('variants');
+                    }}
                   >
                     Add another variant
                   </Button>
@@ -124,7 +127,10 @@ export function NewProductScreen() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onPress={() => setVariants((all) => all.filter((_, j) => j !== i))}
+                            onPress={() => {
+                              setVariants((all) => all.filter((_, j) => j !== i));
+                              form.clearFor('variants');
+                            }}
                           >
                             {`Remove variant ${i + 1}`}
                           </Button>
@@ -134,6 +140,7 @@ export function NewProductScreen() {
                         value={v}
                         prefix={`variants.${i}`}
                         errors={form.errors}
+                        onEdit={form.clearFor}
                         onChange={(next) =>
                           setVariants((all) => all.map((x, j) => (j === i ? next : x)))
                         }

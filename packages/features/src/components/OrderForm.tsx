@@ -102,6 +102,14 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
           notes: order.notes ?? '',
         }
       : EMPTY,
+    {
+      phone: ['customer.phone', 'customerId', 'customer'],
+      customerName: ['customer.name'],
+      addrPhone: ['address.phone'],
+      discount: ['discountMinor'],
+      delivery: ['deliveryChargeMinor'],
+      advance: ['advancePaidMinor'],
+    },
   );
   const [lines, setLines] = useState<Line[]>(() =>
     (order?.items ?? []).map((i) => ({
@@ -227,8 +235,10 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
       }),
   });
 
-  const patchLine = (i: number, patch: Partial<Line>) =>
+  const patchLine = (i: number, patch: Partial<Line>) => {
     setLines((all) => all.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+    form.clearFor(`items.${i}`, `lines.${i}`);
+  };
 
   // ---- submit --------------------------------------------------------------------------------------------------------
   function buildItems(): { items: object[]; errors: FormErrors } {
@@ -409,7 +419,10 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
         loading={!!pickedId && picked.isPending && !editing}
         mode={mode}
         onMode={setMode}
-        onPick={setPickedId}
+        onPick={(id) => {
+          setPickedId(id);
+          form.clearFor('phone', 'customerName');
+        }}
         onClear={() => {
           setPickedId(null);
           setMode('search');
@@ -519,15 +532,19 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
             lines={lines}
             lineTotals={okTotals?.lineTotalsMinor}
             errors={e}
-            onAdd={(variant) =>
+            onAdd={(variant) => {
               setLines((all) =>
                 all.some((l) => l.variantId === variant.id)
                   ? all
                   : [...all, lineFromVariant(variant)],
-              )
-            }
+              );
+              form.clearFor('items', 'lines');
+            }}
             onPatch={patchLine}
-            onRemove={(i) => setLines((all) => all.filter((_, j) => j !== i))}
+            onRemove={(i) => {
+              setLines((all) => all.filter((_, j) => j !== i));
+              form.clearFor('items', 'lines');
+            }}
           />
         </Section>
       )}

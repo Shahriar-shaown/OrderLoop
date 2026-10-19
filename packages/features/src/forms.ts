@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { z } from 'zod';
 import { fieldErrorsFrom, messageFor, validate, type FormErrors } from './errors';
 
@@ -7,16 +7,56 @@ import { fieldErrorsFrom, messageFor, validate, type FormErrors } from './errors
  * flag. `field('email')` returns the props a TextField needs (value, change handler, error), so a screen never repeats
  * that wiring.
  */
-export function useFormState<T extends Record<string, string>>(initial: T) {
+/** Letters and digits only, lower-cased: "customerName" and "customer.name" compare equal. */
+const squash = (text: string) => text.replace(/[^a-z0-9]/gi, '').toLowerCase();
+
+/**
+ * Does an error (keyed by the API's path, such as "address.phone" or "variant.sku") belong to the field `key`? It does when
+ * the names match, when the path ends in the field's name, or when the screen lists the path as an alias of the field.
+ */
+const belongsTo = (errorKey: string, key: string, aliases: readonly string[] = []) =>
+  errorKey === key ||
+  aliases.includes(errorKey) ||
+  squash(errorKey) === squash(key) ||
+  errorKey.endsWith(`.${key}`) ||
+  errorKey.startsWith(`${key}.`);
+
+export function useFormState<T extends Record<string, string>>(
+  initial: T,
+  /** For fields whose error path has a different name from the field: `{ phone: ['customer.phone', 'customerId'] }`. */
+  aliases: Partial<Record<keyof T & string, readonly string[]>> = {},
+) {
   const [values, setValues] = useState<T>(initial);
   const [errors, setErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const set = useCallback(
-    (key: keyof T & string, value: string) => setValues((v) => ({ ...v, [key]: value })),
-    [],
-  );
+  // Editing a field retires its own error (and the summary above the form) straight away; the others stay until they are fixed.
+  const aliasesRef = useRef(aliases);
+  aliasesRef.current = aliases;
+  const set = useCallback((key: keyof T & string, value: string) => {
+    setValues((v) => ({ ...v, [key]: value }));
+    setErrors((e) => {
+      const stale = Object.keys(e).filter((k) => belongsTo(k, key, aliasesRef.current[key]));
+      if (!stale.length) return e;
+      const next = { ...e };
+      for (const k of stale) delete next[k];
+      return next;
+    });
+    setFormError('');
+  }, []);
+
+  /** Retire the errors of fields that are not plain text boxes (a picked customer, order lines): by field name or path prefix. */
+  const clearFor = useCallback((...keys: string[]) => {
+    setErrors((e) => {
+      const stale = Object.keys(e).filter((k) => keys.some((key) => belongsTo(k, key)));
+      if (!stale.length) return e;
+      const next = { ...e };
+      for (const k of stale) delete next[k];
+      return next;
+    });
+    setFormError('');
+  }, []);
 
   const clear = useCallback(() => {
     setErrors({});
@@ -67,6 +107,7 @@ export function useFormState<T extends Record<string, string>>(initial: T) {
     setErrors,
     setFormError,
     clear,
+    clearFor,
     fail,
     check,
     run,

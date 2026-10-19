@@ -9,19 +9,25 @@ export function VariantFields({
   errors,
   prefix,
   lockSku = false,
+  onEdit,
 }: {
   value: VariantValues;
   onChange: (next: VariantValues) => void;
   errors: FormErrors;
   prefix: string;
   lockSku?: boolean;
+  /** Called with an error path ("variant.sku") when its box is edited, so the screen can retire that error. */
+  onEdit?: (path: string) => void;
 }) {
   const bind = (
     field: Exclude<keyof VariantValues, 'otherAttributes' | 'key'>,
     errorKey: string,
   ) => ({
     value: value[field],
-    onChangeText: (text: string) => onChange({ ...value, [field]: text }),
+    onChangeText: (text: string) => {
+      onChange({ ...value, [field]: text });
+      onEdit?.(`${prefix}.${errorKey}`);
+    },
     error: errors[`${prefix}.${errorKey}`],
   });
   return (

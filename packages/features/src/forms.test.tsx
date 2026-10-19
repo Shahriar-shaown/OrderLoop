@@ -33,6 +33,29 @@ describe('useFormState', () => {
     expect(result.current.errors).toEqual({});
   });
 
+  it('editing a field retires its own error and the summary, and leaves the other fields errors alone', () => {
+    const { result } = renderHook(() =>
+      useFormState({ name: '', phone: '', city: '' }, { phone: ['customer.phone'] }),
+    );
+    act(() => {
+      result.current.setFormError('Fix the highlighted fields');
+      result.current.setErrors({
+        name: 'Enter a name',
+        'customer.phone': 'Enter a phone',
+        'address.city': 'Enter a city',
+      });
+    });
+    act(() => result.current.set('name', 'Rina'));
+    expect(result.current.errors).toEqual({
+      'customer.phone': 'Enter a phone',
+      'address.city': 'Enter a city',
+    });
+    expect(result.current.formError).toBe('');
+    act(() => result.current.set('phone', '017'));
+    act(() => result.current.set('city', 'Dhaka')); // "address.city" belongs to "city"
+    expect(result.current.errors).toEqual({});
+  });
+
   it('run() is busy while the request runs and resolves to true on success', async () => {
     const { result } = renderHook(() => useFormState({}));
     let release!: () => void;
