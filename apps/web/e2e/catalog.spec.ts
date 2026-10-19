@@ -1,4 +1,3 @@
-import type { Page } from '@playwright/test';
 import {
   createAccount,
   expect,
@@ -7,46 +6,13 @@ import {
   signInToApp,
   test,
 } from './fixtures';
-
-/** Create a one-variant product through the UI and land on its page. */
-async function createProduct(
-  page: Page,
-  {
-    name,
-    sku,
-    price = '1250.50',
-    reorder = '',
-  }: { name: string; sku: string; price?: string; reorder?: string },
-) {
-  await page.goto('/products/new');
-  await page.getByLabel('Product name').fill(name);
-  await page.getByLabel('SKU').fill(sku);
-  await page.getByLabel('Price (৳)').fill(price);
-  if (reorder) await page.getByLabel('Reorder at').fill(reorder);
-  await page.getByRole('button', { name: 'Create product' }).click();
-  await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
-}
-
-const variantRow = (page: Page, sku: string) =>
-  page.getByRole('row', { name: new RegExp(sku, 'i') });
-// Variant table columns: SKU, Price, On hand, Reserved, Available, Damaged, Actions
-const cell = (page: Page, sku: string, index: number) =>
-  variantRow(page, sku).getByRole('cell').nth(index);
-
-async function stockAction(
-  page: Page,
-  sku: string,
-  action: 'Receive' | 'Adjust' | 'Reserve',
-  amount: string,
-  note?: string,
-) {
-  await variantRow(page, sku).getByRole('button', { name: action, exact: true }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible();
-  await dialog.getByLabel(/Quantity|Change in stock/).fill(amount);
-  if (note) await dialog.getByLabel(/Reason|Note/).fill(note);
-  await dialog.getByRole('button', { name: /(Receive|Adjust|Reserve) stock/ }).click();
-}
+import {
+  catalogCreateProduct as createProduct,
+  catalogOpenMoreMenu,
+  catalogOpenStockDialog,
+  catalogStockAction,
+  expectCatalogVariantCell as expectCell,
+} from './support/catalog-ui';
 
 test.describe('the catalog', () => {
   test.beforeEach(async ({ page, request }) => {
@@ -54,7 +20,9 @@ test.describe('the catalog', () => {
     await signInToApp(page, email);
     await page.goto('/products');
     // Let the reload finish restoring the session before the test navigates again (see docs/web.md, known limits).
-    await expect(page.getByRole('heading', { level: 1, name: 'Products' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Products & inventory' }),
+    ).toBeVisible();
   });
 
   test('an empty catalog invites the first product, and a bad form is reported field by field', async ({
@@ -76,8 +44,11 @@ test.describe('the catalog', () => {
   }) => {
     await createProduct(page, { name: 'Cotton tee', sku: 'tee-red-m' });
     await expect(page.getByText('TEE-RED-M', { exact: true })).toBeVisible();
-    await expect(page.getByText('৳1,250.50')).toBeVisible();
-    await page.getByRole('link', { name: 'Back to products' }).click();
+    await expect(page.getByText('৳1,250.50').first()).toBeVisible();
+    await page
+      .getByRole('navigation', { name: 'Breadcrumb' })
+      .getByRole('link', { name: 'Products' })
+      .click();
     await expect(page.getByRole('link', { name: 'Cotton tee' })).toBeVisible();
   });
 
@@ -96,32 +67,36 @@ test.describe('the catalog', () => {
     page,
   }) => {
     await createProduct(page, { name: 'Stock tee', sku: 'STK-1', reorder: '3' });
-    await stockAction(page, 'STK-1', 'Receive', '10', 'First delivery');
-    await expect(cell(page, 'STK-1', 2)).toHaveText('10');
-    await expect(cell(page, 'STK-1', 4)).toHaveText('10');
+    await catalogStockAction(page, 'STK-1', 'Receive', {
+      Quantity: '10',
+      Note: 'First delivery',
+    });
+    await expectCell(page, 'STK-1', 'On hand', '10');
+    await expectCell(page, 'STK-1', 'Available', '10');
 
-    await stockAction(page, 'STK-1', 'Adjust', '-3', 'Damaged in storage');
-    await expect(cell(page, 'STK-1', 2)).toHaveText('7');
+    await catalogStockAction(page, 'STK-1', 'Adjust', {
+      'Change in stock': '-3',
+      Reason: 'Damaged in storage',
+    });
+    await expectCell(page, 'STK-1', 'On hand', '7');
 
-    await stockAction(page, 'STK-1', 'Reserve', '2');
-    await expect(cell(page, 'STK-1', 3)).toHaveText('2');
-    await expect(cell(page, 'STK-1', 4)).toHaveText('5');
+    await catalogStockAction(page, 'STK-1', 'Reserve', { Quantity: '2' });
+    await expectCell(page, 'STK-1', 'Reserved', '2');
+    await expectCell(page, 'STK-1', 'Available', '5');
 
     // Removing more than is available is refused and changes nothing.
-    await variantRow(page, 'STK-1').getByRole('button', { name: 'Adjust', exact: true }).click();
-    const dialog = page.getByRole('dialog');
+    const dialog = await catalogOpenStockDialog(page, 'STK-1', 'Adjust');
     await dialog.getByLabel('Change in stock').fill('-50');
     await dialog.getByLabel('Reason').fill('Test overdraw');
     await dialog.getByRole('button', { name: 'Adjust stock' }).click();
     await expect(dialog.getByRole('alert')).toContainText(/Only \d+ available/);
     await dialog.getByRole('button', { name: 'Cancel' }).click();
-    await expect(cell(page, 'STK-1', 2)).toHaveText('7');
+    await expectCell(page, 'STK-1', 'On hand', '7');
   });
 
   test('stock validation explains itself before sending anything', async ({ page }) => {
     await createProduct(page, { name: 'Check tee', sku: 'CHK-1' });
-    await variantRow(page, 'CHK-1').getByRole('button', { name: 'Receive', exact: true }).click();
-    const dialog = page.getByRole('dialog');
+    const dialog = await catalogOpenStockDialog(page, 'CHK-1', 'Receive');
     await dialog.getByLabel('Quantity').fill('abc');
     await dialog.getByRole('button', { name: 'Receive stock' }).click();
     await expect(dialog.getByText('Enter a whole number')).toBeVisible();
@@ -132,35 +107,42 @@ test.describe('the catalog', () => {
     await expect(dialog).toBeHidden();
   });
 
-  test('the Stock page shows levels, low stock, movements and reservations', async ({ page }) => {
+  test('Products & inventory shows stock status, low stock, movements and reservations', async ({
+    page,
+  }) => {
     await createProduct(page, { name: 'Level tee', sku: 'LVL-1', reorder: '10' });
-    await stockAction(page, 'LVL-1', 'Receive', '4');
-    await expect(cell(page, 'LVL-1', 2)).toHaveText('4');
-    await stockAction(page, 'LVL-1', 'Reserve', '1');
-    await expect(cell(page, 'LVL-1', 3)).toHaveText('1');
+    await catalogStockAction(page, 'LVL-1', 'Receive', { Quantity: '4' });
+    await expectCell(page, 'LVL-1', 'On hand', '4');
+    await catalogStockAction(page, 'LVL-1', 'Reserve', { Quantity: '1' });
+    await expectCell(page, 'LVL-1', 'Reserved', '1');
 
-    await page.getByRole('link', { name: 'Stock', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: 'Stock' })).toBeVisible();
-    await expect(page.getByRole('row', { name: /LVL-1/ })).toContainText('Main warehouse');
+    await page.getByRole('link', { name: 'Products & inventory', exact: true }).first().click();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Products & inventory' }),
+    ).toBeVisible();
+    // 4 on hand, 1 reserved: 3 available against a reorder point of 10.
+    await expect(page.getByRole('row', { name: /LVL-1/ })).toContainText('Critical · 3 left');
 
-    await page.getByRole('tab', { name: 'Low stock' }).click();
+    await page.getByRole('tab', { name: /Low stock/ }).click();
     await expect(page.getByRole('row', { name: /LVL-1/ })).toBeVisible();
 
-    await page.getByRole('tab', { name: 'Movements' }).click();
+    await page.getByRole('tab', { name: /Stock movements/ }).click();
     await expect(page.getByRole('row', { name: /LVL-1.*\+4/ })).toBeVisible();
 
-    await page.getByRole('tab', { name: 'Reservations' }).click();
+    await page.getByRole('tab', { name: /Reservations/ }).click();
     await expect(page.getByRole('row', { name: /manual|—/ }).first()).toBeVisible();
     await page.getByRole('button', { name: 'Release' }).first().click();
     await expect(page.getByText('Reservation released')).toBeVisible();
   });
 
-  test('receiving into a second location, chosen from the Stock page', async ({ page }) => {
+  test('receiving into a second location, created from the Locations page', async ({ page }) => {
     await createProduct(page, { name: 'Shelf tee', sku: 'SHF-1' });
-    await stockAction(page, 'SHF-1', 'Receive', '5');
-    await expect(cell(page, 'SHF-1', 2)).toHaveText('5');
+    await catalogStockAction(page, 'SHF-1', 'Receive', { Quantity: '5' });
+    await expectCell(page, 'SHF-1', 'On hand', '5');
+    const product = page.url();
 
-    await page.getByRole('link', { name: 'Locations', exact: true }).click();
+    await page.goto('/products');
+    await catalogOpenMoreMenu(page, 'Locations');
     await page.getByRole('button', { name: 'New location' }).click();
     await page.getByRole('dialog').getByLabel('Location name').fill('Pop-up stall');
     await page.getByRole('dialog').getByRole('button', { name: 'Create location' }).click();
@@ -173,19 +155,25 @@ test.describe('the catalog', () => {
       .getByRole('button', { name: 'Make default' })
       .click();
     await expect(page.getByRole('row', { name: /Pop-up stall/ })).toContainText('Default');
+
+    // Stock can now be received into the new location, and counts with the rest.
+    await page.goto(product);
+    await catalogStockAction(page, 'SHF-1', 'Receive', {
+      Location: 'Pop-up stall (default)',
+      Quantity: '3',
+    });
+    await expectCell(page, 'SHF-1', 'On hand', '8');
   });
 
   test('categories can be created, renamed, assigned and deleted', async ({ page }) => {
-    await page.getByRole('link', { name: 'Categories', exact: true }).click();
+    await page.getByRole('tab', { name: /Categories/ }).click();
     await page.getByRole('button', { name: 'New category' }).click();
     await page.getByRole('dialog').getByLabel('Category name').fill('Shirts');
     await page.getByRole('dialog').getByRole('button', { name: 'Create category' }).click();
     await expect(page.getByRole('row', { name: /Shirts/ })).toBeVisible();
 
-    await page
-      .getByRole('row', { name: /Shirts/ })
-      .getByRole('button', { name: 'Rename' })
-      .click();
+    await page.getByRole('button', { name: 'Actions for Shirts' }).click();
+    await page.getByRole('menuitem', { name: 'Rename' }).click();
     await page.getByRole('dialog').getByLabel('Category name').fill('T-shirts');
     await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('row', { name: /T-shirts/ })).toBeVisible();
@@ -198,10 +186,8 @@ test.describe('the catalog', () => {
     await expect(page.getByText('T-shirts')).toBeVisible();
 
     await page.goto('/categories');
-    await page
-      .getByRole('row', { name: /T-shirts/ })
-      .getByRole('button', { name: 'Delete' })
-      .click();
+    await page.getByRole('button', { name: 'Actions for T-shirts' }).click();
+    await page.getByRole('menuitem', { name: 'Delete' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
     await expect(page.getByText('Deleted T-shirts')).toBeVisible();
     await expect(page.getByRole('row', { name: /T-shirts/ })).toHaveCount(0);
@@ -214,7 +200,8 @@ test.describe('the catalog', () => {
     await expect(page.getByText('This product is archived')).toBeVisible();
     await page.goto('/products');
     await expect(page.getByRole('link', { name: 'Old tee' })).toHaveCount(0);
-    await page.getByLabel('Status').selectOption('ARCHIVED');
+    await page.getByRole('button', { name: /^Status:/ }).click();
+    await page.getByRole('option', { name: 'Archived' }).click();
     await page.getByRole('link', { name: 'Old tee' }).click();
     await page.getByRole('button', { name: 'Restore' }).click();
     await expect(page.getByText('This product is archived')).toHaveCount(0);
@@ -224,15 +211,15 @@ test.describe('the catalog', () => {
     await createProduct(page, { name: 'Findable hat', sku: 'HAT-9' });
     await createProduct(page, { name: 'Other scarf', sku: 'SCF-9' });
     await page.goto('/products');
-    await page.getByLabel('Search').fill('hat');
+    await page.getByRole('searchbox', { name: 'Search products' }).fill('hat');
     await expect(page.getByRole('link', { name: 'Findable hat' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Other scarf' })).toHaveCount(0);
-    await page.getByLabel('Search').fill('zzzz-nothing');
+    await page.getByRole('searchbox', { name: 'Search products' }).fill('zzzz-nothing');
     await expect(page.getByText('No products match')).toBeVisible();
   });
 
   test('a CSV import runs in the background and its products appear', async ({ page }) => {
-    await page.getByRole('link', { name: 'Import', exact: true }).click();
+    await page.getByRole('link', { name: 'Bulk import' }).click();
     await page.getByRole('button', { name: 'Use the example' }).click();
     await page.getByRole('button', { name: 'Check file' }).click();
     await expect(page.getByText('Nothing has been changed yet.')).toBeVisible();
@@ -253,28 +240,31 @@ test.describe('accessibility and small screens of the signed-in screens', () => 
     const { email } = await createAccount(request);
     await signInToApp(page, email);
     await createProduct(page, { name: 'Scan tee', sku: 'SCAN-1', reorder: '2' });
-    await stockAction(page, 'SCAN-1', 'Receive', '3');
-    await expect(cell(page, 'SCAN-1', 2)).toHaveText('3');
+    await catalogStockAction(page, 'SCAN-1', 'Receive', { Quantity: '3' });
+    await expectCell(page, 'SCAN-1', 'On hand', '3');
     const detail = page.url();
 
     await expectAccessible(page);
-    await variantRow(page, 'SCAN-1').getByRole('button', { name: 'Adjust', exact: true }).click();
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await catalogOpenStockDialog(page, 'SCAN-1', 'Adjust');
     await expectAccessible(page);
     await page.keyboard.press('Escape');
 
     for (const path of [
+      '/dashboard',
+      '/orders',
       '/products',
+      '/couriers',
+      '/cod',
+      '/analytics',
+      '/customers',
+      '/team',
+      '/settings',
       '/products/new',
       '/inventory',
       '/categories',
       '/locations',
-      '/imports',
       '/suppliers',
-      '/dashboard',
-      '/team',
-      '/settings',
-      '/workspaces/new',
+      '/imports',
       detail,
     ]) {
       await page.goto(path);
@@ -283,7 +273,19 @@ test.describe('accessibility and small screens of the signed-in screens', () => 
     }
 
     await page.setViewportSize({ width: 375, height: 800 });
-    for (const path of ['/products', '/inventory', detail, '/products/new', '/settings']) {
+    for (const path of [
+      '/dashboard',
+      '/orders',
+      '/products',
+      '/inventory',
+      detail,
+      '/products/new',
+      '/couriers',
+      '/cod',
+      '/analytics',
+      '/customers',
+      '/settings',
+    ]) {
       await page.goto(path);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       await expectNoHorizontalOverflow(page);

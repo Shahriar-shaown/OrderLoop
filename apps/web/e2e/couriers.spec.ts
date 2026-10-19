@@ -1,77 +1,29 @@
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import {
-  API,
   createAccount,
   expect,
   expectAccessible,
   expectNoHorizontalOverflow,
-  PASSWORD,
   signInToApp,
   test,
 } from './fixtures';
+import { seedBusiness } from './support/seed';
+import { apiSession, expectStockOfSku, seedReadyToShipOrder } from './support/ui';
 
-/** Put one product on the shelf through the API, and return a way to ask the API what it holds. */
-async function stockUp(request: APIRequestContext, email: string) {
-  const login = await request.post(`${API}/v1/auth/login`, {
-    headers: { 'x-client': 'web' },
-    data: { email, password: PASSWORD },
-  });
-  const { accessToken } = (await login.json()) as { accessToken: string };
-  const headers = { authorization: `Bearer ${accessToken}` };
-  const p = await request.post(`${API}/v1/products`, {
-    headers,
-    data: { name: 'Cotton tee', variants: [{ sku: 'TEE-9', priceMinor: 100_000 }] },
-  });
-  const variantId = ((await p.json()) as { variants: { id: string }[] }).variants[0]!.id;
-  expect(
-    (
-      await request.post(`${API}/v1/inventory/receive`, {
-        headers,
-        data: { variantId, quantity: 10 },
-      })
-    ).status(),
-  ).toBe(201);
-  return {
-    shipments: async (): Promise<{ status: string }[]> => {
-      const orders = (await (await request.get(`${API}/v1/orders`, { headers })).json()) as {
-        items: { id: string }[];
-      };
-      const id = orders.items[0]!.id;
-      return (await (
-        await request.get(`${API}/v1/orders/${id}/shipments`, { headers })
-      ).json()) as {
-        status: string;
-      }[];
-    },
-  };
+/** Open the courier's side sheet on the Couriers page ("Connect" or "Manage"). */
+async function openCourier(page: Page, name: string, verb: 'Connect' | 'Manage') {
+  await page.goto('/couriers');
+  await page.getByRole('button', { name: `${verb} ${name}` }).click();
+  const sheet = page.getByRole('dialog', { name: `${name} connection` });
+  await expect(sheet).toBeVisible();
+  return sheet;
 }
 
-/** Take an order through the UI until it is ready to ship. */
-async function readyToShip(page: Page) {
-  await page.goto('/orders/new');
-  await page.getByLabel(/^Phone/).fill('01712-345678');
-  await page.getByLabel('Customer name').fill('Rina Akter');
-  await page.getByLabel('Recipient name').fill('Rina Akter');
-  await page.getByLabel(/^Address/).fill('House 5, Road 3');
-  await page.getByLabel('Thana / upazila').fill('Dhanmondi');
-  await page.getByLabel('District').fill('Dhaka');
-  await page.getByLabel('Add an item').fill('tee');
-  await page.getByRole('button', { name: 'Add', exact: true }).first().click();
-  await page.getByRole('button', { name: 'Create order', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: /Order #1001/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Confirm order' }).click();
-  await expect(page.getByText('Stock is reserved for this order')).toBeVisible();
-  await page.getByRole('button', { name: 'Mark ready to ship' }).click();
-  await expect(page.getByText('Ready to ship').first()).toBeVisible();
-  return page.url();
+/** The page's open sheet must be closed before the page behind it can be used. */
+async function closeSheet(page: Page) {
+  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).first().click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 }
-
-const onHand = async (page: Page) => {
-  await page.goto('/inventory');
-  const row = page.getByRole('row', { name: /TEE-9/i });
-  await expect(row).toBeVisible();
-  return (await row.getByRole('cell').nth(2).textContent())?.trim();
-};
 
 test.describe('couriers', () => {
   test('book a test order with the simulated courier, follow it to delivery, and retry safely', async ({
@@ -81,9 +33,10 @@ test.describe('couriers', () => {
   }) => {
     tolerate(/ERR_FAILED/); // the lost answer is deliberate
     const { email } = await createAccount(request, 'courier');
-    const api = await stockUp(request, email);
+    const api = await seedReadyToShipOrder(request, email);
+    const orderUrl = api.orderUrl;
     await signInToApp(page, email);
-    const orderUrl = await readyToShip(page);
+    await page.goto(orderUrl);
 
     // nothing is connected yet: the order page says so and points to the settings
     await expect(page.getByText('No courier is connected')).toBeVisible();
@@ -96,8 +49,14 @@ test.describe('couriers', () => {
     await expect(page.getByLabel(/^Secret key/)).toHaveAttribute('type', 'password');
     await expectAccessible(page);
     await expectNoHorizontalOverflow(page);
-    await page.getByRole('button', { name: 'Turn on' }).click();
-    await expect(page.getByText('Connected', { exact: true }).first()).toBeVisible();
+
+    // turn the simulated courier on from the Couriers & shipments page
+    const sheet = await openCourier(page, 'Simulated courier', 'Connect');
+    await sheet.getByRole('button', { name: 'Turn on' }).click();
+    await closeSheet(page);
+    await expect(
+      page.getByRole('group', { name: 'Simulated courier' }).getByText('Connected'),
+    ).toBeVisible();
 
     // book: the first attempt reaches the server, but its answer is lost on the way back
     await page.goto(orderUrl);
@@ -116,7 +75,7 @@ test.describe('couriers', () => {
     await expect(page.getByText(/Pressing Book again is safe/)).toBeVisible();
     // pressing again retries the same booking: still one parcel
     await page.getByRole('button', { name: 'Book simulated parcel' }).click();
-    await expect(page.getByText('SIMULATED · not a real parcel')).toBeVisible();
+    await expect(page.getByText('SIMULATED', { exact: true })).toBeVisible();
     await expect(page.getByText('Simulated parcel ID')).toBeVisible();
     await expect(page.getByText('Booked', { exact: true }).first()).toBeVisible();
     expect((await api.shipments()).map((s) => s.status)).toEqual(['booked']);
@@ -134,10 +93,10 @@ test.describe('couriers', () => {
     await page.getByRole('button', { name: 'Delivered', exact: true }).click();
     await expect(page.getByText("Courier's words: simulated:delivered")).toBeVisible();
     await page.goto(orderUrl);
-    await expect(page.getByRole('heading', { level: 1, name: /Order #1001/ })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: '#1001' })).toBeVisible();
     await expect(page.getByText('Simulated courier update: simulated:delivered')).toBeVisible();
     // the unit left the shelf when it was picked up
-    expect(await onHand(page)).toBe('9');
+    await expectStockOfSku(request, await apiSession(request, email), api.sku, { onHand: 9 });
   });
 
   test('a booking the courier never confirmed blocks a second parcel until a person settles it', async ({
@@ -145,14 +104,20 @@ test.describe('couriers', () => {
     request,
   }) => {
     const { email } = await createAccount(request, 'courier-unsure');
-    const api = await stockUp(request, email);
+    const api = await seedReadyToShipOrder(request, email);
+    const orderUrl = api.orderUrl;
     await signInToApp(page, email);
-    await page.goto('/settings/couriers');
-    await page.getByLabel('How should the simulated courier behave?').selectOption('unavailable');
-    await page.getByRole('button', { name: 'Turn on' }).click();
-    await expect(page.getByText('Connected', { exact: true }).first()).toBeVisible();
+    const connect = await openCourier(page, 'Simulated courier', 'Connect');
+    await connect
+      .getByLabel('How should the simulated courier behave?')
+      .selectOption('unavailable');
+    await connect.getByRole('button', { name: 'Turn on' }).click();
+    await closeSheet(page);
+    await expect(
+      page.getByRole('group', { name: 'Simulated courier' }).getByText('Connected'),
+    ).toBeVisible();
 
-    const orderUrl = await readyToShip(page);
+    await page.goto(orderUrl);
     await page.getByRole('button', { name: 'Book simulated parcel' }).click();
     await expect(page.getByText('Booking not confirmed').first()).toBeVisible();
     await expect(
@@ -173,12 +138,66 @@ test.describe('couriers', () => {
     await expect(page.getByText('Booking failed').first()).toBeVisible();
 
     // now a fresh booking is allowed (the courier is behaving again)
-    await page.goto('/settings/couriers');
-    await page.getByLabel('How should the simulated courier behave?').selectOption('success');
-    await page.getByRole('button', { name: 'Save Simulated courier' }).click();
+    const manage = await openCourier(page, 'Simulated courier', 'Manage');
+    await manage.getByLabel('How should the simulated courier behave?').selectOption('success');
+    await manage.getByRole('button', { name: 'Save Simulated courier' }).click();
+    await expect(page.getByText('Simulated courier saved')).toBeVisible();
+    await closeSheet(page);
     await page.goto(orderUrl);
     await page.getByRole('button', { name: 'Book simulated parcel' }).click();
     await expect(page.getByText('Booked', { exact: true }).first()).toBeVisible();
     expect((await api.shipments()).map((s) => s.status)).toEqual(['booked', 'booking_failed']);
+  });
+
+  test('the Couriers & shipments page shows the courier cards, the figures and a booked shipment with its detail', async ({
+    page,
+    request,
+  }) => {
+    const { account } = await seedBusiness(request, 'courier-page');
+    await signInToApp(page, account.email);
+    await page.goto('/couriers');
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Couriers & shipments' }),
+    ).toBeVisible();
+
+    // one card per courier; RedX is not offered
+    for (const name of ['Pathao', 'Steadfast', 'Simulated courier'])
+      await expect(page.getByRole('group', { name })).toBeVisible();
+    await expect(
+      page
+        .getByRole('group', { name: 'Simulated courier' })
+        .getByText('SIMULATED', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('group', { name: 'Simulated courier' }).getByText('Connected'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('group', { name: 'Pathao' }).getByText('Not connected'),
+    ).toBeVisible();
+    await expect(page.getByText('RedX')).toHaveCount(0);
+
+    // the figures
+    for (const kpi of [
+      /^Booked today: \d+/,
+      /^Awaiting pickup: \d+/,
+      /^On the way: \d+/,
+      /^Delivered \(7d\): \d+/,
+      /^Returned \(7d\): \d+/,
+      /^COD on the way: ৳/,
+    ])
+      await expect(page.getByRole('group', { name: kpi })).toBeVisible();
+
+    // a booked simulated shipment is in the table, and opens beside it
+    const table = page.getByRole('table', { name: 'Shipments' });
+    const row = table.getByRole('row').filter({ hasText: 'Rahim Uddin' }).first();
+    await expect(row).toBeVisible();
+    await expect(row.getByText('SIMULATED', { exact: true })).toBeVisible();
+    await row.click();
+    const detail = page.getByRole('complementary', { name: 'Shipment detail' });
+    await expect(detail.getByText('COD to collect')).toBeVisible();
+    await expect(detail.getByRole('list', { name: 'Shipment history' })).toBeVisible();
+    await expect(detail.getByText('SIMULATED · not a real parcel')).toBeVisible();
+    await expectAccessible(page);
+    await expectNoHorizontalOverflow(page);
   });
 });

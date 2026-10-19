@@ -109,17 +109,7 @@ export function SuppliersScreen() {
       />
       <QueryBoundary {...query} refetch={() => query.refetch()} label="Loading suppliers">
         {(query.data ?? []).length === 0 ? (
-          <EmptyState
-            icon="store"
-            title="No suppliers yet"
-            action={
-              writable ? (
-                <Button icon="plus" onPress={() => setEditing({ supplier: null })}>
-                  New supplier
-                </Button>
-              ) : undefined
-            }
-          >
+          <EmptyState icon="store" title="No suppliers yet">
             Add the businesses you buy from, then pick one on each product.
           </EmptyState>
         ) : (

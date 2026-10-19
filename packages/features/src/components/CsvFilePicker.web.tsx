@@ -17,7 +17,7 @@ export function CsvFilePicker({ onText }: { onText: (text: string, filename: str
         ref: input,
         type: 'file',
         accept: '.csv,text/csv',
-        'aria-label': 'CSV file',
+        'aria-label': 'Products file',
         style: { display: 'none' },
         onChange: async (event: {
           target: { files: ArrayLike<{ name: string; text(): Promise<string> }> | null };

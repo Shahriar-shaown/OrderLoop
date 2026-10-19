@@ -114,7 +114,7 @@ export function Tabs({
         <Text
           variant={variant === 'underline' ? 'label' : 'fine'}
           tone={selected ? 'primary' : 'muted'}
-          style={variant === 'segmented' && selected ? { color: colors.foreground } : undefined}
+          style={variant === 'segmented' ? { color: colors.foreground } : undefined}
         >
           {item.label}
         </Text>

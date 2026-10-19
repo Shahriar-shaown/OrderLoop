@@ -38,7 +38,7 @@ export {
 export { ProgressBar, type Segment } from './ProgressBar';
 export { Skeleton } from './Skeleton';
 export { Delta } from './Delta';
-export { Avatar } from './Avatar';
+export { Avatar, initials } from './Avatar';
 export { Timeline, type TimelineStep } from './Timeline';
 export { Pagination, pageWindow } from './Pagination';
 export { SearchField } from './SearchField';

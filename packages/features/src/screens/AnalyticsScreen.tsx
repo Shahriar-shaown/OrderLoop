@@ -278,7 +278,7 @@ function NotCounted({
   const derived = SOURCE_LABEL.derived ?? '';
   const cancelled = figureOf(summary, 'cancelled');
   return (
-    <Section title="Not counted as profit" variant="filled">
+    <Section title="Not counted as profit">
       <SectionBoundary
         {...outstanding}
         refetch={() => outstanding.refetch()}

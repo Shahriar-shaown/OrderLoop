@@ -6,6 +6,7 @@ import {
   signInToApp,
   test,
 } from './fixtures';
+import { apiClient } from './support/ui';
 
 const HEAD =
   'transaction_id,consignment_id,tracking_code,reference,phone,date,type,collected,delivery_charge,cod_fee,return_charge,other_deduction,net,note';
@@ -17,45 +18,51 @@ const STATEMENT = [
   `,,,,,${today},adjustment,0,0,0,0,25,,Monthly account fee`,
 ].join('\n');
 
-test.describe('finance', () => {
+const openImport = async (page: import('@playwright/test').Page) => {
+  await page.getByRole('button', { name: 'Import courier statement' }).first().click();
+  const sheet = page.getByRole('dialog', { name: 'Import courier statement' });
+  await expect(sheet).toBeVisible();
+  return sheet;
+};
+
+test.describe('COD reconciliation', () => {
   test('import a statement, see what is unmatched and duplicated, settle each line, and only then reconcile', async ({
     page,
     request,
   }) => {
     const { email } = await createAccount(request, 'finance');
     await signInToApp(page, email);
-    await page.goto('/finance/settlements');
-    await expect(
-      page.getByRole('heading', { level: 1, name: 'Courier settlements' }),
-    ).toBeVisible();
-    await expect(page.getByText('Nothing imported yet.')).toBeVisible();
-    await expectAccessible(page);
+    await page.goto('/cod');
+    await expect(page.getByRole('heading', { level: 1, name: 'COD reconciliation' })).toBeVisible();
+    await expect(page.getByText('No statements imported yet')).toBeVisible();
 
-    await page.getByLabel('Statement CSV').fill(STATEMENT);
+    const sheet = await openImport(page);
+    await sheet.getByLabel('Statement CSV').fill(STATEMENT);
     // checking changes nothing
-    await page.getByRole('button', { name: 'Check file' }).click();
-    await expect(page.getByText('Check only. Nothing was recorded.')).toBeVisible();
+    await sheet.getByRole('button', { name: 'Check file' }).click();
+    await expect(sheet.getByText('Check only. Nothing was recorded.')).toBeVisible();
     await expect(
-      page.getByText(
+      sheet.getByText(
         '3 line(s): 0 matched, 1 not matched, 0 need a person, 1 charge(s) with no parcel, 1 duplicate(s) not counted.',
       ),
     ).toBeVisible();
-    await expect(page.getByText('Nothing imported yet.')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Import', exact: true }).click();
-    await expect(page.getByText('Imported', { exact: true })).toBeVisible();
+    await sheet.getByRole('button', { name: 'Import', exact: true }).click();
+    await expect(sheet.getByText('Imported', { exact: true })).toBeVisible();
     // the duplicate is not counted: 700.00 reported, the courier kept 67.00 + 25.00
     await expect(
-      page.getByText(/Cash reported ৳700\.00 · courier kept ৳92\.00 · pays out ৳608\.00/),
+      sheet.getByText(/Cash reported ৳700\.00 · courier kept ৳92\.00 · pays out ৳608\.00/),
     ).toBeVisible();
 
     // the same file again adds nothing
-    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await sheet.getByRole('button', { name: 'Import', exact: true }).click();
     await expect(
-      page.getByText('This exact file was already imported. Nothing was added.'),
+      sheet.getByText('This exact file was already imported. Nothing was added.'),
     ).toBeVisible();
 
-    await page.getByRole('link', { name: 'Open this settlement' }).click();
+    await sheet.getByRole('link', { name: 'Open this settlement' }).click();
+    await expect(page).toHaveURL(/\/cod\/[0-9a-f-]+$/);
+    await expect(page.getByRole('heading', { level: 1, name: /^Settlement / })).toBeVisible();
     await expect(page.getByText('Needs attention').first()).toBeVisible();
     await expect(page.getByText('This settlement cannot be reconciled yet')).toBeVisible();
     await expect(page.getByText(/1 line\(s\) are not tied to any order/)).toBeVisible();
@@ -78,60 +85,65 @@ test.describe('finance', () => {
     await expect(
       page.getByRole('dialog').getByText(/Reason: Not one of our parcels/),
     ).toBeVisible();
-    await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Close' }).first().click();
 
     await page.getByRole('button', { name: 'Mark reconciled' }).click();
     await expect(page.getByText('Reconciled', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Mark reconciled' })).toHaveCount(0);
+
+    // back on the list the settlement reads Reconciled
+    await page.goto('/cod');
+    await expect(
+      page.getByRole('table', { name: 'Settlements' }).getByText('Reconciled'),
+    ).toBeVisible();
   });
 
-  test('the overview keeps sales, revenue, cash, outstanding COD, expenses and profit apart, each with its source', async ({
+  test('the page keeps reported, charges, paid out and outstanding apart, and says delivered is not paid', async ({
     page,
     request,
   }) => {
-    const { email } = await createAccount(request, 'finance-overview');
+    const { email } = await createAccount(request, 'finance-figures');
+    const api = await apiClient(request, email);
+    await api.post('/v1/settlements/import', {
+      provider: 'steadfast',
+      statementRef: 'ST-E2E-1',
+      csv: STATEMENT,
+    });
     await signInToApp(page, email);
-    await page.goto('/finance');
-    await expect(page.getByRole('heading', { level: 1, name: 'Finance' })).toBeVisible();
-    for (const group of ['Sales', 'Revenue', 'Cash', 'Outstanding COD', 'Expenses'])
-      await expect(page.getByRole('heading', { level: 2, name: group })).toBeVisible();
-    await expect(page.getByText('From your orders').first()).toBeVisible();
-    await expect(page.getByText('From courier statements').first()).toBeVisible();
-    await expect(page.getByText(/Delivered is not the same as paid/).first()).toBeVisible();
-    await expect(page.getByText(/never added together/)).toBeVisible();
+    await page.goto('/cod');
+    await expect(page.getByRole('group', { name: 'Reported by couriers: ৳700.00' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Courier charges: ৳92.00' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Paid out: ৳608.00' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Outstanding COD: ৳0.00' })).toBeVisible();
+    await expect(page.getByRole('progressbar', { name: 'Where the COD is' })).toBeVisible();
+    await expect(page.getByText(/Delivered is not paid/)).toBeVisible();
 
-    // a cost entered by hand appears under its own source, and can be voided
-    await page.getByRole('button', { name: 'Record a cost' }).click();
-    const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: 'Record cost' }).click();
-    await expect(dialog.getByText('Enter an amount in taka, like 450 or 450.50')).toBeVisible();
-    await dialog.getByLabel(/^Amount/).fill('450.50');
-    await dialog.getByLabel(/^What it was for/).fill('Packing boxes');
-    await dialog.getByRole('button', { name: 'Record cost' }).click();
-    await expect(dialog).toHaveCount(0);
-    await expect(page.getByText('Packing boxes')).toBeVisible();
-    await expect(page.getByText('৳450.50').first()).toBeVisible();
-    await expect(page.getByText('Entered by hand').first()).toBeVisible();
-    await page.getByRole('button', { name: 'Void', exact: true }).click();
-    await page.getByRole('dialog').getByLabel('Reason').fill('Entered twice');
-    await page.getByRole('dialog').getByRole('button', { name: 'Void cost' }).click();
-    await expect(page.getByText(/voided: Entered twice/)).toBeVisible();
+    // the settlement is listed with its status in words, and the status chips filter it
+    const table = page.getByRole('table', { name: 'Settlements' });
+    const row = table.getByRole('row', { name: /ST-E2E-1/ });
+    await expect(row.getByText('Needs attention')).toBeVisible();
+    await expect(row.getByRole('link', { name: 'ST-E2E-1' })).toBeVisible();
+    await page.getByRole('tab', { name: /^Reconciled/ }).click();
+    await expect(page.getByText('No settlements match')).toBeVisible();
+    await page.getByRole('tab', { name: /^All/ }).click();
+    await expect(row).toBeVisible();
+
+    // the unmatched line is waiting for a person
+    await expect(page.getByRole('table', { name: 'Unmatched lines' })).toBeVisible();
     await expectAccessible(page);
     await expectNoHorizontalOverflow(page);
   });
 
-  test('outstanding COD and the issues page say plainly when there is nothing to chase', async ({
-    page,
-    request,
-  }) => {
+  test('says plainly when there is nothing to chase', async ({ page, request }) => {
     const { email } = await createAccount(request, 'finance-empty');
     await signInToApp(page, email);
-    await page.goto('/finance/outstanding');
-    await expect(page.getByText(/A delivered order is not proof that cash arrived/)).toBeVisible();
-    await expect(page.getByText('Nothing outstanding.')).toBeVisible();
+    await page.goto('/cod');
+    await expect(page.getByText('Nothing outstanding')).toBeVisible();
+    await expect(page.getByText('No unmatched lines')).toBeVisible();
+    await expect(page.getByText('No open discrepancies')).toBeVisible();
+    await expect(page.getByText('No statements imported yet')).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Open discrepancies: 0' })).toBeVisible();
     await expectAccessible(page);
-    await page.goto('/finance/issues');
-    await expect(page.getByText('No unmatched lines.')).toBeVisible();
-    await expect(page.getByText('No open discrepancies.')).toBeVisible();
+    await expectNoHorizontalOverflow(page);
   });
 });

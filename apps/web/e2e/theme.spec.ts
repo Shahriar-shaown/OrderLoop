@@ -1,9 +1,10 @@
 import { createAccount, expect, expectAccessible, signInToApp, test } from './fixtures';
+import { expectSignedInAs, openAccountMenu } from './support/ui';
 
 const background = (page: import('@playwright/test').Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-const DARK = 'rgb(9, 9, 11)';
-const LIGHT = 'rgb(255, 255, 255)';
+const DARK = 'rgb(11, 17, 32)';
+const LIGHT = 'rgb(248, 250, 252)';
 
 test.describe('colour theme', () => {
   test.describe('on a light device', () => {
@@ -53,15 +54,18 @@ test.describe('colour theme', () => {
       expect(await background(page)).toBe(DARK);
       await expectAccessible(page);
 
+      // The theme toggle lives in the account menu.
+      await openAccountMenu(page);
       await page.getByRole('radio', { name: 'Light' }).click();
       await expect.poll(() => background(page)).toBe(LIGHT);
+      await page.keyboard.press('Escape');
       await expectAccessible(page);
 
       // It stays light while moving between pages and after a reload.
-      await page.getByRole('link', { name: 'Stock', exact: true }).click();
+      await page.getByRole('link', { name: 'Products & inventory' }).click();
       expect(await background(page)).toBe(LIGHT);
       await page.reload();
-      await expect(page.getByTestId('user-email')).toHaveText(email);
+      await expectSignedInAs(page, email);
       expect(await background(page)).toBe(LIGHT);
     });
   });

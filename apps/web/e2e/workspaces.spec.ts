@@ -9,13 +9,14 @@ import {
   test,
   uniqueEmail,
 } from './fixtures';
+import { openBusinessMenu } from './support/ui';
 
 test.describe('business workspaces', () => {
   test('an owner edits the business profile and it is remembered', async ({ page, request }) => {
     const owner = await createAccount(request, 'settings');
     await signInToApp(page, owner.email);
     await page.getByRole('link', { name: 'Settings', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: 'Business settings' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
     // The defaults for a Bangladesh business.
     await expect(page.getByLabel('Currency')).toHaveValue('BDT');
     await expect(page.getByLabel('Time zone')).toHaveValue('Asia/Dhaka');
@@ -71,9 +72,9 @@ test.describe('business workspaces', () => {
     await expect(page.getByRole('link', { name: 'First shop tee' })).toHaveCount(0);
 
     // Now there are two businesses to choose between.
-    const switcher = page.getByLabel('Business', { exact: true });
-    await expect(switcher).toHaveValue(/.+/);
-    await switcher.selectOption({ label: owner.shop });
+    await openBusinessMenu(page);
+    await expect(page.getByRole('menuitem', { name: /^Second Shop/ })).toBeVisible();
+    await page.getByRole('menuitem', { name: new RegExp(`^${owner.shop}`) }).click();
     await expect(page).toHaveURL(/\/dashboard$/); // switching lands on the dashboard of the business you chose
     await page.goto('/products');
     await expect(page.getByRole('link', { name: 'First shop tee' })).toBeVisible();

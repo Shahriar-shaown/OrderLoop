@@ -11,6 +11,7 @@ import {
   test,
   uniqueEmail,
 } from './fixtures';
+import { expectSignedInAs, signOutViaMenu } from './support/ui';
 
 test.describe('signing up, in and out', () => {
   test('a new owner signs up, verifies the email from the real message, signs out and back in', async ({
@@ -33,10 +34,12 @@ test.describe('signing up, in and out', () => {
     await expect(page.getByText('Your email address is verified')).toBeVisible();
     await page.getByRole('link', { name: 'Continue to OrderLoop' }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), / }),
+    ).toBeVisible();
     await expect(page.getByText('Please verify your email address')).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOutViaMenu(page);
     await expect(page).toHaveURL(/\/login$/);
     await signInToApp(page, email);
   });
@@ -180,7 +183,7 @@ test.describe('the session', () => {
     const { email } = await createAccount(request);
     await signInToApp(page, email);
     await page.reload();
-    await expect(page.getByTestId('user-email')).toHaveText(email);
+    await expectSignedInAs(page, email);
   });
 
   test('two tabs reloading at once both stay signed in (refresh tokens are single use)', async ({
@@ -192,12 +195,12 @@ test.describe('the session', () => {
     await signInToApp(page, email);
     const other = await context.newPage();
     await other.goto('/products');
-    await expect(other.getByTestId('user-email')).toHaveText(email);
+    await expectSignedInAs(other, email);
     // Both tabs restore their session from the same refresh cookie at the same moment, several times in a row.
     for (let i = 0; i < 3; i++) {
       await Promise.all([page.reload(), other.reload()]);
-      await expect(page.getByTestId('user-email')).toHaveText(email);
-      await expect(other.getByTestId('user-email')).toHaveText(email);
+      await expectSignedInAs(page, email);
+      await expectSignedInAs(other, email);
     }
   });
 
@@ -206,15 +209,15 @@ test.describe('the session', () => {
     await signInToApp(page, email);
     const other = await context.newPage();
     await other.goto('/products');
-    await expect(other.getByTestId('user-email')).toHaveText(email);
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await expectSignedInAs(other, email);
+    await signOutViaMenu(page);
     await expect(other).toHaveURL(/\/login/);
   });
 
   test('the API really revoked the session on sign-out', async ({ page, request }) => {
     const { email } = await createAccount(request);
     await signInToApp(page, email);
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOutViaMenu(page);
     await expect(page).toHaveURL(/\/login$/);
     await page.goto('/products');
     await expect(page).toHaveURL(/\/login\?next=/);

@@ -83,15 +83,30 @@ export function AreaChart({
     <View style={{ gap: space[2] }}>
       <View style={{ flexDirection: 'row', gap: space[4], flexWrap: 'wrap' }}>
         {paths.map((p) => (
-          <View key={p.s.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: p.color }} />
-            <Text variant="small" tone="muted">
+          <View
+            key={p.s.key}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' }}
+          >
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: p.color,
+                flexShrink: 0,
+              }}
+            />
+            <Text variant="small" tone="muted" style={{ flexShrink: 1 }}>
               {p.s.label}
             </Text>
           </View>
         ))}
       </View>
-      <View style={{ height }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      <View
+        // Clipped, so the svg's own width can never hold the box open: the box follows its parent and the svg follows the box.
+        style={{ height, width: '100%', minWidth: 0, overflow: 'hidden' }}
+        onLayout={(e) => setWidth(Math.max(1, Math.floor(e.nativeEvent.layout.width)))}
+      >
         <Svg width={width} height={height} role="img" aria-label={title}>
           <Defs>
             <LinearGradient id={`g${id}`} x1="0" y1="0" x2="0" y2="1">
@@ -382,7 +397,13 @@ export function WaterfallChart({
   const plot = height - 56;
   const toY = (v: number) => ((max - v) / span) * plot;
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} role="img" aria-label={title}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      role="group"
+      aria-label={title}
+      tabIndex={0}
+    >
       <View
         style={{
           minWidth: Math.max(560, steps.length * 72),

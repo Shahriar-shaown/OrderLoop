@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  View,
+  type PressableStateCallbackType,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { Checkbox } from './Checkbox';
 import { Skeleton } from './Skeleton';
 import { Text } from './Text';
@@ -29,6 +36,37 @@ const NEEDS = { always: 0, wide: 1, desktop: 2 } as const;
 export interface Selection {
   selected: string[];
   onChange: (ids: string[]) => void;
+}
+
+/**
+ * A table row or card. Only a row that can be pressed is a `Pressable`: a disabled one would mark itself `aria-disabled`, and
+ * everything inside it (the row's own action buttons) with it.
+ */
+function RowShell({
+  onPress,
+  style,
+  children,
+  role,
+}: {
+  onPress: (() => void) | undefined;
+  style: StyleProp<ViewStyle> | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>);
+  children: ReactNode;
+  role: 'row' | 'listitem';
+}) {
+  if (!onPress) {
+    const plain =
+      typeof style === 'function' ? style({ pressed: false } as PressableStateCallbackType) : style;
+    return (
+      <View role={role} style={plain}>
+        {children}
+      </View>
+    );
+  }
+  return (
+    <Pressable role={role} focusable={role === 'listitem'} onPress={onPress} style={style}>
+      {children}
+    </Pressable>
+  );
 }
 
 /**
@@ -112,11 +150,10 @@ export function DataTable<T>({
               const id = rowKey(row);
               const on = !!selection?.selected.includes(id);
               return (
-                <Pressable
+                <RowShell
                   key={id}
                   role="listitem"
                   onPress={onRowPress ? () => onRowPress(row) : undefined}
-                  disabled={!onRowPress}
                   style={[
                     frame,
                     { padding: space[4], flexDirection: 'row', gap: space[3] },
@@ -134,7 +171,7 @@ export function DataTable<T>({
                     />
                   )}
                   <View style={{ flex: 1, minWidth: 0 }}>{renderCard(row)}</View>
-                </Pressable>
+                </RowShell>
               );
             })}
         {footer && <View style={frame}>{footer}</View>}
@@ -144,7 +181,14 @@ export function DataTable<T>({
 
   return (
     <View style={frame}>
-      <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator
+        contentContainerStyle={{ flexGrow: 1 }}
+        tabIndex={0}
+        role="region"
+        aria-label={label ? `${label}, scrollable` : undefined}
+      >
         <View role="table" aria-label={label} style={{ minWidth: minTotal, flexGrow: 1 }}>
           <View
             role="row"
@@ -173,8 +217,12 @@ export function DataTable<T>({
               <View key={c.key} role="columnheader" style={cell(c)}>
                 <Text
                   variant="fine"
-                  tone="muted"
-                  style={{ textTransform: 'uppercase', letterSpacing: 0.4 }}
+                  style={{
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.4,
+                    color: colors.foreground,
+                    opacity: 0.8,
+                  }}
                 >
                   {c.header}
                 </Text>
@@ -193,7 +241,7 @@ export function DataTable<T>({
                     borderBottomColor: colors.border,
                   }}
                 >
-                  {selection && <View style={{ width: CHECK }} />}
+                  {selection && <View role="cell" style={{ width: CHECK }} />}
                   {visible.map((c) => (
                     <View key={c.key} role="cell" style={cell(c)}>
                       <Skeleton width="70%" />
@@ -206,12 +254,10 @@ export function DataTable<T>({
                 const on = !!selection?.selected.includes(id);
                 const last = i === rows.length - 1 && !footer;
                 return (
-                  <Pressable
+                  <RowShell
                     key={id}
                     role="row"
-                    focusable={false}
                     onPress={onRowPress ? () => onRowPress(row) : undefined}
-                    disabled={!onRowPress}
                     style={(state) => [
                       {
                         flexDirection: 'row',
@@ -228,6 +274,7 @@ export function DataTable<T>({
                   >
                     {selection && (
                       <View
+                        role="cell"
                         style={{ width: CHECK, justifyContent: 'center', alignItems: 'center' }}
                       >
                         <Checkbox
@@ -243,14 +290,12 @@ export function DataTable<T>({
                         {renderCell(c.render(row))}
                       </View>
                     ))}
-                  </Pressable>
+                  </RowShell>
                 );
               })}
-          {footer && (
-            <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>{footer}</View>
-          )}
         </View>
       </ScrollView>
+      {footer && <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>{footer}</View>}
     </View>
   );
 }

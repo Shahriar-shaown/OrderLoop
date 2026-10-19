@@ -127,14 +127,22 @@ export async function expectAccessible(page: Page) {
 export async function expectNoHorizontalOverflow(page: Page) {
   const { overflow, widest } = await page.evaluate(() => {
     const limit = document.documentElement.clientWidth;
+    // An element inside a scroller or a clipping box is not what widens the page.
+    const clipped = (el: Element) => {
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        const o = getComputedStyle(p);
+        if (/(auto|scroll|hidden|clip)/.test(o.overflowX)) return true;
+      }
+      return false;
+    };
     const wide = [...document.querySelectorAll('body *')]
       .map((el) => ({ el, right: el.getBoundingClientRect().right }))
-      .filter((x) => x.right > limit + 1)
+      .filter((x) => x.right > limit + 0.5 && !clipped(x.el))
       .sort((a, b) => b.right - a.right)
       .slice(0, 3)
       .map(
         (x) =>
-          `${x.el.tagName.toLowerCase()}.${String(x.el.className).slice(0, 40)} right=${Math.round(x.right)}`,
+          `${x.el.tagName.toLowerCase()} "${(x.el.textContent ?? '').trim().slice(0, 40)}" right=${Math.round(x.right)}`,
       );
     return { overflow: document.documentElement.scrollWidth - limit, widest: wide };
   });

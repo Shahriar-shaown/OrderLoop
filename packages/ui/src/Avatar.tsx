@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import { Text } from './Text';
 import { useTheme } from './theme';
 
-const initials = (name: string) =>
+export const initials = (name: string) =>
   name
     .split(/\s+/)
     .filter(Boolean)

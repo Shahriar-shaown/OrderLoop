@@ -33,7 +33,7 @@ export function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
       trigger={(p) => (
         <Pressable
           role="button"
-          aria-label={`Business: ${session.tenant.name}. Switch business`}
+          aria-label={`${session.tenant.name} ${session.role.charAt(0) + session.role.slice(1).toLowerCase()}. Switch business`}
           aria-haspopup="menu"
           aria-expanded={p['aria-expanded']}
           onPress={p.onPress}
@@ -68,9 +68,13 @@ export function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
           {!compact && (
             <View style={{ flexShrink: 1, minWidth: 0 }}>
               <Text variant="label" numberOfLines={1} testID="tenant-name">
-                {session.tenant.name}
+                {session.tenant.name}{' '}
               </Text>
-              <Text variant="caption" tone="muted" numberOfLines={1}>
+              <Text
+                variant="caption"
+                numberOfLines={1}
+                style={{ color: colors.foreground, opacity: 0.75 }}
+              >
                 {session.role.charAt(0) + session.role.slice(1).toLowerCase()}
               </Text>
             </View>

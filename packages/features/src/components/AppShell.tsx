@@ -266,7 +266,7 @@ export function AppShell({
       {isDesktop ? (
         <Pressable
           role="button"
-          aria-label="Search orders, customers, products and tracking IDs"
+          aria-label="Search orders, customers, tracking IDs ⌘K"
           onPress={openSearch}
           style={{
             flexGrow: 1,
@@ -295,7 +295,7 @@ export function AppShell({
               backgroundColor: colors.subtle,
             }}
           >
-            <Text variant="caption" tone="muted">
+            <Text variant="caption" style={{ color: colors.foreground, opacity: 0.8 }}>
               ⌘K
             </Text>
           </View>

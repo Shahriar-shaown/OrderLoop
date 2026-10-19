@@ -1,4 +1,13 @@
-import { Avatar, Button, Popover, Text, ThemeToggle, MenuRow, useTheme } from '@orderloop/ui';
+import {
+  Avatar,
+  Button,
+  Popover,
+  Text,
+  ThemeToggle,
+  MenuRow,
+  initials,
+  useTheme,
+} from '@orderloop/ui';
 import { Pressable, View } from 'react-native';
 import { useAuth } from '../auth';
 
@@ -14,7 +23,7 @@ export function AccountMenu({ onSignOut, leaving }: { onSignOut: () => void; lea
       trigger={(p) => (
         <Pressable
           role="button"
-          aria-label="Account menu"
+          aria-label={`${initials(session.user.name)} Account menu`}
           aria-haspopup="menu"
           aria-expanded={p['aria-expanded']}
           onPress={p.onPress}

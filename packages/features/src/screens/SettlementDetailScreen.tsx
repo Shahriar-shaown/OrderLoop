@@ -48,7 +48,7 @@ function DiscrepancyBlock({ d }: { d: Discrepancy }) {
   const short =
     d.expectedMinor !== null && d.actualMinor !== null ? d.actualMinor - d.expectedMinor : null;
   return (
-    <Card variant="filled" padding="sm">
+    <Card variant="outlined" padding="sm">
       <Stack gap={2}>
         <Row gap={2} wrap align="center">
           <Badge tone="error" dot>

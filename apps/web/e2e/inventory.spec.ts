@@ -1,40 +1,16 @@
 import { readFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
 import { createAccount, expect, signInToApp, test } from './fixtures';
+import {
+  catalogCreateProduct,
+  catalogOpenMoreMenu,
+  catalogOpenStockDialog,
+  catalogStockAction,
+  expectCatalogVariantCell as expectCell,
+} from './support/catalog-ui';
 
-const variantRow = (page: Page, sku: string) =>
-  page.getByRole('row', { name: new RegExp(sku, 'i') });
-// Variant table columns: SKU, Price, On hand, Reserved, Available, Damaged, Actions
-const cell = (page: Page, sku: string, index: number) =>
-  variantRow(page, sku).getByRole('cell').nth(index);
-
-async function newProduct(page: Page, name: string, sku: string) {
-  await page.goto('/products/new');
-  await page.getByLabel('Product name').fill(name);
-  await page.getByLabel('SKU').fill(sku);
-  await page.getByLabel('Price (৳)').fill('500');
-  await page.getByRole('button', { name: 'Create product' }).click();
-  await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
-}
-
-async function dialogAction(
-  page: Page,
-  sku: string,
-  button: string,
-  fields: Record<string, string>,
-  submit: string,
-) {
-  await variantRow(page, sku).getByRole('button', { name: button, exact: true }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible();
-  for (const [label, value] of Object.entries(fields)) {
-    const field = dialog.getByLabel(label);
-    if ((await field.evaluate((el) => el.tagName)) === 'SELECT')
-      await field.selectOption({ label: value });
-    else await field.fill(value);
-  }
-  await dialog.getByRole('button', { name: submit }).click();
-}
+const newProduct = (page: Page, name: string, sku: string) =>
+  catalogCreateProduct(page, { name, sku, price: '500' });
 
 test.describe('inventory module', () => {
   test.beforeEach(async ({ page, request }) => {
@@ -43,7 +19,8 @@ test.describe('inventory module', () => {
   });
 
   test('a supplier, pictures, size and colour are saved on a product', async ({ page }) => {
-    await page.getByRole('link', { name: 'Suppliers', exact: true }).click();
+    await page.goto('/products');
+    await catalogOpenMoreMenu(page, 'Suppliers');
     await expect(page.getByText('No suppliers yet')).toBeVisible();
     await page.getByRole('button', { name: 'New supplier' }).click();
     const dialog = page.getByRole('dialog');
@@ -80,62 +57,50 @@ test.describe('inventory module', () => {
     page,
   }) => {
     await newProduct(page, 'Glass vase', 'VASE-1');
-    await dialogAction(page, 'VASE-1', 'Receive', { Quantity: '10' }, 'Receive stock');
-    await expect(cell(page, 'VASE-1', 2)).toHaveText('10');
+    await catalogStockAction(page, 'VASE-1', 'Receive', { Quantity: '10' });
+    await expectCell(page, 'VASE-1', 'On hand', '10');
 
     // a reason is required
-    await variantRow(page, 'VASE-1').getByRole('button', { name: 'Damaged', exact: true }).click();
-    const dialog = page.getByRole('dialog');
+    const dialog = await catalogOpenStockDialog(page, 'VASE-1', 'Damaged');
     await dialog.getByLabel('Quantity').fill('3');
     await dialog.getByRole('button', { name: 'Mark as damaged' }).click();
     await expect(dialog.getByText('Say why (at least 3 characters)')).toBeVisible();
     await dialog.getByLabel('Reason').fill('Cracked in transit');
     await dialog.getByRole('button', { name: 'Mark as damaged' }).click();
     await expect(dialog).toBeHidden();
-    await expect(cell(page, 'VASE-1', 2)).toHaveText('7'); // on hand
-    await expect(cell(page, 'VASE-1', 4)).toHaveText('7'); // available
-    await expect(cell(page, 'VASE-1', 5)).toHaveText('3'); // damaged
+    await expectCell(page, 'VASE-1', 'On hand', '7');
+    await expectCell(page, 'VASE-1', 'Available', '7');
+    await expectCell(page, 'VASE-1', 'Damaged', '3');
 
     // cannot write off more than is damaged
-    await dialogAction(
-      page,
-      'VASE-1',
-      'Write off',
-      { Quantity: '5', Reason: 'Thrown away' },
-      'Write off damaged',
-    );
+    await catalogStockAction(page, 'VASE-1', 'Write off', { Quantity: '5', Reason: 'Thrown away' });
     await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Only 3 damaged');
     await page.getByRole('dialog').getByLabel('Quantity').fill('3');
     await page.getByRole('dialog').getByRole('button', { name: 'Write off damaged' }).click();
-    await expect(cell(page, 'VASE-1', 5)).toHaveText('0');
+    await expectCell(page, 'VASE-1', 'Damaged', '0');
 
     // the ledger explains each step
     await page.goto('/inventory');
-    await page.getByRole('tab', { name: 'Movements' }).click();
+    await page.getByRole('tab', { name: /Stock movements/ }).click();
     await expect(page.getByRole('cell', { name: 'Cracked in transit' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'damage', exact: true })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'write off', exact: true })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Damaged', exact: true })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Written off', exact: true })).toBeVisible();
   });
 
   test('a returned item goes back on the shelf or to the damaged bucket', async ({ page }) => {
     await newProduct(page, 'Scarf', 'SCARF-1');
-    await dialogAction(
-      page,
-      'SCARF-1',
-      'Return',
-      { Quantity: '2', Condition: 'Resaleable: goes back on the shelf', Reference: 'RET-77' },
-      'Record a return',
-    );
-    await expect(cell(page, 'SCARF-1', 2)).toHaveText('2');
-    await dialogAction(
-      page,
-      'SCARF-1',
-      'Return',
-      { Quantity: '1', Condition: 'Damaged: goes to the damaged bucket' },
-      'Record a return',
-    );
-    await expect(cell(page, 'SCARF-1', 2)).toHaveText('2');
-    await expect(cell(page, 'SCARF-1', 5)).toHaveText('1');
+    await catalogStockAction(page, 'SCARF-1', 'Return', {
+      Quantity: '2',
+      Condition: 'Resaleable: goes back on the shelf',
+      Reference: 'RET-77',
+    });
+    await expectCell(page, 'SCARF-1', 'On hand', '2');
+    await catalogStockAction(page, 'SCARF-1', 'Return', {
+      Quantity: '1',
+      Condition: 'Damaged: goes to the damaged bucket',
+    });
+    await expectCell(page, 'SCARF-1', 'On hand', '2');
+    await expectCell(page, 'SCARF-1', 'Damaged', '1');
   });
 
   test('low stock appears once damage takes available stock under the threshold', async ({
@@ -147,18 +112,16 @@ test.describe('inventory module', () => {
     await page.getByLabel('Price (৳)').fill('120');
     await page.getByLabel('Reorder at').fill('5');
     await page.getByRole('button', { name: 'Create product' }).click();
-    await dialogAction(page, 'CANDLE-1', 'Receive', { Quantity: '8' }, 'Receive stock');
-    await expect(cell(page, 'CANDLE-1', 4)).toHaveText('8');
-    await dialogAction(
-      page,
-      'CANDLE-1',
-      'Damaged',
-      { Quantity: '4', Reason: 'Melted in the heat' },
-      'Mark as damaged',
-    );
-    await expect(cell(page, 'CANDLE-1', 4)).toContainText('4 low');
+    await catalogStockAction(page, 'CANDLE-1', 'Receive', { Quantity: '8' });
+    await expectCell(page, 'CANDLE-1', 'Available', '8');
+    await catalogStockAction(page, 'CANDLE-1', 'Damaged', {
+      Quantity: '4',
+      Reason: 'Melted in the heat',
+    });
+    await expectCell(page, 'CANDLE-1', 'Available', '4');
+    await expect(page.getByRole('row', { name: /CANDLE-1/ })).toContainText('Low stock');
     await page.goto('/inventory');
-    await page.getByRole('tab', { name: 'Low stock' }).click();
+    await page.getByRole('tab', { name: /Low stock/ }).click();
     await expect(page.getByRole('cell', { name: /CANDLE-1/ })).toBeVisible();
   });
 
@@ -176,7 +139,11 @@ test.describe('inventory module', () => {
     await expect(page.getByText('Nothing has been changed yet.')).toBeVisible();
     await expect(page.getByText('2 to create')).toBeVisible();
     await expect(page.getByText('1 with problems')).toBeVisible();
-    await expect(page.getByText(/Row 3: price must be a non-negative amount/)).toBeVisible();
+    await expect(
+      page
+        .getByRole('table', { name: 'Rows with problems' })
+        .getByRole('row', { name: /3.*price must be a non-negative amount/ }),
+    ).toBeVisible();
 
     // nothing exists yet
     await page.goto('/products');
@@ -201,8 +168,8 @@ test.describe('inventory module', () => {
 
   test('the catalog and stock download as CSV files', async ({ page }) => {
     await newProduct(page, 'Export tee', 'EXP-1');
-    await dialogAction(page, 'EXP-1', 'Receive', { Quantity: '4' }, 'Receive stock');
-    await expect(cell(page, 'EXP-1', 2)).toHaveText('4');
+    await catalogStockAction(page, 'EXP-1', 'Receive', { Quantity: '4' });
+    await expectCell(page, 'EXP-1', 'On hand', '4');
 
     await page.goto('/imports');
     const catalog = page.waitForEvent('download');
@@ -213,9 +180,9 @@ test.describe('inventory module', () => {
     expect(catalogText).toContain('product_name,sku,price');
     expect(catalogText).toContain('Export tee,EXP-1,500.00');
 
-    await page.goto('/inventory');
+    await page.goto('/products');
     const stock = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Export stock CSV' }).click();
+    await catalogOpenMoreMenu(page, 'Export stock CSV');
     const stockText = await readFile((await (await stock).path())!, 'utf8');
     expect(stockText).toContain('sku,product_name,variant_name,location,on_hand,reserved,damaged');
     expect(stockText).toContain('EXP-1,Export tee,,Main warehouse,4,0,0,4,0');

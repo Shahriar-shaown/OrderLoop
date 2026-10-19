@@ -30,6 +30,7 @@ import {
   useToast,
 } from '@orderloop/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { View } from 'react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { validate, type FormErrors } from '../errors';
 import { useFormState } from '../forms';
@@ -609,7 +610,11 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
   return (
     <Form onSubmit={() => submit(false)} gap={5}>
       <Split sticky asideWidth={360} main={<>{main}</>} aside={aside} />
-      {isMobile && <StickyActions>{actions}</StickyActions>}
+      {isMobile && (
+        <StickyActions>
+          <View style={{ width: '100%', minWidth: 0 }}>{actions}</View>
+        </StickyActions>
+      )}
     </Form>
   );
 }

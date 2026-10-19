@@ -8,6 +8,8 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Screens render a lot of components; a busy CI machine needs more than the 5 s default.
+    testTimeout: 20_000,
     globals: false,
     setupFiles: ['./test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],

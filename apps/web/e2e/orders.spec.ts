@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 import {
   API,
   createAccount,
@@ -12,6 +12,15 @@ import {
   test,
   uniqueEmail,
 } from './fixtures';
+import {
+  chooseFilter,
+  expectStockOfSku,
+  fillNewOrderForm,
+  listSearch,
+  orderHeading,
+  ordersSummary,
+  statusChip,
+} from './support/ui';
 
 /** Sign in through the API and put products on the shelf, so a scenario starts with something to sell. */
 async function stockUp(
@@ -45,48 +54,26 @@ async function stockUp(
   return { headers, ids };
 }
 
-/** Fill the customer, address and one catalog item on the new-order form. */
-async function fillOrder(
-  page: Page,
-  o: { phone: string; name: string; sku: string; search: string; qty?: string },
-) {
-  await page.goto('/orders/new');
-  await page.getByLabel(/^Phone/).fill(o.phone);
-  await page.getByLabel('Customer name').fill(o.name);
-  await page.getByLabel('Recipient name').fill(o.name);
-  await page.getByLabel(/^Address/).fill('House 5, Road 3');
-  await page.getByLabel('Thana / upazila').fill('Dhanmondi');
-  await page.getByLabel('District').fill('Dhaka');
-  await page.getByLabel('Add an item').fill(o.search);
-  await page.getByRole('button', { name: 'Add', exact: true }).first().click();
-  if (o.qty) await page.getByLabel(`Quantity (${o.sku})`).fill(o.qty);
-}
-
-const stockOf = async (page: Page, sku: string) => {
-  await page.goto('/inventory');
-  const row = page.getByRole('row', { name: new RegExp(sku, 'i') });
-  await expect(row).toBeVisible();
-  return row.getByRole('cell');
-};
-
 test.describe('orders', () => {
   test('take an order, confirm it, cancel it: totals and stock stay correct', async ({
     page,
     request,
   }) => {
     const { email } = await createAccount(request, 'orders');
-    await stockUp(request, email, [{ sku: 'TEE-1', name: 'Cotton tee', price: 850, qty: 10 }]);
+    const { headers } = await stockUp(request, email, [
+      { sku: 'TEE-1', name: 'Cotton tee', price: 850, qty: 10 },
+    ]);
     await signInToApp(page, email);
 
-    await page.getByRole('link', { name: 'Orders', exact: true }).click();
+    await page.getByRole('link', { name: 'Orders', exact: true }).first().click();
     await expect(page.getByText('No orders yet')).toBeVisible();
     await page.getByRole('link', { name: 'Create your first order' }).click();
 
     // an empty form says exactly what is missing
-    await page.getByRole('button', { name: 'Create order', exact: true }).click();
-    await expect(page.getByLabel(/^Phone/)).toHaveAttribute('aria-invalid', 'true');
+    await page.getByRole('button', { name: 'Save as draft' }).click();
+    await expect(page.getByText('Choose a customer or enter their details')).toBeVisible();
 
-    await fillOrder(page, {
+    await fillNewOrderForm(page, {
       phone: '01712-345678',
       name: 'Rina Akter',
       sku: 'TEE-1',
@@ -100,12 +87,12 @@ test.describe('orders', () => {
     await expect(
       page.getByText('An estimate. The final figures are worked out when you save.'),
     ).toBeVisible();
-    await expect(page.getByText('৳1,660.00', { exact: true })).toBeVisible(); // 1700 - 100 + 60
-    await expect(page.getByText('৳1,460.00', { exact: true })).toBeVisible(); // COD
-    await page.getByRole('button', { name: 'Create order', exact: true }).click();
+    await expect(page.getByText('৳1,660.00', { exact: true }).first()).toBeVisible(); // 1700 - 100 + 60
+    await expect(page.getByText('৳1,460.00', { exact: true }).first()).toBeVisible(); // COD to collect
+    await page.getByRole('button', { name: 'Save as draft' }).click();
 
     // the saved order shows the server's figures
-    await expect(page.getByRole('heading', { level: 1, name: /Order #1001/ })).toBeVisible();
+    await expect(orderHeading(page, 1001)).toBeVisible();
     await expect(page.getByText('Pending confirmation').first()).toBeVisible();
     await expect(page.getByText('This order holds no stock yet')).toBeVisible();
     await expect(page.getByText('৳1,660.00').first()).toBeVisible();
@@ -113,17 +100,13 @@ test.describe('orders', () => {
     const orderUrl = page.url();
 
     // nothing is held yet
-    let cells = await stockOf(page, 'TEE-1');
-    await expect(cells.nth(2)).toHaveText('10'); // on hand
-    await expect(cells.nth(3)).toHaveText('0'); // reserved
+    await expectStockOfSku(request, headers, 'TEE-1', { onHand: 10, reserved: 0 });
 
     // confirm: stock is reserved
     await page.goto(orderUrl);
     await page.getByRole('button', { name: 'Confirm order' }).click();
     await expect(page.getByText('Stock is reserved for this order')).toBeVisible();
-    cells = await stockOf(page, 'TEE-1');
-    await expect(cells.nth(3)).toHaveText('2');
-    await expect(cells.nth(4)).toHaveText('8'); // available
+    await expectStockOfSku(request, headers, 'TEE-1', { onHand: 10, reserved: 2, available: 8 });
 
     // cancel needs a reason, then the stock comes back
     await page.goto(orderUrl);
@@ -135,12 +118,12 @@ test.describe('orders', () => {
     await dialog.getByRole('button', { name: 'Cancel order' }).click();
     await expect(page.getByText('Cancelled').first()).toBeVisible();
     await expect(page.getByText('Customer changed their mind')).toBeVisible();
-    // the history lists every step, in order
-    const history = page.getByRole('region', { name: 'Status history' }).or(page.locator('body'));
-    await expect(history.getByText('Pending confirmation').first()).toBeVisible();
-    cells = await stockOf(page, 'TEE-1');
-    await expect(cells.nth(2)).toHaveText('10');
-    await expect(cells.nth(3)).toHaveText('0');
+    // the timeline lists every step, in order
+    const timeline = page.getByRole('list', { name: 'Order timeline' });
+    await expect(timeline).toContainText('Order created');
+    await expect(timeline).toContainText('Confirmed');
+    await expect(timeline).toContainText('Cancelled');
+    await expectStockOfSku(request, headers, 'TEE-1', { onHand: 10, reserved: 0 });
     // a cancelled order offers no more moves
     await page.goto(orderUrl);
     await expect(page.getByRole('button', { name: 'Confirm order' })).toHaveCount(0);
@@ -151,22 +134,25 @@ test.describe('orders', () => {
     request,
   }) => {
     const { email } = await createAccount(request, 'short');
-    await stockUp(request, email, [{ sku: 'RARE-1', name: 'Rare vase', price: 500, qty: 1 }]);
+    const { headers } = await stockUp(request, email, [
+      { sku: 'RARE-1', name: 'Rare vase', price: 500, qty: 1 },
+    ]);
     await signInToApp(page, email);
-    await fillOrder(page, {
+    await fillNewOrderForm(page, {
       phone: '01712345678',
       name: 'Karim',
       sku: 'RARE-1',
       search: 'vase',
       qty: '3',
     });
-    await page.getByRole('button', { name: 'Create order', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: /Order #1001/ })).toBeVisible();
+    // the form already says the line is short; a draft holds no stock, so it can still be saved
+    await expect(page.getByText(/only 1 available, 3 on this order/)).toBeVisible();
+    await page.getByRole('button', { name: 'Save as draft' }).click();
+    await expect(orderHeading(page, 1001)).toBeVisible();
     await page.getByRole('button', { name: 'Confirm order' }).click();
     await expect(page.getByText(/RARE-1: only 1 available, 3 needed/)).toBeVisible();
     await expect(page.getByText('Pending confirmation').first()).toBeVisible();
-    const cells = await stockOf(page, 'RARE-1');
-    await expect(cells.nth(3)).toHaveText('0');
+    await expectStockOfSku(request, headers, 'RARE-1', { onHand: 1, reserved: 0 });
   });
 
   test('the form warns about a repeat order and recognises a returning customer', async ({
@@ -176,14 +162,22 @@ test.describe('orders', () => {
     const { email } = await createAccount(request, 'repeat');
     await stockUp(request, email, [{ sku: 'MUG-1', name: 'Blue mug', price: 300, qty: 10 }]);
     await signInToApp(page, email);
-    await fillOrder(page, { phone: '01712345678', name: 'Nasrin', sku: 'MUG-1', search: 'mug' });
-    await page.getByRole('button', { name: 'Create order', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: /Order #1001/ })).toBeVisible();
+    await fillNewOrderForm(page, {
+      phone: '01712345678',
+      name: 'Nasrin',
+      sku: 'MUG-1',
+      search: 'mug',
+    });
+    await page.getByRole('button', { name: 'Save as draft' }).click();
+    await expect(orderHeading(page, 1001)).toBeVisible();
 
     await page.goto('/orders/new');
+    await page.getByRole('button', { name: 'New customer' }).click();
     await page.getByLabel(/^Phone/).fill('+880 1712 345678');
-    await expect(page.getByText('Existing customer: Nasrin')).toBeVisible();
-    await expect(page.getByText(/1 order: 0 delivered, 0 returned, 0 cancelled/)).toBeVisible();
+    // a number already on file is that customer: picked, with plain counts and no verdict
+    await expect(page.getByText('Repeat customer')).toBeVisible();
+    await expect(page.getByText('Nasrin', { exact: true })).toBeVisible();
+    await expect(page.getByText(/1 previous order/)).toBeVisible();
     await expect(page.getByText('These recent orders look similar')).toBeVisible();
     await expect(page.getByText(/ago for the same phone number/)).toBeVisible();
     await expect(
@@ -197,17 +191,16 @@ test.describe('orders', () => {
     const { email } = await createAccount(request, 'twice');
     await stockUp(request, email, [{ sku: 'ONCE-1', name: 'Once only', price: 100, qty: 10 }]);
     await signInToApp(page, email);
-    await fillOrder(page, {
+    await fillNewOrderForm(page, {
       phone: '01712345678',
       name: 'Double Click',
       sku: 'ONCE-1',
       search: 'once',
     });
-    const create = page.getByRole('button', { name: 'Create order', exact: true });
-    await create.dblclick();
-    await expect(page.getByRole('heading', { level: 1, name: /Order #1001/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Save as draft' }).dblclick();
+    await expect(orderHeading(page, 1001)).toBeVisible();
     await page.goto('/orders');
-    await expect(page.getByText('1 order', { exact: true })).toBeVisible();
+    await expect(ordersSummary(page, '1 order · 0 selected')).toBeVisible();
   });
 
   test('search, filter, sort, select and act on many orders at once', async ({ page, request }) => {
@@ -249,37 +242,42 @@ test.describe('orders', () => {
 
     await signInToApp(page, email);
     await page.goto('/orders');
-    await expect(page.getByText('4 orders', { exact: true })).toBeVisible();
+    await expect(ordersSummary(page, '4 orders · 0 selected')).toBeVisible();
+
+    // the status chips count every status
+    await expect(page.getByRole('tab', { name: 'All 4' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Pending confirmation 4' })).toBeVisible();
 
     // search by name and by a fragment of the phone number
-    await page.getByLabel('Search').fill('bashir');
-    await expect(page.getByText('1 order match', { exact: true })).toBeVisible();
+    await listSearch(page).fill('bashir');
+    await expect(ordersSummary(page, '1 order · 0 selected')).toBeVisible();
     await expect(page.getByRole('cell', { name: /Bashir Ahmed/ })).toBeVisible();
-    await page.getByLabel('Search').fill('01911');
+    await listSearch(page).fill('01911');
     await expect(page.getByRole('cell', { name: /Chitra Sen/ })).toBeVisible();
-    await page.getByLabel('Search').fill('');
-    await expect(page.getByText('4 orders', { exact: true })).toBeVisible();
+    await listSearch(page).fill('');
+    await expect(ordersSummary(page, '4 orders · 0 selected')).toBeVisible();
 
     // filter by source, then sort by total
-    await page.getByLabel('Source').selectOption({ label: 'Facebook' });
-    await expect(page.getByText('2 orders match', { exact: true })).toBeVisible();
-    await page.getByLabel('Source').selectOption({ label: 'All' });
-    await page.getByLabel('Sort by').selectOption({ label: 'Highest total' });
+    await chooseFilter(page, 'Source: All', 'Facebook');
+    await expect(ordersSummary(page, '2 orders · 0 selected')).toBeVisible();
+    await chooseFilter(page, 'Source: Facebook', 'All');
+    await expect(ordersSummary(page, '4 orders · 0 selected')).toBeVisible();
+    await chooseFilter(page, 'Sort: Newest first', 'Highest total');
     const firstRow = page.getByRole('row').nth(1);
     await expect(firstRow).toContainText('Dipu Roy'); // 5 x 200 = ৳1,000
 
     // select all shown and confirm in bulk: three confirm, the one without stock is reported, nothing else changes
-    await page.getByRole('checkbox', { name: 'Select all shown' }).click();
-    await expect(page.getByText('4 selected')).toBeVisible();
+    await page.getByRole('checkbox', { name: 'Select all rows' }).click();
+    await expect(page.getByText('4 orders selected', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Confirm', exact: true }).click();
     await expect(page.getByText('Some orders could not be updated')).toBeVisible();
     await expect(page.getByText(/BULK-B: only 1 available, 5 needed/)).toBeVisible();
-    await expect(page.getByText('1 selected')).toBeVisible(); // only the failed one stays selected
-    await page.getByLabel('Status').selectOption({ label: 'Confirmed' });
-    await expect(page.getByText('3 orders match', { exact: true })).toBeVisible();
+    await expect(page.getByText('1 order selected', { exact: true })).toBeVisible(); // only the failed one stays selected
+    await statusChip(page, 'Confirmed').click();
+    await expect(ordersSummary(page, '3 orders · 0 selected')).toBeVisible();
 
     // bulk cancel needs a reason
-    await page.getByRole('checkbox', { name: 'Select all shown' }).click();
+    await page.getByRole('checkbox', { name: 'Select all rows' }).click();
     await page.getByRole('button', { name: 'Cancel…' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('button', { name: 'Cancel orders' }).click();
@@ -287,11 +285,9 @@ test.describe('orders', () => {
     await dialog.getByLabel('Reason').fill('Courier strike this week');
     await dialog.getByRole('button', { name: 'Cancel orders' }).click();
     await expect(page.getByText('No orders match')).toBeVisible();
-    await page.getByLabel('Status').selectOption({ label: 'Cancelled' });
-    await expect(page.getByText('3 orders match', { exact: true })).toBeVisible();
-    const cells = await stockOf(page, 'BULK-A');
-    await expect(cells.nth(2)).toHaveText('50');
-    await expect(cells.nth(3)).toHaveText('0');
+    await statusChip(page, 'Cancelled').click();
+    await expect(ordersSummary(page, '3 orders · 0 selected')).toBeVisible();
+    await expectStockOfSku(request, headers, 'BULK-A', { onHand: 50, reserved: 0 });
   });
 
   test('orders download as CSV with the figures the server worked out', async ({
@@ -301,18 +297,18 @@ test.describe('orders', () => {
     const { email } = await createAccount(request, 'csv');
     await stockUp(request, email, [{ sku: 'CSV-1', name: 'Csv tee', price: 1250.5, qty: 5 }]);
     await signInToApp(page, email);
-    await fillOrder(page, {
+    await fillNewOrderForm(page, {
       phone: '01712345678',
       name: 'Csv Buyer',
       sku: 'CSV-1',
       search: 'csv',
       qty: '2',
     });
-    await page.getByRole('button', { name: 'Create order', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: /Order #1001/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Save as draft' }).click();
+    await expect(orderHeading(page, 1001)).toBeVisible();
     await page.goto('/orders');
     const download = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Export CSV' }).click();
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/^orders-\d{4}-\d{2}-\d{2}\.csv$/);
     const text = await readFile((await file.path())!, 'utf8');
@@ -324,7 +320,9 @@ test.describe('orders', () => {
 
   test('an orders CSV is checked first, then imported once', async ({ page, request }) => {
     const { email } = await createAccount(request, 'imp');
-    await stockUp(request, email, [{ sku: 'IMP-1', name: 'Import item', price: 500, qty: 10 }]);
+    const { headers } = await stockUp(request, email, [
+      { sku: 'IMP-1', name: 'Import item', price: 500, qty: 10 },
+    ]);
     await signInToApp(page, email);
     await page.goto('/orders/import');
     const csv =
@@ -351,11 +349,10 @@ test.describe('orders', () => {
     await expect(page.getByText('0 orders to create')).toBeVisible();
 
     await page.goto('/orders');
-    await expect(page.getByText('1 order', { exact: true })).toBeVisible();
+    await expect(ordersSummary(page, '1 order · 0 selected')).toBeVisible();
     await expect(page.getByRole('cell', { name: /Good Buyer/ })).toBeVisible();
     // an import holds no stock
-    const cells = await stockOf(page, 'IMP-1');
-    await expect(cells.nth(3)).toHaveText('0');
+    await expectStockOfSku(request, headers, 'IMP-1', { onHand: 10, reserved: 0 });
   });
 
   test('a customer page shows saved addresses and plain order counts', async ({
@@ -365,15 +362,15 @@ test.describe('orders', () => {
     const { email } = await createAccount(request, 'cust');
     await stockUp(request, email, [{ sku: 'CU-1', name: 'Customer item', price: 100, qty: 10 }]);
     await signInToApp(page, email);
-    await fillOrder(page, {
+    await fillNewOrderForm(page, {
       phone: '01712345678',
       name: 'Repeat Customer',
       sku: 'CU-1',
       search: 'customer item',
     });
-    await page.getByRole('button', { name: 'Create order', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: /Order #1001/ })).toBeVisible();
-    await page.getByRole('link', { name: 'Repeat Customer' }).click();
+    await page.getByRole('button', { name: 'Save as draft' }).click();
+    await expect(orderHeading(page, 1001)).toBeVisible();
+    await page.getByRole('link', { name: 'View profile' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Repeat Customer' })).toBeVisible();
     await expect(page.getByText('01712-345678').first()).toBeVisible();
     await expect(page.getByText('House 5, Road 3, Dhanmondi, Dhaka, Dhaka')).toBeVisible();
@@ -393,7 +390,7 @@ test.describe('orders', () => {
     await page.getByRole('button', { name: 'Make default' }).click();
     await expect(page.getByText('Default', { exact: true })).toHaveCount(1);
 
-    await page.getByRole('link', { name: 'Customers', exact: true }).click();
+    await page.getByRole('link', { name: 'Customers', exact: true }).first().click();
     await expect(page.getByRole('link', { name: 'Repeat Customer' })).toBeVisible();
   });
 
@@ -419,14 +416,14 @@ test.describe('orders', () => {
       data: { email: invitee, role: 'ACCOUNTANT' },
     });
     await signInToApp(page, owner.email);
-    await fillOrder(page, {
+    await fillNewOrderForm(page, {
       phone: '01712345678',
       name: 'Seen Only',
       sku: 'ACC-1',
       search: 'accounting',
     });
-    await page.getByRole('button', { name: 'Create order', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: /Order #1001/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Save as draft' }).click();
+    await expect(orderHeading(page, 1001)).toBeVisible();
     const orderUrl = page.url();
 
     const context = await browser.newContext();
@@ -438,12 +435,14 @@ test.describe('orders', () => {
     await expect(guest).toHaveURL(/\/dashboard$/);
     await guest.goto('/orders');
     await expect(guest.getByRole('cell', { name: /Seen Only/ })).toBeVisible();
-    await expect(guest.getByRole('link', { name: 'New order' })).toHaveCount(0);
+    await expect(guest.getByRole('link', { name: 'Create order' })).toHaveCount(0);
+    await expect(guest.getByRole('link', { name: 'Import' })).toHaveCount(0);
     await expect(guest.getByRole('checkbox')).toHaveCount(0);
     await guest.goto(orderUrl);
-    await expect(guest.getByRole('heading', { level: 1, name: /Order #1001/ })).toBeVisible();
+    await expect(orderHeading(guest, 1001)).toBeVisible();
     await expect(guest.getByRole('button', { name: 'Confirm order' })).toHaveCount(0);
-    await expect(guest.getByRole('link', { name: 'Edit' })).toHaveCount(0);
+    await expect(guest.getByRole('link', { name: 'Edit', exact: true })).toHaveCount(0);
+    await expect(guest.getByRole('button', { name: 'Cancel order' })).toHaveCount(0);
     await guest.goto('/orders/new');
     await expect(guest.getByText('Your role can view orders but not create them.')).toBeVisible();
     await context.close();
@@ -456,17 +455,17 @@ test.describe('orders', () => {
     const { email } = await createAccount(request, 'a11y');
     await stockUp(request, email, [{ sku: 'AY-1', name: 'Scan item', price: 100, qty: 5 }]);
     await signInToApp(page, email);
-    await fillOrder(page, {
+    await fillNewOrderForm(page, {
       phone: '01712345678',
       name: 'Scan Buyer',
       sku: 'AY-1',
       search: 'scan item',
     });
-    await page.getByRole('button', { name: 'Create order', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: /Order #1001/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Save as draft' }).click();
+    await expect(orderHeading(page, 1001)).toBeVisible();
     const detail = page.url();
     await expectAccessible(page);
-    const customer = await page.getByRole('link', { name: 'Scan Buyer' }).getAttribute('href');
+    const customer = await page.getByRole('link', { name: 'View profile' }).getAttribute('href');
     const pages = [
       '/orders',
       '/orders/new',

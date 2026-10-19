@@ -66,9 +66,8 @@ function BrandPanel() {
             </View>
             <Stack gap={1} grow>
               <Text variant="label">{b.title}</Text>
-              <Text variant="small" tone="muted">
-                {b.text}
-              </Text>
+              {/* Default ink, not muted: muted grey on the indigo tint is below 4.5:1. */}
+              <Text variant="small">{b.text}</Text>
             </Stack>
           </Stack>
         ))}

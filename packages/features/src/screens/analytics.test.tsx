@@ -193,7 +193,7 @@ describe('analytics and profit', () => {
     expect(screen.getByText('Net profit is not shown')).toBeTruthy();
     expect(screen.queryByText('Total costs')).toBeNull();
     expect(screen.queryByText(/^Net profit · margin/)).toBeNull();
-    const chart = screen.getByRole('img', { name: /^Profit waterfall/ });
+    const chart = screen.getByRole('group', { name: /^Profit waterfall/ });
     expect(chart.getAttribute('aria-label')).toMatch(/Delivered revenue ৳2,13,000\.00$/);
   });
 

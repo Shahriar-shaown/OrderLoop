@@ -48,7 +48,7 @@ export const chartColors = [
 const light: Palette = {
   background: '#f8fafc',
   foreground: '#0f172a',
-  muted: '#64748b',
+  muted: '#556479',
   border: '#e2e8f0',
   borderStrong: '#cbd5e1',
   surface: '#ffffff',
