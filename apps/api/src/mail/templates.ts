@@ -18,16 +18,32 @@ function render(
     ...(link ? [`${link.label}:\n${link.url}`] : []),
     '-- OrderLoop',
   ].join('\n\n');
-  const html = [
-    ...paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`),
+  const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+  const body = [
+    ...paragraphs.map(
+      (p) =>
+        `<p style="margin:0 0 16px;font-size:15px;line-height:24px;color:#334155">${escapeHtml(p)}</p>`,
+    ),
     ...(link
       ? [
-          `<p><a href="${escapeHtml(link.url)}">${escapeHtml(link.label)}</a></p>`,
-          `<p style="color:#666;font-size:12px">If the button does not work, paste this address into your browser:<br>${escapeHtml(link.url)}</p>`,
+          `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:8px 0 24px"><tr><td style="border-radius:8px;background:#4f46e5"><a href="${escapeHtml(link.url)}" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px">${escapeHtml(link.label)}</a></td></tr></table>`,
+          `<p style="margin:0;font-size:12px;line-height:18px;color:#64748b">If the button does not work, paste this address into your browser:<br><a href="${escapeHtml(link.url)}" style="color:#4f46e5;word-break:break-all">${escapeHtml(link.url)}</a></p>`,
         ]
       : []),
-    '<p style="color:#666;font-size:12px">OrderLoop</p>',
   ].join('\n');
+  // Table layout and inline styles only: that is what mail clients reliably render.
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:${font}">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc"><tr><td align="center" style="padding:32px 16px">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px">
+<tr><td style="padding:0 0 20px;font-size:22px;font-weight:700;color:#0f172a">Order<span style="color:#4f46e5">Loop</span></td></tr>
+<tr><td style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:32px">
+<h1 style="margin:0 0 16px;font-size:20px;line-height:28px;color:#0f172a">${escapeHtml(subject)}</h1>
+${body}
+</td></tr>
+<tr><td style="padding:20px 8px 0;font-size:12px;line-height:18px;color:#64748b">You received this because of activity on an OrderLoop account. If that was not you, you can ignore this email.</td></tr>
+</table></td></tr></table></body></html>`;
   return { kind, to, subject, text, html };
 }
 
