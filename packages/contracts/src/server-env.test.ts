@@ -55,6 +55,21 @@ describe('mail and logging env', () => {
         .MAIL_PROVIDER,
     ).toBe('smtp');
   });
+  it('requires an https API_PUBLIC_URL in production, but allows http elsewhere', () => {
+    const prod = {
+      ...valid,
+      NODE_ENV: 'production',
+      JWT_PRIVATE_KEY: 'a',
+      JWT_PUBLIC_KEY: 'b',
+      MAIL_PROVIDER: 'smtp',
+      SMTP_HOST: 'smtp.example.test',
+    };
+    expect(() => loadServerEnv({ ...prod, API_PUBLIC_URL: 'http://api.example.test' })).toThrow(
+      /API_PUBLIC_URL/,
+    );
+    expect(loadServerEnv({ ...prod, API_PUBLIC_URL: 'https://api.example.test' })).toBeTruthy();
+    expect(loadServerEnv({ ...valid, API_PUBLIC_URL: 'http://localhost:4000' })).toBeTruthy();
+  });
   it('rejects an unknown log level', () => {
     expect(() => loadServerEnv({ ...valid, LOG_LEVEL: 'loud' })).toThrow(/LOG_LEVEL/);
   });

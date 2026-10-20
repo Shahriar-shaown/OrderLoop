@@ -34,7 +34,6 @@ function addDays(date: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
-const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const num = (v: bigint | number | null | undefined): number => Number(v ?? 0);
 
 /** Statuses of a courier shipment that can carry real money. */
@@ -103,11 +102,10 @@ export class FinanceService {
       if (!locked[0]) throw ApiError.notFound('Discrepancy not found');
       const d = await tx.discrepancy.findFirstOrThrow({ where: { id, tenantId: auth.tenantId } });
       if (d.status !== 'open')
-        throw new ApiError(409, 'conflict', 'This discrepancy is already closed.');
+        throw new ApiError('conflict', 'This discrepancy is already closed.');
       // Only a shortfall can be accepted as a loss: that is the one case where the money simply did not arrive.
       if (body.action === 'waive' && d.type !== 'short_paid')
         throw new ApiError(
-          409,
           'conflict',
           'Only a shortfall can be waived. Other differences must be resolved by correcting the records.',
         );
@@ -296,34 +294,36 @@ export class FinanceService {
     auth: AuthContext,
     q: { from?: string | undefined; to?: string | undefined },
   ): Promise<FinanceSummary> {
-    return this.db.withContext({ tenantId: auth.tenantId }, async (tx) => {
-      const t = auth.tenantId;
-      const tenant = await tx.tenant.findUnique({ where: { id: t }, select: { timezone: true } });
-      const tz = tenant?.timezone ?? 'Asia/Dhaka';
-      const to = q.to ?? dayIn(tz, new Date());
-      const from = q.from ?? addDays(to, -29);
-      if (!DAY_RE.test(from) || !DAY_RE.test(to) || from > to)
-        throw new ApiError(400, 'validation_failed', 'Request validation failed', [
-          { path: 'query.from', message: 'The period must start on or before it ends' },
-        ]);
-      if (
-        new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime() >
-        366 * 86_400_000
-      )
-        throw new ApiError(400, 'validation_failed', 'Request validation failed', [
-          { path: 'query.to', message: 'The period can be at most a year' },
-        ]);
+    return this.db.withContext(
+      { tenantId: auth.tenantId },
+      async (tx) => {
+        const t = auth.tenantId;
+        const tenant = await tx.tenant.findUnique({ where: { id: t }, select: { timezone: true } });
+        const tz = tenant?.timezone ?? 'Asia/Dhaka';
+        const to = q.to ?? dayIn(tz, new Date());
+        const from = q.from ?? addDays(to, -29);
+        if (from > to)
+          throw new ApiError('validation_failed', 'Request validation failed', [
+            { path: 'query.from', message: 'The period must start on or before it ends' },
+          ]);
+        if (
+          new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime() >
+          366 * 86_400_000
+        )
+          throw new ApiError('validation_failed', 'Request validation failed', [
+            { path: 'query.to', message: 'The period can be at most a year' },
+          ]);
 
-      // Whole calendar days in the business's own time zone: [from 00:00, day after `to` 00:00).
-      const [sales] = await tx.$queryRaw<
-        {
-          n: number;
-          total: bigint;
-          advance: bigint;
-          cancelled_n: number;
-          cancelled_total: bigint;
-        }[]
-      >`
+        // Whole calendar days in the business's own time zone: [from 00:00, day after `to` 00:00).
+        const [sales] = await tx.$queryRaw<
+          {
+            n: number;
+            total: bigint;
+            advance: bigint;
+            cancelled_n: number;
+            cancelled_total: bigint;
+          }[]
+        >`
         SELECT count(*) FILTER (WHERE status <> 'cancelled')::int AS n,
                COALESCE(sum(total_minor) FILTER (WHERE status <> 'cancelled'), 0) AS total,
                COALESCE(sum(advance_paid_minor) FILTER (WHERE status <> 'cancelled'), 0) AS advance,
@@ -334,21 +334,21 @@ export class FinanceService {
           AND created_at >= (${from}::date)::timestamp AT TIME ZONE ${tz}
           AND created_at <  ((${to}::date) + 1)::timestamp AT TIME ZONE ${tz}`;
 
-      // Revenue: orders that are delivered now, in the period they were delivered (one definition, see revenue.ts).
-      const rev = await deliveredTotals(tx, t, tz, from, to);
+        // Revenue: orders that are delivered now, in the period they were delivered (one definition, see revenue.ts).
+        const rev = await deliveredTotals(tx, t, tz, from, to);
 
-      // Statements, by the date printed on each line. Duplicates and lines a person set aside are left out.
-      const [stm] = await tx.$queryRaw<
-        {
-          matched_collected: bigint;
-          matched_net: bigint;
-          unmatched_collected: bigint;
-          delivery: bigint;
-          cod_fee: bigint;
-          ret: bigint;
-          other: bigint;
-        }[]
-      >`
+        // Statements, by the date printed on each line. Duplicates and lines a person set aside are left out.
+        const [stm] = await tx.$queryRaw<
+          {
+            matched_collected: bigint;
+            matched_net: bigint;
+            unmatched_collected: bigint;
+            delivery: bigint;
+            cod_fee: bigint;
+            ret: bigint;
+            other: bigint;
+          }[]
+        >`
         SELECT COALESCE(sum(collected_minor) FILTER (WHERE match_status = 'matched'), 0) AS matched_collected,
                COALESCE(sum(net_minor) FILTER (WHERE match_status = 'matched'), 0) AS matched_net,
                COALESCE(sum(collected_minor) FILTER (WHERE match_status IN ('unmatched', 'ambiguous')), 0) AS unmatched_collected,
@@ -358,233 +358,235 @@ export class FinanceService {
         WHERE tenant_id = ${t}::uuid AND match_status NOT IN ('duplicate', 'ignored')
           AND item_date >= ${from}::date AND item_date <= ${to}::date`;
 
-      const manual = await tx.manualCost.groupBy({
-        by: ['kind'],
-        where: {
-          tenantId: t,
-          voidedAt: null,
-          incurredOn: { gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T00:00:00Z`) },
-        },
-        _sum: { amountMinor: true },
-      });
-      const manualByKind = manual.map((m) => ({
-        kind: m.kind,
-        amountMinor: m._sum.amountMinor ?? 0,
-      }));
+        const manual = await tx.manualCost.groupBy({
+          by: ['kind'],
+          where: {
+            tenantId: t,
+            voidedAt: null,
+            incurredOn: { gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T00:00:00Z`) },
+          },
+          _sum: { amountMinor: true },
+        });
+        const manualByKind = manual.map((m) => ({
+          kind: m.kind,
+          amountMinor: m._sum.amountMinor ?? 0,
+        }));
 
-      const waived = await tx.$queryRaw<{ lost: bigint }[]>`
+        const waived = await tx.$queryRaw<{ lost: bigint }[]>`
         SELECT COALESCE(sum(expected_minor - actual_minor), 0) AS lost
         FROM discrepancies
         WHERE tenant_id = ${t}::uuid AND status = 'waived' AND type = 'short_paid'
           AND resolved_at >= (${from}::date)::timestamp AT TIME ZONE ${tz}
           AND resolved_at <  ((${to}::date) + 1)::timestamp AT TIME ZONE ${tz}`;
-      const writtenOff = num(waived[0]?.lost);
+        const writtenOff = num(waived[0]?.lost);
 
-      const outstanding = await this.outstandingIn(tx, t);
+        const outstanding = await this.outstandingIn(tx, t);
 
-      const courier = {
-        delivery: num(stm?.delivery),
-        codFee: num(stm?.cod_fee),
-        ret: num(stm?.ret),
-        other: num(stm?.other),
-      };
-      const courierTotal = courier.delivery + courier.codFee + courier.ret + courier.other;
-      // Old hand-entered courier charges count only while no statement charge covers the period (never twice).
-      const manualTotal = countedManualCostsMinor(manualByKind, courierTotal);
-      const manualAll = manualByKind.reduce((n, m) => n + m.amountMinor, 0);
-      const cogs = rev.cogsMinor;
-      const profit = calculateProfit({
-        goodsRevenueMinor: rev.goodsMinor,
-        deliveryBilledMinor: rev.deliveryMinor,
-        cogsMinor: cogs,
-        courierChargesMinor: courierTotal,
-        manualCostsMinor: manualTotal,
-        writtenOffMinor: writtenOff,
-      });
+        const courier = {
+          delivery: num(stm?.delivery),
+          codFee: num(stm?.cod_fee),
+          ret: num(stm?.ret),
+          other: num(stm?.other),
+        };
+        const courierTotal = courier.delivery + courier.codFee + courier.ret + courier.other;
+        // Old hand-entered courier charges count only while no statement charge covers the period (never twice).
+        const manualTotal = countedManualCostsMinor(manualByKind, courierTotal);
+        const manualAll = manualByKind.reduce((n, m) => n + m.amountMinor, 0);
+        const cogs = rev.cogsMinor;
+        const profit = calculateProfit({
+          goodsRevenueMinor: rev.goodsMinor,
+          deliveryBilledMinor: rev.deliveryMinor,
+          cogsMinor: cogs,
+          courierChargesMinor: courierTotal,
+          manualCostsMinor: manualTotal,
+          writtenOffMinor: writtenOff,
+        });
 
-      const fig = (f: FinanceFigure): FinanceFigure => f;
-      const figures: FinanceFigure[] = [
-        fig({
-          key: 'sales',
-          group: 'sales',
-          label: 'Sales (orders placed)',
-          amountMinor: num(sales?.total),
-          source: 'orders',
-          note: `${num(sales?.n)} order(s) created in the period, not cancelled, at their full total including delivery charge. Placing an order is not revenue and not cash.`,
-        }),
-        fig({
-          key: 'cancelled',
-          group: 'sales',
-          label: 'Cancelled orders (left out of sales)',
-          amountMinor: num(sales?.cancelled_total),
-          source: 'orders',
-          note: `${num(sales?.cancelled_n)} order(s) created in the period and cancelled. They are never revenue.`,
-        }),
-        fig({
-          key: 'revenue_goods',
-          group: 'revenue',
-          label: 'Revenue: goods delivered',
-          amountMinor: rev.goodsMinor,
-          source: 'orders',
-          note: `${rev.orders} order(s) delivered in the period and still delivered: item prices less discounts. Returned and cancelled orders are not counted. Delivered is not the same as paid.`,
-        }),
-        fig({
-          key: 'revenue_delivery',
-          group: 'revenue',
-          label: 'Revenue: delivery charges billed to customers',
-          amountMinor: rev.deliveryMinor,
-          source: 'orders',
-          note: 'Delivery charges on those delivered orders, as billed to the customer.',
-        }),
-        fig({
-          key: 'cash_collected',
-          group: 'cash',
-          label: 'Cash collected by couriers (on statements, matched to orders)',
-          amountMinor: num(stm?.matched_collected),
-          source: 'settlements',
-          note: 'What courier statements dated in the period say they collected from customers, for lines tied to an order. It is what the courier reports, not proof it reached your bank.',
-        }),
-        fig({
-          key: 'cash_net',
-          group: 'cash',
-          label: 'Paid out to you after courier charges (on statements)',
-          amountMinor: num(stm?.matched_net),
-          source: 'settlements',
-          note: 'Collected cash less the charges the courier kept, for matched lines.',
-        }),
-        fig({
-          key: 'cash_unmatched',
-          group: 'cash',
-          label: 'Cash reported on lines not tied to an order',
-          amountMinor: num(stm?.unmatched_collected),
-          source: 'settlements',
-          note: 'Statement lines that are unmatched or in doubt. Not counted as collected until a person ties them to an order.',
-        }),
-        fig({
-          key: 'cash_advance',
-          group: 'cash',
-          label: 'Advance payments on orders placed',
-          amountMinor: num(sales?.advance),
-          source: 'orders',
-          note: 'Advance amounts your team recorded on orders. Not verified against any bank or wallet.',
-        }),
-        fig({
-          key: 'outstanding_cod',
-          group: 'outstanding',
-          label: 'Outstanding COD (as of now)',
-          amountMinor: outstanding.outstandingMinor,
-          source: 'derived',
-          note: 'COD on delivered orders with a real courier shipment, less the cash the statements report for them. Not limited to the period. Delivery alone never reduces it.',
-        }),
-        fig({
-          key: 'cod_on_the_way',
-          group: 'outstanding',
-          label: 'COD still with couriers (not yet due)',
-          amountMinor: outstanding.onTheWayMinor,
-          source: 'derived',
-          note: 'COD on orders that are shipped or in transit. Not owed until delivered.',
-        }),
-        ...(cogs !== null
-          ? [
-              fig({
-                key: 'cogs',
-                group: 'expenses',
-                label: 'Cost of goods delivered',
-                amountMinor: cogs,
-                source: 'catalog_costs',
-                note: 'Cost price recorded on each delivered order line at the time of sale, times quantity.',
-              }),
-            ]
-          : []),
-        fig({
-          key: 'courier_delivery',
-          group: 'expenses',
-          label: 'Courier delivery charges',
-          amountMinor: courier.delivery,
-          source: 'settlements',
-          note: 'Delivery charges on statement lines dated in the period, including lines not yet tied to an order.',
-        }),
-        fig({
-          key: 'courier_cod_fee',
-          group: 'expenses',
-          label: 'Courier COD fees',
-          amountMinor: courier.codFee,
-          source: 'settlements',
-          note: 'Cash-handling fees on statement lines dated in the period.',
-        }),
-        fig({
-          key: 'courier_return',
-          group: 'expenses',
-          label: 'Courier return charges',
-          amountMinor: courier.ret,
-          source: 'settlements',
-          note: 'Charges for returned parcels, on statement lines dated in the period.',
-        }),
-        fig({
-          key: 'courier_other',
-          group: 'expenses',
-          label: 'Other courier deductions',
-          amountMinor: courier.other,
-          source: 'settlements',
-          note: 'Other deductions and adjustments on statement lines dated in the period.',
-        }),
-        fig({
-          key: 'manual_costs',
-          group: 'expenses',
-          label: 'Other costs you recorded',
-          amountMinor: manualTotal,
-          source: 'manual_costs',
-          note: 'Costs entered by hand (packaging, advertising and so on), by the date incurred. Voided costs are left out. Courier charges are never entered by hand: they come from statements.',
-        }),
-        fig({
-          key: 'cod_written_off',
-          group: 'expenses',
-          label: 'COD shortfalls written off',
-          amountMinor: writtenOff,
-          source: 'manual_costs',
-          note: 'COD a courier did not pay, which a person accepted as a loss in the period.',
-        }),
-        ...(profit.estimatedProfitMinor !== null
-          ? [
-              fig({
-                key: 'estimated_profit',
-                group: 'profit',
-                label: 'Estimated profit',
-                amountMinor: profit.estimatedProfitMinor,
-                source: 'derived',
-                note: 'Revenue (goods + delivery billed) minus cost of goods, courier charges, recorded costs and written-off shortfalls. An estimate: it follows the records, not the bank.',
-              }),
-            ]
-          : []),
-      ];
-      const caveats = [
-        'Sales, revenue, cash collected, outstanding COD, expenses and profit are different things and are never added together.',
-        'Revenue is dated by delivery; courier charges and recorded costs by the date on the statement or cost. Their periods can differ at the edges.',
-        ...(outstanding.untrackedDeliveredCount
-          ? [
-              `${outstanding.untrackedDeliveredCount} delivered order(s) with COD have no real courier shipment, so no statement can ever confirm their cash. They are not in outstanding COD.`,
-            ]
-          : []),
-        ...(manualAll !== manualTotal
-          ? [
-              'Courier charges recorded by hand before statements were imported are not counted for this period, because statements already report courier charges for it.',
-            ]
-          : []),
-        ...(manualTotal === 0 && courierTotal === 0
-          ? ['No costs are recorded for this period, so profit before costs is shown as-is.']
-          : []),
-      ];
-      return {
-        from,
-        to,
-        timezone: tz,
-        figures,
-        manualCostsByKind: manualByKind,
-        estimatedProfitMinor: profit.estimatedProfitMinor,
-        profitWithheldReason: profit.withheldReason,
-        caveats,
-      };
-    });
+        const fig = (f: FinanceFigure): FinanceFigure => f;
+        const figures: FinanceFigure[] = [
+          fig({
+            key: 'sales',
+            group: 'sales',
+            label: 'Sales (orders placed)',
+            amountMinor: num(sales?.total),
+            source: 'orders',
+            note: `${num(sales?.n)} order(s) created in the period, not cancelled, at their full total including delivery charge. Placing an order is not revenue and not cash.`,
+          }),
+          fig({
+            key: 'cancelled',
+            group: 'sales',
+            label: 'Cancelled orders (left out of sales)',
+            amountMinor: num(sales?.cancelled_total),
+            source: 'orders',
+            note: `${num(sales?.cancelled_n)} order(s) created in the period and cancelled. They are never revenue.`,
+          }),
+          fig({
+            key: 'revenue_goods',
+            group: 'revenue',
+            label: 'Revenue: goods delivered',
+            amountMinor: rev.goodsMinor,
+            source: 'orders',
+            note: `${rev.orders} order(s) delivered in the period and still delivered: item prices less discounts. Returned and cancelled orders are not counted. Delivered is not the same as paid.`,
+          }),
+          fig({
+            key: 'revenue_delivery',
+            group: 'revenue',
+            label: 'Revenue: delivery charges billed to customers',
+            amountMinor: rev.deliveryMinor,
+            source: 'orders',
+            note: 'Delivery charges on those delivered orders, as billed to the customer.',
+          }),
+          fig({
+            key: 'cash_collected',
+            group: 'cash',
+            label: 'Cash collected by couriers (on statements, matched to orders)',
+            amountMinor: num(stm?.matched_collected),
+            source: 'settlements',
+            note: 'What courier statements dated in the period say they collected from customers, for lines tied to an order. It is what the courier reports, not proof it reached your bank.',
+          }),
+          fig({
+            key: 'cash_net',
+            group: 'cash',
+            label: 'Paid out to you after courier charges (on statements)',
+            amountMinor: num(stm?.matched_net),
+            source: 'settlements',
+            note: 'Collected cash less the charges the courier kept, for matched lines.',
+          }),
+          fig({
+            key: 'cash_unmatched',
+            group: 'cash',
+            label: 'Cash reported on lines not tied to an order',
+            amountMinor: num(stm?.unmatched_collected),
+            source: 'settlements',
+            note: 'Statement lines that are unmatched or in doubt. Not counted as collected until a person ties them to an order.',
+          }),
+          fig({
+            key: 'cash_advance',
+            group: 'cash',
+            label: 'Advance payments on orders placed',
+            amountMinor: num(sales?.advance),
+            source: 'orders',
+            note: 'Advance amounts your team recorded on orders. Not verified against any bank or wallet.',
+          }),
+          fig({
+            key: 'outstanding_cod',
+            group: 'outstanding',
+            label: 'Outstanding COD (as of now)',
+            amountMinor: outstanding.outstandingMinor,
+            source: 'derived',
+            note: 'COD on delivered orders with a real courier shipment, less the cash the statements report for them. Not limited to the period. Delivery alone never reduces it.',
+          }),
+          fig({
+            key: 'cod_on_the_way',
+            group: 'outstanding',
+            label: 'COD still with couriers (not yet due)',
+            amountMinor: outstanding.onTheWayMinor,
+            source: 'derived',
+            note: 'COD on orders that are shipped or in transit. Not owed until delivered.',
+          }),
+          ...(cogs !== null
+            ? [
+                fig({
+                  key: 'cogs',
+                  group: 'expenses',
+                  label: 'Cost of goods delivered',
+                  amountMinor: cogs,
+                  source: 'catalog_costs',
+                  note: 'Cost price recorded on each delivered order line at the time of sale, times quantity.',
+                }),
+              ]
+            : []),
+          fig({
+            key: 'courier_delivery',
+            group: 'expenses',
+            label: 'Courier delivery charges',
+            amountMinor: courier.delivery,
+            source: 'settlements',
+            note: 'Delivery charges on statement lines dated in the period, including lines not yet tied to an order.',
+          }),
+          fig({
+            key: 'courier_cod_fee',
+            group: 'expenses',
+            label: 'Courier COD fees',
+            amountMinor: courier.codFee,
+            source: 'settlements',
+            note: 'Cash-handling fees on statement lines dated in the period.',
+          }),
+          fig({
+            key: 'courier_return',
+            group: 'expenses',
+            label: 'Courier return charges',
+            amountMinor: courier.ret,
+            source: 'settlements',
+            note: 'Charges for returned parcels, on statement lines dated in the period.',
+          }),
+          fig({
+            key: 'courier_other',
+            group: 'expenses',
+            label: 'Other courier deductions',
+            amountMinor: courier.other,
+            source: 'settlements',
+            note: 'Other deductions and adjustments on statement lines dated in the period.',
+          }),
+          fig({
+            key: 'manual_costs',
+            group: 'expenses',
+            label: 'Other costs you recorded',
+            amountMinor: manualTotal,
+            source: 'manual_costs',
+            note: 'Costs entered by hand (packaging, advertising and so on), by the date incurred. Voided costs are left out. Courier charges are never entered by hand: they come from statements.',
+          }),
+          fig({
+            key: 'cod_written_off',
+            group: 'expenses',
+            label: 'COD shortfalls written off',
+            amountMinor: writtenOff,
+            source: 'manual_costs',
+            note: 'COD a courier did not pay, which a person accepted as a loss in the period.',
+          }),
+          ...(profit.estimatedProfitMinor !== null
+            ? [
+                fig({
+                  key: 'estimated_profit',
+                  group: 'profit',
+                  label: 'Estimated profit',
+                  amountMinor: profit.estimatedProfitMinor,
+                  source: 'derived',
+                  note: 'Revenue (goods + delivery billed) minus cost of goods, courier charges, recorded costs and written-off shortfalls. An estimate: it follows the records, not the bank.',
+                }),
+              ]
+            : []),
+        ];
+        const caveats = [
+          'Sales, revenue, cash collected, outstanding COD, expenses and profit are different things and are never added together.',
+          'Revenue is dated by delivery; courier charges and recorded costs by the date on the statement or cost. Their periods can differ at the edges.',
+          ...(outstanding.untrackedDeliveredCount
+            ? [
+                `${outstanding.untrackedDeliveredCount} delivered order(s) with COD have no real courier shipment, so no statement can ever confirm their cash. They are not in outstanding COD.`,
+              ]
+            : []),
+          ...(manualAll !== manualTotal
+            ? [
+                'Courier charges recorded by hand before statements were imported are not counted for this period, because statements already report courier charges for it.',
+              ]
+            : []),
+          ...(manualTotal === 0 && courierTotal === 0
+            ? ['No costs are recorded for this period, so profit before costs is shown as-is.']
+            : []),
+        ];
+        return {
+          from,
+          to,
+          timezone: tz,
+          figures,
+          manualCostsByKind: manualByKind,
+          estimatedProfitMinor: profit.estimatedProfitMinor,
+          profitWithheldReason: profit.withheldReason,
+          caveats,
+        };
+      },
+      LONG_TX,
+    );
   }
 
   // ---- one order's cash, and analytics --------------------------------------------------------------------------------
@@ -647,38 +649,40 @@ export class FinanceService {
     auth: AuthContext,
     q: { from?: string | undefined; to?: string | undefined; source?: string | undefined },
   ): Promise<Analytics> {
-    return this.db.withContext({ tenantId: auth.tenantId }, async (tx) => {
-      const t = auth.tenantId;
-      const tenant = await tx.tenant.findUnique({ where: { id: t }, select: { timezone: true } });
-      const tz = tenant?.timezone ?? 'Asia/Dhaka';
-      const to = q.to ?? dayIn(tz, new Date());
-      const from = q.from ?? addDays(to, -6);
-      if (!DAY_RE.test(from) || !DAY_RE.test(to) || from > to)
-        throw new ApiError(400, 'validation_failed', 'Request validation failed', [
-          { path: 'query.from', message: 'The period must start on or before it ends' },
-        ]);
-      if (
-        new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime() >
-        366 * 86_400_000
-      )
-        throw new ApiError(400, 'validation_failed', 'Request validation failed', [
-          { path: 'query.to', message: 'The period can be at most a year' },
-        ]);
-      const src = q.source ? Prisma.sql`AND o.source = ${q.source}::"OrderSource"` : Prisma.empty;
-      const delivered = deliveredOrdersSql(t, tz, from, to, q.source);
+    return this.db.withContext(
+      { tenantId: auth.tenantId },
+      async (tx) => {
+        const t = auth.tenantId;
+        const tenant = await tx.tenant.findUnique({ where: { id: t }, select: { timezone: true } });
+        const tz = tenant?.timezone ?? 'Asia/Dhaka';
+        const to = q.to ?? dayIn(tz, new Date());
+        const from = q.from ?? addDays(to, -6);
+        if (from > to)
+          throw new ApiError('validation_failed', 'Request validation failed', [
+            { path: 'query.from', message: 'The period must start on or before it ends' },
+          ]);
+        if (
+          new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime() >
+          366 * 86_400_000
+        )
+          throw new ApiError('validation_failed', 'Request validation failed', [
+            { path: 'query.to', message: 'The period can be at most a year' },
+          ]);
+        const src = q.source ? Prisma.sql`AND o.source = ${q.source}::"OrderSource"` : Prisma.empty;
+        const delivered = deliveredOrdersSql(t, tz, from, to, q.source);
 
-      // Orders delivered in the period (dated by their latest delivery), with their lines: the one definition of revenue.
-      const perDay = await tx.$queryRaw<
-        {
-          day: string;
-          orders: number;
-          goods: bigint;
-          delivery: bigint;
-          lines: number;
-          costed: number;
-          cost: bigint;
-        }[]
-      >`
+        // Orders delivered in the period (dated by their latest delivery), with their lines: the one definition of revenue.
+        const perDay = await tx.$queryRaw<
+          {
+            day: string;
+            orders: number;
+            goods: bigint;
+            delivery: bigint;
+            lines: number;
+            costed: number;
+            cost: bigint;
+          }[]
+        >`
         WITH d AS (${delivered})
         SELECT d.day, count(*)::int AS orders, sum(d.goods_minor) AS goods, sum(d.delivery_minor) AS delivery,
                (SELECT count(*) FROM order_items i JOIN d d2 ON d2.id = i.order_id WHERE d2.day = d.day AND i.tenant_id = ${t}::uuid)::int AS lines,
@@ -686,44 +690,44 @@ export class FinanceService {
                COALESCE((SELECT sum(i.quantity::bigint * i.cost_minor) FROM order_items i JOIN d d2 ON d2.id = i.order_id
                          WHERE d2.day = d.day AND i.tenant_id = ${t}::uuid AND i.cost_minor IS NOT NULL), 0) AS cost
         FROM d GROUP BY d.day`;
-      const byDay = new Map(perDay.map((r) => [r.day, r]));
-      const daily: Analytics['daily'] = [];
-      for (let day = from; day <= to; day = addDays(day, 1)) {
-        const r = byDay.get(day);
-        const revenue = r ? revenueMinor(num(r.goods), num(r.delivery)) : 0;
-        daily.push({
-          date: day,
-          revenueMinor: revenue,
-          grossProfitMinor: !r
-            ? 0
-            : grossProfitMinor(revenue, r.lines === r.costed ? num(r.cost) : null),
-        });
-      }
+        const byDay = new Map(perDay.map((r) => [r.day, r]));
+        const daily: Analytics['daily'] = [];
+        for (let day = from; day <= to; day = addDays(day, 1)) {
+          const r = byDay.get(day);
+          const revenue = r ? revenueMinor(num(r.goods), num(r.delivery)) : 0;
+          daily.push({
+            date: day,
+            revenueMinor: revenue,
+            grossProfitMinor: !r
+              ? 0
+              : grossProfitMinor(revenue, r.lines === r.costed ? num(r.cost) : null),
+          });
+        }
 
-      const channels = await tx.$queryRaw<
-        {
-          source: Analytics['channels'][number]['source'];
-          orders: number;
-          goods: bigint;
-          delivery: bigint;
-        }[]
-      >`
+        const channels = await tx.$queryRaw<
+          {
+            source: Analytics['channels'][number]['source'];
+            orders: number;
+            goods: bigint;
+            delivery: bigint;
+          }[]
+        >`
         WITH d AS (${delivered})
         SELECT source, count(*)::int AS orders, sum(goods_minor) AS goods, sum(delivery_minor) AS delivery
         FROM d GROUP BY source`;
 
-      const products = await tx.$queryRaw<
-        {
-          product_name: string;
-          variant_name: string;
-          sku: string;
-          units: bigint;
-          revenue: bigint;
-          lines: number;
-          costed: number;
-          cost: bigint;
-        }[]
-      >`
+        const products = await tx.$queryRaw<
+          {
+            product_name: string;
+            variant_name: string;
+            sku: string;
+            units: bigint;
+            revenue: bigint;
+            lines: number;
+            costed: number;
+            cost: bigint;
+          }[]
+        >`
         WITH d AS (${delivered})
         SELECT i.product_name, i.variant_name, i.sku, sum(i.quantity) AS units, sum(i.line_total_minor) AS revenue,
                count(*)::int AS lines, (count(*) FILTER (WHERE i.cost_minor IS NOT NULL))::int AS costed,
@@ -732,21 +736,23 @@ export class FinanceService {
         JOIN d ON d.id = i.order_id
         WHERE i.tenant_id = ${t}::uuid
         GROUP BY i.product_name, i.variant_name, i.sku ORDER BY revenue DESC`;
-      const topProducts = products.slice(0, 5).map((p) => ({
-        productName: p.product_name,
-        variantName: p.variant_name,
-        sku: p.sku,
-        units: num(p.units),
-        revenueMinor: num(p.revenue),
-        costMinor: p.lines === p.costed ? num(p.cost) : null,
-        grossProfitMinor: grossProfitMinor(
-          num(p.revenue),
-          p.lines === p.costed ? num(p.cost) : null,
-        ),
-      }));
-      const withoutCost = products.reduce((n, p) => n + (p.lines - p.costed), 0);
+        const topProducts = products.slice(0, 5).map((p) => ({
+          productName: p.product_name,
+          variantName: p.variant_name,
+          sku: p.sku,
+          units: num(p.units),
+          revenueMinor: num(p.revenue),
+          costMinor: p.lines === p.costed ? num(p.cost) : null,
+          grossProfitMinor: grossProfitMinor(
+            num(p.revenue),
+            p.lines === p.costed ? num(p.cost) : null,
+          ),
+        }));
+        const withoutCost = products.reduce((n, p) => n + (p.lines - p.costed), 0);
 
-      const [placed] = await tx.$queryRaw<{ n: number; total: bigint; delivered_total: bigint }[]>`
+        const [placed] = await tx.$queryRaw<
+          { n: number; total: bigint; delivered_total: bigint }[]
+        >`
         SELECT count(*) FILTER (WHERE status <> 'cancelled')::int AS n,
                COALESCE(sum(total_minor) FILTER (WHERE status <> 'cancelled'), 0) AS total,
                COALESCE(sum(total_minor) FILTER (WHERE status = 'delivered'), 0) AS delivered_total
@@ -754,47 +760,49 @@ export class FinanceService {
         WHERE o.tenant_id = ${t}::uuid ${src}
           AND created_at >= (${from}::date)::timestamp AT TIME ZONE ${tz}
           AND created_at <  ((${to}::date) + 1)::timestamp AT TIME ZONE ${tz}`;
-      const statusRows = await tx.$queryRaw<{ status: string; n: number }[]>`
+        const statusRows = await tx.$queryRaw<{ status: string; n: number }[]>`
         SELECT status::text AS status, count(*)::int AS n FROM orders o
         WHERE o.tenant_id = ${t}::uuid ${src}
           AND created_at >= (${from}::date)::timestamp AT TIME ZONE ${tz}
           AND created_at <  ((${to}::date) + 1)::timestamp AT TIME ZONE ${tz}
         GROUP BY status`;
-      const statusCounts = Object.fromEntries(statusRows.map((r) => [r.status, r.n]));
-      const finished =
-        (statusCounts['delivered'] ?? 0) +
-        (statusCounts['delivery_failed'] ?? 0) +
-        (statusCounts['returned'] ?? 0);
-      const totalRevenue = daily.reduce((n, d) => n + d.revenueMinor, 0);
-      const totalUnits = products.reduce((n, p) => n + num(p.units), 0);
-      const deliveredCount = perDay.reduce((n, r) => n + r.orders, 0);
-      return {
-        from,
-        to,
-        timezone: tz,
-        daily,
-        channels: channels
-          .map((c) => ({
-            source: c.source,
-            orders: c.orders,
-            revenueMinor: revenueMinor(num(c.goods), num(c.delivery)),
-          }))
-          .sort((a, b) => b.revenueMinor - a.revenueMinor),
-        topProducts,
-        totalUnits,
-        totalRevenueMinor: totalRevenue,
-        itemRevenueMinor: products.reduce((n, p) => n + num(p.revenue), 0),
-        totalCostMinor: withoutCost === 0 ? products.reduce((n, p) => n + num(p.cost), 0) : null,
-        deliveredOrders: deliveredCount,
-        placedOrders: placed?.n ?? 0,
-        placedMinor: num(placed?.total),
-        notDeliveredMinor: Math.max(0, num(placed?.total) - num(placed?.delivered_total)),
-        averageOrderMinor: deliveredCount > 0 ? Math.round(totalRevenue / deliveredCount) : null,
-        deliverySuccessRate: finished > 0 ? (statusCounts['delivered'] ?? 0) / finished : null,
-        statusCounts,
-        linesWithoutCost: withoutCost,
-      };
-    });
+        const statusCounts = Object.fromEntries(statusRows.map((r) => [r.status, r.n]));
+        const finished =
+          (statusCounts['delivered'] ?? 0) +
+          (statusCounts['delivery_failed'] ?? 0) +
+          (statusCounts['returned'] ?? 0);
+        const totalRevenue = daily.reduce((n, d) => n + d.revenueMinor, 0);
+        const totalUnits = products.reduce((n, p) => n + num(p.units), 0);
+        const deliveredCount = perDay.reduce((n, r) => n + r.orders, 0);
+        return {
+          from,
+          to,
+          timezone: tz,
+          daily,
+          channels: channels
+            .map((c) => ({
+              source: c.source,
+              orders: c.orders,
+              revenueMinor: revenueMinor(num(c.goods), num(c.delivery)),
+            }))
+            .sort((a, b) => b.revenueMinor - a.revenueMinor),
+          topProducts,
+          totalUnits,
+          totalRevenueMinor: totalRevenue,
+          itemRevenueMinor: products.reduce((n, p) => n + num(p.revenue), 0),
+          totalCostMinor: withoutCost === 0 ? products.reduce((n, p) => n + num(p.cost), 0) : null,
+          deliveredOrders: deliveredCount,
+          placedOrders: placed?.n ?? 0,
+          placedMinor: num(placed?.total),
+          notDeliveredMinor: Math.max(0, num(placed?.total) - num(placed?.delivered_total)),
+          averageOrderMinor: deliveredCount > 0 ? Math.round(totalRevenue / deliveredCount) : null,
+          deliverySuccessRate: finished > 0 ? (statusCounts['delivered'] ?? 0) / finished : null,
+          statusCounts,
+          linesWithoutCost: withoutCost,
+        };
+      },
+      LONG_TX,
+    );
   }
 
   // ---- manual costs --------------------------------------------------------------------------------------------------
@@ -845,14 +853,13 @@ export class FinanceService {
       if (replay) {
         if (replay.requestHash !== requestHash)
           throw new ApiError(
-            409,
             'idempotency_conflict',
             'This idempotency key was already used for a different cost.',
           );
         return costDto(replay);
       }
       if (new Date(`${body.incurredOn}T00:00:00Z`).toISOString().slice(0, 10) !== body.incurredOn)
-        throw new ApiError(400, 'validation_failed', 'Request validation failed', [
+        throw new ApiError('validation_failed', 'Request validation failed', [
           { path: 'body.incurredOn', message: 'That date does not exist' },
         ]);
       if (
@@ -891,7 +898,6 @@ export class FinanceService {
       } catch (error) {
         if (isUniqueViolation(error))
           throw new ApiError(
-            409,
             'conflict',
             'This cost is being recorded right now. Check the list before trying again.',
           );
@@ -911,7 +917,7 @@ export class FinanceService {
         SELECT id FROM manual_costs WHERE tenant_id = ${auth.tenantId}::uuid AND id = ${id}::uuid FOR UPDATE`;
       if (!locked[0]) throw ApiError.notFound('Cost not found');
       const c = await tx.manualCost.findFirstOrThrow({ where: { id, tenantId: auth.tenantId } });
-      if (c.voidedAt) throw new ApiError(409, 'conflict', 'This cost is already voided.');
+      if (c.voidedAt) throw new ApiError('conflict', 'This cost is already voided.');
       const updated = await tx.manualCost.update({
         where: { id },
         data: { voidedAt: new Date(), voidedById: auth.userId, voidReason: reason },

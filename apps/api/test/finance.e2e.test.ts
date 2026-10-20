@@ -350,6 +350,27 @@ describe('importing: idempotent, exact, refusing what it cannot read', () => {
     expect((await outstanding(api)).outstandingMinor).toBe(0);
   });
 
+  it('overlapping statements imported at once never fail: each line is counted once, whichever lands first', async () => {
+    const { owner, api, hookPath } = await shop();
+    const parcels = [await booked(owner, api), await booked(owner, api), await booked(owner, api)];
+    for (const p of parcels) await deliver(hookPath, p);
+    const d = today();
+    const line = (p: (typeof parcels)[number]) =>
+      `,${p.consignmentId},,,,${d},cod,1060,60,10.60,0,0,,`;
+    const results = await Promise.all([
+      importFile(api, file(line(parcels[0]!), line(parcels[1]!)), { fileName: 'one.csv' }),
+      importFile(api, file(line(parcels[1]!), line(parcels[2]!)), { fileName: 'two.csv' }),
+    ]);
+    expect(results.map((r) => r.status)).toEqual([200, 200]);
+    const rows = await Promise.all(
+      (await api.get('/v1/settlements/batches')).body.map((x: { id: string }) => batch(api, x.id)),
+    );
+    const items = rows.flatMap((r) => r.items as { matchStatus: string; reference: string }[]);
+    expect(items).toHaveLength(4);
+    // three distinct lines are counted, the shared one is the single duplicate
+    expect(items.filter((i) => i.matchStatus === 'duplicate')).toHaveLength(1);
+  });
+
   it('a different file that repeats earlier lines records them once: the repeats are flagged, not counted', async () => {
     const { owner, api, hookPath } = await shop();
     const [a, b] = [await booked(owner, api), await booked(owner, api)];

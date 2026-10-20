@@ -54,7 +54,7 @@ export class ReservationsService {
 
   async create(auth: AuthContext, body: ReservationBody): Promise<Reservation> {
     if (body.referenceType === ORDER_REFERENCE) {
-      throw new ApiError(400, 'validation_failed', 'Request validation failed', [
+      throw new ApiError('validation_failed', 'Request validation failed', [
         {
           path: 'referenceType',
           message: 'Reservations for orders are created by the order itself',

@@ -14,7 +14,9 @@ const Money = z.number().int();
 
 /**
  * Every figure is worked out by the server from the business's own orders, stock and history. Orders are counted by when
- * they were CREATED, in the business's own time zone. "Today" is the business's calendar day, not UTC.
+ * they were CREATED, in the business's own time zone, with ONE exception: `profit` covers orders DELIVERED in the period
+ * (dated by delivery, like finance), so it is not the profit of `sales.deliveredMinor`'s orders. "Today" is the business's
+ * calendar day, not UTC.
  */
 export const Dashboard = z.object({
   period: DashboardPeriod,
@@ -49,6 +51,7 @@ export const Dashboard = z.object({
   delivery: z.object({
     /** shipped + in_transit */
     inProgress: Count,
+    /** Orders created in the period that are delivered now. */
     delivered: Count,
     failed: Count,
     /** return_requested */
@@ -60,7 +63,7 @@ export const Dashboard = z.object({
   sales: z.object({
     /** Total of orders in the period that were not cancelled (item totals - discounts + delivery charges). */
     orderedMinor: Money,
-    /** Total of the period's orders that have been delivered. */
+    /** Total of the orders CREATED in the period that are delivered now (profit, by contrast, is dated by delivery day). */
     deliveredMinor: Money,
     /** Cash the couriers should collect on orders that are out for delivery now (shipped or in transit). */
     codOutForDeliveryMinor: Money,

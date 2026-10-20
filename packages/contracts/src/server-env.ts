@@ -107,6 +107,17 @@ export const ServerEnv = z
           message: 'Each entry must be id:base64 with a 32-byte key',
         });
     }
+    if (
+      env.NODE_ENV === 'production' &&
+      env.API_PUBLIC_URL &&
+      !env.API_PUBLIC_URL.startsWith('https://')
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['API_PUBLIC_URL'],
+        message: 'API_PUBLIC_URL must be https in production (couriers post webhook secrets to it)',
+      });
+    }
     if (Boolean(env.JWT_PRIVATE_KEY) !== Boolean(env.JWT_PUBLIC_KEY)) {
       ctx.addIssue({
         code: 'custom',

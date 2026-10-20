@@ -1,6 +1,5 @@
 import type { OrderFilters, OrderQuery } from '@orderloop/contracts';
-import { Prisma } from '@orderloop/db';
-import { UUID_RE } from '../common/uuid.js';
+import { Prisma, UUID_RE } from '@orderloop/db';
 
 const SORT_COLUMN = {
   createdAt: Prisma.raw('o.created_at'),

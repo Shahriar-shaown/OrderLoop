@@ -9,15 +9,20 @@ import type {
 } from '@orderloop/contracts';
 import { Database, type Tx } from '@orderloop/db';
 import { can, canAssignRole, canManageMemberWithRole } from '@orderloop/domain';
+import { LoginThrottleService } from '../auth/login-throttle.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { TokenService } from '../auth/token.service.js';
 import { ApiError } from '../common/api-error.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { idempotent } from '../common/idempotency.js';
 import { APP_CONFIG, type AppConfig } from '../config/config.module.js';
 import { MailService } from '../mail/mail.service.js';
 import { templates } from '../mail/templates.js';
 
 const INVITE_TTL_MS = 7 * 86_400_000;
+/** Invitation emails per hour: one member cannot spend the whole business's budget, and a business has a ceiling. */
+const INVITES_PER_USER_HOUR = 20;
+const INVITES_PER_TENANT_HOUR = 50;
 
 type MemberRow = {
   id: string;
@@ -43,6 +48,7 @@ export class MembersService {
     private readonly audit: AuditService,
     private readonly tokens: TokenService,
     private readonly mail: MailService,
+    private readonly throttle: LoginThrottleService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -60,11 +66,17 @@ export class MembersService {
   async invite(auth: AuthContext, body: InviteBody, ip: string | null): Promise<Invitation> {
     if (!canAssignRole(auth.role, body.role))
       throw ApiError.forbidden(`Your role cannot invite someone as ${body.role}`);
+    await this.throttle.enforce('invite-user', auth.userId, INVITES_PER_USER_HOUR, 3600);
+    await this.throttle.enforce('invite-tenant', auth.tenantId, INVITES_PER_TENANT_HOUR, 3600);
 
     const secret = this.tokens.newOpaqueToken();
     const token = `inv_${auth.tenantId}_${secret}`;
-    const invitation = await this.db.withContext(
+    // A repeat of an invite already made (same key) returns it without sending the email again.
+    let fresh = false;
+    const invitation = await idempotent(
+      this.db,
       { tenantId: auth.tenantId, userId: auth.userId },
+      { scope: 'POST /v1/members/invitations', key: body.idempotencyKey, body },
       async (tx) => {
         // Unverified accounts cannot send email on our behalf: stops a throwaway sign-up from being used to spam.
         const inviter = await tx.user.findUnique({
@@ -73,7 +85,6 @@ export class MembersService {
         });
         if (!inviter?.emailVerifiedAt)
           throw new ApiError(
-            403,
             'email_not_verified',
             'Verify your email address before inviting people',
           );
@@ -94,7 +105,7 @@ export class MembersService {
           where: { tenantId: auth.tenantId, email: body.email, acceptedAt: null, revokedAt: null },
           data: { revokedAt: new Date() },
         });
-        const created = await tx.invitation.create({
+        const row = await tx.invitation.create({
           data: {
             tenantId: auth.tenantId,
             email: body.email,
@@ -109,24 +120,26 @@ export class MembersService {
           actorUserId: auth.userId,
           action: 'member.invited',
           targetType: 'invitation',
-          targetId: created.id,
+          targetId: row.id,
           metadata: { role: body.role },
           ip,
         });
-        return created;
+        fresh = true;
+        return {
+          id: row.id,
+          email: row.email,
+          role: row.role,
+          expiresAt: row.expiresAt.toISOString(),
+        };
       },
     );
 
     // Sent after commit; the token is never returned to the inviter, who could otherwise accept it as the invitee.
-    await this.mail.send(
-      templates.invitation(body.email, this.config.WEB_ORIGINS[0]!, token, body.role),
-    );
-    return {
-      id: invitation.id,
-      email: invitation.email,
-      role: invitation.role,
-      expiresAt: invitation.expiresAt.toISOString(),
-    };
+    if (fresh)
+      await this.mail.send(
+        templates.invitation(body.email, this.config.WEB_ORIGINS[0]!, token, body.role),
+      );
+    return invitation;
   }
 
   async listInvitations(auth: AuthContext): Promise<InvitationSummary[]> {
@@ -219,7 +232,7 @@ export class MembersService {
       if (!canManageMemberWithRole(actorRole, target.role) || !canAssignRole(actorRole, body.role))
         throw ApiError.forbidden('Your role cannot make this change');
       if (target.role === 'OWNER' && body.role !== 'OWNER' && owners <= 1)
-        throw new ApiError(409, 'last_owner', 'A tenant must keep at least one owner');
+        throw new ApiError('last_owner', 'A tenant must keep at least one owner');
       if (target.role === body.role) return toMember(target);
 
       const updated = await tx.membership.update({
@@ -251,7 +264,7 @@ export class MembersService {
       if (!canManageMemberWithRole(actorRole, target.role))
         throw ApiError.forbidden('Your role cannot remove this member');
       if (target.role === 'OWNER' && owners <= 1)
-        throw new ApiError(409, 'last_owner', 'A tenant must keep at least one owner');
+        throw new ApiError('last_owner', 'A tenant must keep at least one owner');
 
       await tx.membership.delete({ where: { id: target.id } });
       await this.revokePendingInvitationsBy(tx, auth.tenantId, target.userId);

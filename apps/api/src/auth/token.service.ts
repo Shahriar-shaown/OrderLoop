@@ -90,7 +90,6 @@ export class TokenService implements OnModuleInit {
     } catch (error) {
       const expired = (error as { code?: string }).code === 'ERR_JWT_EXPIRED';
       throw new ApiError(
-        401,
         expired ? 'token_expired' : 'unauthorized',
         expired ? 'Access token expired' : 'Invalid access token',
       );

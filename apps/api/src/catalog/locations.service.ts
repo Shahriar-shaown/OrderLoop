@@ -5,6 +5,7 @@ import { nameKey } from '@orderloop/domain';
 import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { idempotent } from '../common/idempotency.js';
 import { toLocation } from './catalog.mapper.js';
 
 @Injectable()
@@ -27,8 +28,10 @@ export class LocationsService {
 
   async create(auth: AuthContext, body: LocationBody): Promise<Location> {
     try {
-      return await this.db.withContext(
+      return await idempotent(
+        this.db,
         { tenantId: auth.tenantId, userId: auth.userId },
+        { scope: 'POST /v1/locations', key: body.idempotencyKey, body },
         async (tx) => {
           if (body.isDefault)
             await tx.stockLocation.updateMany({

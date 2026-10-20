@@ -182,7 +182,6 @@ export class ShipmentsService {
     );
     if (connection.provider !== 'mock' && !connection.credentialsEnc)
       throw new ApiError(
-        409,
         'courier_not_configured',
         `${PROVIDERS[row.provider].name} has no saved credentials.`,
       );
@@ -196,7 +195,6 @@ export class ShipmentsService {
     const { min, max } = capabilitiesOf(provider).weightKg;
     if (weightKg !== undefined && (weightKg < min || weightKg > max))
       throw new ApiError(
-        400,
         'validation_failed',
         `${PROVIDERS[provider].name} takes parcels of ${min} to ${max} kg.`,
         [
@@ -246,7 +244,6 @@ export class ShipmentsService {
       if (replay) {
         if (replay.requestHash !== requestHash || replay.orderId !== orderId)
           throw new ApiError(
-            409,
             'idempotency_conflict',
             'This idempotency key was already used for a different booking.',
           );
@@ -255,7 +252,6 @@ export class ShipmentsService {
       const live = await liveShipmentOf(tx, auth.tenantId, orderId);
       if (live)
         throw new ApiError(
-          409,
           'shipment_conflict',
           live.status === 'booking' || live.status === 'booking_uncertain'
             ? 'An earlier booking for this order is not confirmed yet. Settle it before booking again.'
@@ -263,7 +259,6 @@ export class ShipmentsService {
         );
       if (order.status !== 'ready_to_ship')
         throw new ApiError(
-          409,
           'shipment_conflict',
           'Mark the order Ready to ship before booking a courier.',
         );
@@ -305,7 +300,7 @@ export class ShipmentsService {
       } catch (error) {
         // A parallel request got in between our checks (the unique indexes are the last word).
         if (isUniqueViolation(error))
-          throw new ApiError(409, 'shipment_conflict', 'This order is being booked right now.');
+          throw new ApiError('shipment_conflict', 'This order is being booked right now.');
         throw error;
       }
       await tx.shipmentEvent.create({
@@ -672,7 +667,6 @@ export class ShipmentsService {
     const view = this.toShipment(row, 0);
     if (ENDED.includes(row.status as ShipmentStatus))
       throw new ApiError(
-        409,
         'shipment_conflict',
         'This shipment has ended; there is nothing to refresh.',
       );
@@ -681,13 +675,11 @@ export class ShipmentsService {
     if (view.actions.needsResolution || row.status === 'booking') {
       if (!view.actions.needsResolution)
         throw new ApiError(
-          409,
           'shipment_conflict',
           'The booking is still being made. Check again in a moment.',
         );
       if (!adapter.findByReference || adapter.capabilities.duplicateProtection !== 'reference')
         throw new ApiError(
-          422,
           'courier_unsupported',
           `${PROVIDERS[row.provider].name} cannot be asked about a booking by reference. Look in its panel and use “Settle this booking”.`,
         );
@@ -829,7 +821,6 @@ export class ShipmentsService {
   ): Promise<ShipmentDetail> {
     const notCancellable = () =>
       new ApiError(
-        409,
         'shipment_conflict',
         'Only a booked parcel that has not been picked up can be cancelled.',
       );
@@ -838,7 +829,6 @@ export class ShipmentsService {
     const adapter = await this.adapterOf(auth.tenantId, row);
     if (!adapter.cancel)
       throw new ApiError(
-        409,
         'courier_unsupported',
         `${PROVIDERS[row.provider].name} has no documented way to cancel a booking through its API. Cancel it in the courier's own panel or by phone, then choose “Mark cancelled at the courier”.`,
       );
@@ -862,7 +852,6 @@ export class ShipmentsService {
         }
         if (!outcome.cancelled)
           throw new ApiError(
-            409,
             'courier_rejected',
             outcome.message ?? 'The courier would not cancel this parcel.',
           );
@@ -912,18 +901,13 @@ export class ShipmentsService {
       const row = await this.lock(tx, auth.tenantId, id);
       const unconfirmed = row.status === 'booking_uncertain' || this.stale(row);
       if (!unconfirmed && !(row.status === 'booked' && body.resolution === 'cancelled_at_courier'))
-        throw new ApiError(
-          409,
-          'shipment_conflict',
-          'There is nothing to settle on this shipment.',
-        );
+        throw new ApiError('shipment_conflict', 'There is nothing to settle on this shipment.');
       if (
         body.resolution === 'cancelled_at_courier' &&
         row.status === 'booked' &&
         capabilitiesOf(row.provider).cancel
       )
         throw new ApiError(
-          409,
           'shipment_conflict',
           'This courier can cancel through its API: use Cancel.',
         );
@@ -985,12 +969,11 @@ export class ShipmentsService {
       const row = await this.lock(tx, auth.tenantId, id);
       if (!row.simulated || row.provider !== 'mock')
         throw new ApiError(
-          409,
           'shipment_conflict',
           'Only simulated shipments can be moved by hand. A real courier reports its own progress.',
         );
       if (['booking', 'booking_uncertain', 'booking_failed', 'cancelled'].includes(row.status))
-        throw new ApiError(409, 'shipment_conflict', 'This simulated shipment is not booked.');
+        throw new ApiError('shipment_conflict', 'This simulated shipment is not booked.');
       await this.applyEvent(
         tx,
         auth.tenantId,

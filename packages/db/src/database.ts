@@ -16,7 +16,8 @@ export interface TxOptions {
   isolationLevel?: Prisma.TransactionIsolationLevel;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Any canonical UUID, whatever its version. */
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function assertUuid(label: string, value: string | undefined): string {
   if (value === undefined) return '';
@@ -59,6 +60,14 @@ export class Database {
   /** Global auth tables outside any tenant context (login lookup, refresh-token exchange). */
   get global(): GlobalDb {
     return this.client;
+  }
+
+  /** Delete idempotency keys older than `olderThanSeconds` (at least an hour), across tenants. For the worker's sweep. */
+  async purgeIdempotencyKeys(olderThanSeconds: number): Promise<number> {
+    const rows = await this.client.$queryRaw<
+      { n: number }[]
+    >`SELECT purge_idempotency_keys(${Math.ceil(olderThanSeconds)}::int) AS n`;
+    return rows[0]?.n ?? 0;
   }
 
   /** Liveness probe for readiness checks. */

@@ -42,9 +42,10 @@ model User {
   /// The person's own interface language; a business has its own default (tenants.default_language).
   language        Language  @default(en)
 
-  memberships Membership[]
-  sessions    Session[]
-  userTokens  UserToken[]
+  memberships     Membership[]
+  sessions        Session[]
+  userTokens      UserToken[]
+  idempotencyKeys IdempotencyKey[]
 
   @@map("users")
 }
@@ -94,6 +95,7 @@ model Tenant {
   settlementEvents     SettlementItemEvent[]
   discrepancies        Discrepancy[]
   manualCosts          ManualCost[]
+  idempotencyKeys      IdempotencyKey[]
 
   @@map("tenants")
 }
@@ -1003,4 +1005,25 @@ model ManualCost {
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, incurredOn])
   @@map("manual_costs")
+}
+
+/// Tenant-scoped, or user-scoped when tenant_id is null (creating a business happens before the tenant exists). A retried
+/// create returns the response stored here instead of creating again. Rows are purged after a day.
+model IdempotencyKey {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  tenantId     String?  @map("tenant_id") @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  scope        String
+  key          String
+  requestHash  String   @map("request_hash")
+  responseBody Json     @map("response_body")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, scope, key])
+  @@unique([userId, scope, key])
+  @@index([createdAt])
+  @@map("idempotency_keys")
 }

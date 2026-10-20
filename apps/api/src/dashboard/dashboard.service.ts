@@ -128,10 +128,12 @@ export class DashboardService {
           variant_name: string;
           reorder_point: number;
           available: bigint;
+          total: number;
         }[]
       >`
         SELECT v.id AS variant_id, v.sku, p.name AS product_name, v.name AS variant_name, v.reorder_point,
-               COALESCE(SUM(l.on_hand), 0) - COALESCE(SUM(l.reserved), 0) AS available
+               COALESCE(SUM(l.on_hand), 0) - COALESCE(SUM(l.reserved), 0) AS available,
+               count(*) OVER ()::int AS total
         FROM product_variants v
         JOIN products p ON p.tenant_id = v.tenant_id AND p.id = v.product_id
         LEFT JOIN stock_levels l ON l.tenant_id = v.tenant_id AND l.variant_id = v.id
@@ -139,7 +141,7 @@ export class DashboardService {
         GROUP BY v.id, p.name
         HAVING COALESCE(SUM(l.on_hand), 0) - COALESCE(SUM(l.reserved), 0) <= v.reorder_point
         ORDER BY COALESCE(SUM(l.on_hand), 0) - COALESCE(SUM(l.reserved), 0), v.sku
-        LIMIT 500`;
+        LIMIT 5`;
 
       const deliveredNow = await deliveredTotals(tx, t, timezone, from, to);
 
@@ -194,8 +196,8 @@ export class DashboardService {
           orderedMinor: Number(d.ordered),
         })),
         lowStock: {
-          count: low.length,
-          items: low.slice(0, 5).map((r) => ({
+          count: low[0]?.total ?? 0, // every variant at or below its reorder point, not just the five listed
+          items: low.map((r) => ({
             variantId: r.variant_id,
             sku: r.sku,
             productName: r.product_name,

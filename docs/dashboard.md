@@ -19,20 +19,22 @@ business switcher and sign-out stay in the header.
 `GET /v1/dashboard?period=today|7d|30d` (permission `orders:read`, so every role can see it). Everything on the page is a figure
 the server worked out from the business's own rows; the browser only formats. A period is whole calendar days **in the
 business's own time zone** (Settings), so "today" starts at local midnight, not UTC midnight. Orders are placed in a period by
-**when they were created**.
+**when they were created**, with one exception: **profit** covers orders **delivered** in the period (dated by delivery, like the
+finance summary). So "Delivered sales" (of orders created in the period that are delivered now) and the profit figure's
+delivered orders can differ: an order placed yesterday and delivered today counts toward today's profit but yesterday's sales.
 
 | On the page            | What it is                                                                                                                                                                                          |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Needs your attention   | **All** open work, not just the period: orders waiting to be confirmed, confirmed orders to pack and ship, failed deliveries, return requests, low-stock products. Each links to the filtered list. |
 | Orders                 | Orders created in the period.                                                                                                                                                                       |
 | Sales                  | Total of the period's orders that were **not cancelled** (items − discounts + delivery charges), and how many orders that is.                                                                       |
-| Delivered sales        | Total of the period's delivered orders.                                                                                                                                                             |
+| Delivered sales        | Total of the orders created in the period that are delivered now.                                                                                                                                   |
 | Cash on delivery out   | COD amount (total − advance) on orders currently shipped or in transit: what couriers should be collecting.                                                                                         |
 | Average order          | Sales ÷ orders counted, whole paisa. `—` when there are none.                                                                                                                                       |
 | Delivery success       | delivered ÷ (delivered + failed + returned). `—` until one of those exists. Returns count against it.                                                                                               |
 | Orders / Sales per day | Real bars: one per calendar day, zero days included. Screen readers get a sentence with every number.                                                                                               |
 | Orders by status       | Every status, zeros included, each linking to the list for that status and period.                                                                                                                  |
-| Low stock              | The five thinnest active products at or below their reorder point (all locations together; damaged units are not available), with the full count.                                                   |
+| Low stock              | The five thinnest active products at or below their reorder point (all locations together; damaged units are not available), with the full count (a real count, however many there are).            |
 | Recent activity        | The latest 12 order status changes, newest first, with who made them. Order numbers only: no customer names or phones.                                                                              |
 
 States: a loading indicator, an error with **Try again**, a welcome with real next steps (Add a product, Receive stock, Take an
@@ -43,12 +45,15 @@ previous figures on screen while the next ones load. There are no sample figures
 
 Profit is **never shown unless it can be worked out**, and is always labelled an **estimate**:
 
-- It is the item revenue of the period's **delivered** orders minus the **cost price recorded on each line when it was sold**
-  (so changing a product's cost later does not rewrite past orders).
+- It is the revenue of the period's **delivered** orders (dated by delivery) minus the **cost price recorded on each line when it was
+  sold** (so changing a product's cost later does not rewrite past orders). Revenue is items less **all** discounts, plus the
+  delivery charges billed: one definition, shared with the finance summary and analytics (`apps/api/src/finance/revenue.ts`).
 - It is shown only when **every** delivered line in the period has a cost price. Otherwise the page says why ("1 of 2 delivered
   order lines have no cost price, so profit cannot be worked out. Add cost prices to your products.") and shows no figure.
-- It leaves out order-level discounts, delivery charges, courier fees, returns and taxes, and the page says so under the figure.
-  Courier fees and COD settlement belong to a later milestone.
+- It leaves out courier fees, recorded costs, returns and taxes, and the page says so under the figure. For the figure after those,
+  see the finance summary ([finance.md](finance.md)).
+- **`profit` is `null` without `finance:read`** (OWNER, ADMIN, MANAGER, ACCOUNTANT): cost and profit are finance data, so STAFF get
+  the rest of the dashboard and no profit card.
 
 ## Team and permissions
 

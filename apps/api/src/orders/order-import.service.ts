@@ -168,7 +168,7 @@ export class OrderImportService {
       return { c, done };
     });
     const { c, done } = checked;
-    if (c.fatal) throw new ApiError(400, 'validation_failed', c.fatal);
+    if (c.fatal) throw new ApiError('validation_failed', c.fatal);
 
     const errors: RowError[] = [...c.errors];
     const orderNumbers: number[] = [];

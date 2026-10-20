@@ -9,9 +9,9 @@ was fixed. Each item names where to look.
   manual costs, and the same charges are also summed from imported courier statements (`packages/domain/src/settlements.ts`,
   `apps/api/src/finance/finance.service.ts`). A seller who records a charge by hand and imports the statement is charged twice.
   Options: remove those three kinds from manual costs, or exclude them from profit whenever statements cover the period.
-- **Two definitions of "profit".** The dashboard's gross profit ignores order-level discounts, delivery and courier costs; the
-  finance summary includes them (`packages/contracts/src/dashboard.ts`, `finance.service.ts`). Both should come from one domain
-  function.
+- **The dashboard's profit is gross; the finance summary's is net.** Both use one definition of revenue and of the delivered set
+  (`apps/api/src/finance/revenue.ts`), but the dashboard stops at revenue minus cost of goods, while the finance summary also
+  subtracts courier charges and recorded costs. They are labelled differently on screen; the figures differ on purpose.
 - **Register still answers "email already exists" (409).** An account-enumeration signal that forgot-password does not have. A
   uniform answer is impossible while registering signs the new person in on the spot: the new case returns a session, the
   existing case cannot (that would hand over the account), and a decoy session would fail on first use and so reveal the same
@@ -23,8 +23,14 @@ was fixed. Each item names where to look.
   a token and uses it within 10 s of the owner's refresh gets a session too; after that the usual reuse detection applies.
   `REFRESH_REUSE_GRACE_SECONDS` (0 turns it off).
 - **A tenant switch starts a new session** (and the old one keeps its tenant), so another tab's token is not moved. In the
-  browser the refresh cookie is shared by every tab, so a tab's _next refresh_ after someone else's switch still lands in the
-  newest tenant; native apps and tokens already issued are unaffected. Sessions left behind by switches expire with the first one.
+  browser the refresh cookie is shared by every tab, so without help a tab's _next refresh_ after someone else's switch would land
+  in the newest tenant. Clients now send `expectedTenantId` with a refresh and get `409 tenant_changed` instead (nothing rotates);
+  a client that sends nothing, or a native app, behaves as before. Sessions left behind by switches expire with the first one.
+- **Cancelling a shipment holds the shipment row lock across the courier's HTTP call.** This is deliberate: two cancels, or a
+  webhook arriving meanwhile, take their turn, and the courier is never asked twice. It also means the transaction (60 s limit)
+  stays open for as long as the courier answers, bounded by the adapter's timeout. Fine for the simulated courier. A real adapter
+  with a slow API should either keep its timeout well under the transaction limit or move to a "cancelling" status written before
+  the call, so the lock is not held while waiting (`apps/api/src/couriers/shipments.service.ts`, `cancel`).
 
 ## Needs more design
 

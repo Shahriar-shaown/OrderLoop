@@ -39,7 +39,7 @@ afterEach(() => {
 
 describe('ProblemFilter', () => {
   it('renders ApiError as RFC 9457 problem details', () => {
-    const out = run(new ApiError(409, 'conflict', 'already exists'));
+    const out = run(new ApiError('conflict', 'already exists'));
     expect(out.status).toBe(409);
     expect(out.type).toBe('application/problem+json');
     expect(out.body).toEqual({

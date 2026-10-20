@@ -1,3 +1,5 @@
+import { MAX_MINOR } from '@orderloop/contracts';
+
 /**
  * Order rules as pure functions: the state machine, what each transition does to stock, the totals, and Bangladeshi phone
  * numbers. The API enforces exactly these (and the database backs the money identities with CHECK constraints); the
@@ -92,8 +94,7 @@ export function editScope(status: OrderStatus): EditScope {
 export const ORDER_LIMITS = {
   maxLines: 100,
   maxQuantity: 10_000,
-  /** Paisa. Capped well inside a 32-bit integer, like every price. */
-  maxMoney: 2_000_000_000,
+  maxMoney: MAX_MINOR,
   maxDeliveryCharge: 100_000_000,
 } as const;
 

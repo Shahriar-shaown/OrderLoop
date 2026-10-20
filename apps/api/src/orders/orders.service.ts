@@ -52,7 +52,7 @@ import {
 } from './order-stock.js';
 
 const validation = (path: string, message: string) =>
-  new ApiError(400, 'validation_failed', 'Request validation failed', [{ path, message }]);
+  new ApiError('validation_failed', 'Request validation failed', [{ path, message }]);
 
 const orderInclude = {
   items: { orderBy: { position: 'asc' as const } },
@@ -266,7 +266,6 @@ export class OrdersService {
         if (existing) {
           if (existing.requestHash !== requestHash)
             throw new ApiError(
-              409,
               'idempotency_conflict',
               'This idempotency key was already used for a different order',
             );
@@ -450,13 +449,11 @@ export class OrdersService {
 
     if (body.ifVersion !== undefined && body.ifVersion !== order.version)
       throw new ApiError(
-        409,
         'version_conflict',
         'This order was changed by someone else. Reload it and try again.',
       );
     if (!canTransition(from, to))
       throw new ApiError(
-        409,
         'invalid_transition',
         `An order that is ${from.replace(/_/g, ' ')} cannot become ${to.replace(/_/g, ' ')}`,
       );
@@ -465,7 +462,6 @@ export class OrdersService {
       const live = await liveShipmentOf(tx, tenantId, id);
       if (live)
         throw new ApiError(
-          409,
           'shipment_conflict',
           live.status === 'booking' || live.status === 'booking_uncertain'
             ? 'A courier booking for this order is unconfirmed. Settle it on the order page before cancelling.'
@@ -618,7 +614,6 @@ export class OrdersService {
 
       if (body.ifVersion !== undefined && body.ifVersion !== order.version)
         throw new ApiError(
-          409,
           'version_conflict',
           'This order was changed by someone else. Reload it and try again.',
         );
@@ -657,7 +652,6 @@ export class OrdersService {
           (await liveShipmentOf(tx, tenantId, id))
         )
           throw new ApiError(
-            409,
             'shipment_conflict',
             'This order has a courier shipment, and the courier keeps the address it was booked with. Cancel the shipment first, then change the address and book again.',
           );

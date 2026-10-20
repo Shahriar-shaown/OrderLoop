@@ -1,8 +1,5 @@
 import { randomBytes } from 'node:crypto';
 
-/** Any canonical UUID, whatever its version. */
-export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** RFC 9562 UUIDv7: 48-bit unix-ms timestamp then random bits, so ids sort by creation time. */
 export function uuidv7(now: number = Date.now()): string {
   const b = randomBytes(16);

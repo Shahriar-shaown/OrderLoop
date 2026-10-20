@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ApiError } from '../common/api-error.js';
+import { APP_CONFIG, type AppConfig } from '../config/config.module.js';
 import { REDIS } from '../redis/redis.module.js';
 
 /** Failures from one IP against one account before that IP is locked out of that account. */
@@ -31,7 +32,10 @@ const digest = (value: string) => createHash('sha256').update(value).digest('hex
 export class LoginThrottleService {
   private readonly logger = new Logger(LoginThrottleService.name);
 
-  constructor(@Inject(REDIS) private readonly redis: ThrottleStore) {}
+  constructor(
+    @Inject(REDIS) private readonly redis: ThrottleStore,
+    @Inject(APP_CONFIG) private readonly config: Pick<AppConfig, 'RATE_LIMIT_ENABLED'>,
+  ) {}
 
   private keys(email: string, ip: string | null | undefined) {
     const account = digest(email);
@@ -51,7 +55,6 @@ export class LoginThrottleService {
         if (Number((await this.redis.get(key)) ?? 0) >= max) {
           const ttl = await this.redis.ttl(key);
           throw new ApiError(
-            429,
             'rate_limited',
             `Too many failed attempts. Try again in ${Math.max(1, Math.ceil(ttl / 60))} minute(s).`,
           );
@@ -78,18 +81,32 @@ export class LoginThrottleService {
    * At most 3 emails of one kind per address per hour, so an endpoint cannot be used to flood someone's inbox. Each kind has
    * its own count, so spam of one cannot use up the other. Fails open.
    */
-  async allowResetRequest(
+  allowResetRequest(
     email: string,
     kind: 'reset-req' | 'exists-notice' = 'reset-req',
   ): Promise<boolean> {
-    const key = `${kind}:${digest(email)}`;
+    return this.hit(`${kind}:${digest(email)}`, 3, 3600);
+  }
+
+  /** Count one use; false once more than `max` uses fall inside the window. Fails open. */
+  private async hit(key: string, max: number, windowSeconds: number): Promise<boolean> {
     try {
       const count = await this.redis.incr(key);
-      if (count === 1) await this.redis.expire(key, 3600);
-      return count <= 3;
+      if (count === 1) await this.redis.expire(key, windowSeconds);
+      return count <= max;
     } catch {
       return true;
     }
+  }
+
+  /**
+   * A budget for one subject (a tenant, a user) on top of the per-IP request limit: at most `max` uses of `scope` per
+   * window, else 429. Off together with the request limit (RATE_LIMIT_ENABLED), and fails open if Redis is down.
+   */
+  async enforce(scope: string, subject: string, max: number, windowSeconds: number): Promise<void> {
+    if (!this.config.RATE_LIMIT_ENABLED) return;
+    if (!(await this.hit(`limit:${scope}:${digest(subject)}`, max, windowSeconds)))
+      throw new ApiError('rate_limited', 'Too many requests, slow down');
   }
 
   async clear(email: string, ip: string | null | undefined): Promise<void> {

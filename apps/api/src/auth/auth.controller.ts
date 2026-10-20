@@ -12,6 +12,9 @@ const COOKIE_PATH = '/v1/auth';
 /** Credential-checking endpoints get a much tighter per-IP budget than the global default. */
 const STRICT = { default: { limit: 10, ttl: 60_000 } };
 
+/** Endpoints that send an email get fewer attempts still, so they cannot be used to flood an inbox. */
+const MAILING = { default: { limit: 3, ttl: 60_000 } };
+
 @Controller()
 export class AuthController {
   constructor(
@@ -42,7 +45,7 @@ export class AuthController {
   }
 
   @Endpoint(routes.register)
-  @Throttle(STRICT)
+  @Throttle(MAILING)
   async register(
     @Input() input: ParsedInput<typeof routes.register>,
     @Req() req: AppRequest,
@@ -77,7 +80,11 @@ export class AuthController {
       token = readCookie(req.headers.cookie, COOKIE);
     }
     if (!token) throw ApiError.unauthorized('Refresh token required');
-    return this.deliver(req, res, await this.auth.refresh(token, this.meta(req)));
+    return this.deliver(
+      req,
+      res,
+      await this.auth.refresh(token, this.meta(req), input.body.expectedTenantId),
+    );
   }
 
   @Endpoint(routes.logout)
@@ -102,7 +109,7 @@ export class AuthController {
   }
 
   @Endpoint(routes.resendVerification)
-  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Throttle(MAILING)
   async resendVerification(@Auth() auth: AuthContext): Promise<Record<string, never>> {
     await this.auth.resendVerification(auth);
     return {};
@@ -174,7 +181,12 @@ export function readCookie(header: string | undefined, name: string): string | u
   if (!header) return undefined;
   for (const part of header.split(';')) {
     const [k, ...v] = part.trim().split('=');
-    if (k === name) return decodeURIComponent(v.join('='));
+    if (k !== name) continue;
+    try {
+      return decodeURIComponent(v.join('='));
+    } catch {
+      return undefined; // a malformed cookie counts as absent
+    }
   }
   return undefined;
 }

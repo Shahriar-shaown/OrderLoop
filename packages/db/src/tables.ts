@@ -30,6 +30,7 @@ export const TENANT_TABLES = [
   'settlement_item_events',
   'discrepancies',
   'manual_costs',
+  'idempotency_keys',
 ] as const;
 
 /** Tenant tables the runtime role may only INSERT into and SELECT from: history that must never be rewritten. */

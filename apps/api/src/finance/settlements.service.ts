@@ -351,7 +351,7 @@ export class SettlementsService {
     ip: string | null,
   ): Promise<SettlementImportResult> {
     if (body.provider === 'mock')
-      throw new ApiError(400, 'validation_failed', 'Request validation failed', [
+      throw new ApiError('validation_failed', 'Request validation failed', [
         {
           path: 'provider',
           message: 'The simulated courier moves no money, so it has no settlements',
@@ -373,7 +373,6 @@ export class SettlementsService {
       // A file that cannot be read exactly is refused whole: nothing is half-imported.
       if (body.dryRun) return empty;
       throw new ApiError(
-        400,
         'validation_failed',
         parsed.fatal ?? 'The file has errors. Nothing was imported.',
         parsed.errors.map((e) => ({ path: `line ${e.line}`, message: e.message })),
@@ -382,8 +381,8 @@ export class SettlementsService {
 
     const fileHash = sha(`${body.provider}\n${normalise(body.csv)}`);
     const ctx = { tenantId: auth.tenantId, userId: auth.userId };
-    try {
-      return await this.db.withContext(
+    const attempt = () =>
+      this.db.withContext(
         ctx,
         async (tx) => {
           const result = await this.importInTx(tx, auth, body, parsed.rows, fileHash, ip);
@@ -392,19 +391,28 @@ export class SettlementsService {
         },
         LONG_TX,
       );
-    } catch (error) {
-      if (error instanceof DryRun) return error.result;
-      // Two identical uploads at once: the database let one in. The other is the same file, already imported.
-      if (isUniqueViolation(error)) {
-        return this.db.withContext(ctx, async (tx) => {
+    // Twice at most: a unique violation can mean the same file landed first, or an overlapping statement did.
+    for (let tries = 1; ; tries++) {
+      try {
+        return await attempt();
+      } catch (error) {
+        if (error instanceof DryRun) return error.result;
+        if (!isUniqueViolation(error)) throw error;
+        // Two identical uploads at once: the database let one in. The other is the same file, already imported.
+        const same = await this.db.withContext(ctx, async (tx) => {
           const b = await tx.settlementBatch.findFirst({
             where: { tenantId: auth.tenantId, fileHash },
           });
-          if (!b) throw error;
-          return this.alreadyImported(tx, auth.tenantId, b.id, body.dryRun);
+          return b ? this.alreadyImported(tx, auth.tenantId, b.id, body.dryRun) : null;
         });
+        if (same) return same;
+        // An overlapping statement committed some of these lines first (settlement_items_one_counted). Run again: the
+        // lines are now seen as already counted and kept as duplicates. A second collision is a conflict to retry later.
+        if (tries >= 2)
+          throw ApiError.conflict(
+            'Another statement with the same lines was being imported. Try again in a moment.',
+          );
       }
-      throw error;
     }
   }
 
@@ -638,7 +646,6 @@ export class SettlementsService {
       // Never "reconciled" while anything is unmatched, in doubt, or different from what was expected.
       if (!detail.canReconcile)
         throw new ApiError(
-          409,
           'settlement_has_issues',
           `This settlement cannot be reconciled yet: ${detail.issues.join('; ')}.`,
         );
@@ -730,7 +737,6 @@ export class SettlementsService {
     return this.decide(auth, id, ip, body.reason, 'manual_matched', async (tx, item) => {
       if (item.matchStatus !== 'unmatched' && item.matchStatus !== 'ambiguous')
         throw new ApiError(
-          409,
           'conflict',
           'Only an unmatched or doubtful line can be matched. Undo its match first.',
         );
@@ -740,13 +746,11 @@ export class SettlementsService {
       if (!shipment) throw ApiError.notFound('Shipment not found');
       if (shipment.provider !== item.batch.provider)
         throw new ApiError(
-          409,
           'conflict',
           'That parcel was booked with a different courier than this statement is from.',
         );
       if (shipment.simulated || shipment.status === 'booking_failed')
         throw new ApiError(
-          409,
           'conflict',
           'That shipment is not a real booking, so no money can belong to it.',
         );
@@ -767,7 +771,7 @@ export class SettlementsService {
   unmatch(auth: AuthContext, id: string, reason: string, ip: string | null) {
     return this.decide(auth, id, ip, reason, 'unmatched', async (_tx, item) => {
       if (item.matchStatus !== 'matched')
-        throw new ApiError(409, 'conflict', 'Only a matched line can be unmatched.');
+        throw new ApiError('conflict', 'Only a matched line can be unmatched.');
       return {
         data: {
           matchStatus: 'unmatched',
@@ -786,7 +790,6 @@ export class SettlementsService {
     return this.decide(auth, id, ip, reason, 'ignored', async (_tx, item) => {
       if (!['unmatched', 'ambiguous', 'unallocated'].includes(item.matchStatus))
         throw new ApiError(
-          409,
           'conflict',
           'Only a line that is not tied to an order can be ignored. Undo its match first.',
         );

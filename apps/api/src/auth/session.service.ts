@@ -24,7 +24,11 @@ export interface Rotated {
 }
 
 type RotateOutcome =
-  { kind: 'ok'; rotated: Rotated } | { kind: 'invalid' } | { kind: 'ended' } | { kind: 'reuse' };
+  | { kind: 'ok'; rotated: Rotated }
+  | { kind: 'invalid' }
+  | { kind: 'ended' }
+  | { kind: 'reuse' }
+  | { kind: 'tenant_changed' };
 
 @Injectable()
 export class SessionService {
@@ -102,7 +106,7 @@ export class SessionService {
    * short grace window: a client whose response was lost retries with the token it still holds, and
    * gets a fresh token as long as the token issued the first time has not been used yet.
    */
-  async rotate(rawToken: string, meta: ClientMeta): Promise<Rotated> {
+  async rotate(rawToken: string, meta: ClientMeta, expectedTenantId?: string): Promise<Rotated> {
     const tokenHash = this.tokens.hashToken(rawToken);
 
     // The decision is committed before any error is thrown, otherwise a rollback would undo the revocation.
@@ -131,9 +135,13 @@ export class SessionService {
         return { kind: 'reuse' };
       };
 
-      const retry = row.usedAt !== null && (await this.isRetry(tx, row, now));
+      let retry = row.usedAt !== null && (await this.isRetry(tx, row, now));
+      let successorId = row.replacedById;
       if (row.usedAt && !retry) return reuse();
       if (row.expiresAt <= now || session.expiresAt <= now) return { kind: 'ended' };
+      // The web cookie is shared by all tabs: a client that expects another tenant must not be moved silently.
+      if (expectedTenantId && expectedTenantId !== session.activeTenantId)
+        return { kind: 'tenant_changed' };
 
       await applyContext(tx, { tenantId: session.activeTenantId, userId: session.userId });
       const [membership, user] = await Promise.all([
@@ -153,7 +161,20 @@ export class SessionService {
           where: { id: row.id, usedAt: null },
           data: { usedAt: now },
         });
-        if (claimed.count === 0) return reuse();
+        if (claimed.count === 0) {
+          // Lost the race (a second tab refreshed the same instant): judge it like any other retry.
+          const winner = await tx.refreshToken.findUniqueOrThrow({ where: { id: row.id } });
+          retry = await this.isRetry(tx, winner, now);
+          if (!retry) return reuse();
+          successorId = winner.replacedById;
+        }
+      }
+      if (retry && successorId) {
+        // Burn the successor handed out the first time, so two live chains never exist: using it later is reuse.
+        await tx.refreshToken.updateMany({
+          where: { id: successorId, usedAt: null },
+          data: { usedAt: now },
+        });
       }
 
       const next = await this.issueRefreshToken(tx, session.id, session.expiresAt);
@@ -175,14 +196,18 @@ export class SessionService {
         return outcome.rotated;
       case 'reuse':
         throw new ApiError(
-          401,
           'token_reuse_detected',
           'Refresh token was already used; the session has been revoked. Sign in again.',
         );
+      case 'tenant_changed':
+        throw new ApiError(
+          'tenant_changed',
+          'This session belongs to another business than the one you were using',
+        );
       case 'ended':
-        throw new ApiError(401, 'token_expired', 'Session has ended. Sign in again.');
+        throw new ApiError('token_expired', 'Session has ended. Sign in again.');
       default:
-        throw new ApiError(401, 'unauthorized', 'Invalid refresh token');
+        throw new ApiError('unauthorized', 'Invalid refresh token');
     }
   }
 }

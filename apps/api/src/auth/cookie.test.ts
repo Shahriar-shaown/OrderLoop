@@ -9,4 +9,7 @@ describe('readCookie', () => {
     expect(readCookie(undefined, 'ol_rt')).toBeUndefined();
     expect(readCookie('a=1', 'ol_rt')).toBeUndefined();
   });
+  it('treats a malformed percent-encoding as absent instead of throwing', () => {
+    expect(readCookie('ol_rt=%E0%A4%A', 'ol_rt')).toBeUndefined();
+  });
 });

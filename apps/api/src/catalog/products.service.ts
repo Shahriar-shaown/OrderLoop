@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
   Product,
+  CreateVariantBody,
   ProductBody,
   ProductPage,
   ProductQuery,
@@ -15,6 +16,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
 import { decodeCursor, encodeCursor } from '../common/cursor.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { idempotent } from '../common/idempotency.js';
 import { stockTotals, toProduct, toVariant } from './catalog.mapper.js';
 
 const SKU_TAKEN = (sku: string) =>
@@ -34,7 +36,7 @@ export class ProductsService {
       select: { id: true },
     });
     if (!found)
-      throw new ApiError(400, 'validation_failed', 'Request validation failed', [
+      throw new ApiError('validation_failed', 'Request validation failed', [
         { path: 'body.categoryId', message: 'Category not found' },
       ]);
   }
@@ -45,7 +47,7 @@ export class ProductsService {
       select: { id: true },
     });
     if (!found)
-      throw new ApiError(400, 'validation_failed', 'Request validation failed', [
+      throw new ApiError('validation_failed', 'Request validation failed', [
         { path: 'body.supplierId', message: 'Supplier not found' },
       ]);
   }
@@ -127,13 +129,15 @@ export class ProductsService {
     const skus = body.variants.map((v) => v.sku);
     const repeated = skus.find((s, i) => skus.indexOf(s) !== i);
     if (repeated)
-      throw new ApiError(400, 'validation_failed', 'Request validation failed', [
+      throw new ApiError('validation_failed', 'Request validation failed', [
         { path: 'body.variants', message: `SKU ${repeated} appears more than once` },
       ]);
 
     try {
-      return await this.db.withContext(
+      return await idempotent(
+        this.db,
         { tenantId: auth.tenantId, userId: auth.userId },
+        { scope: 'POST /v1/products', key: body.idempotencyKey, body },
         async (tx) => {
           if (body.categoryId) await this.requireCategory(tx, auth.tenantId, body.categoryId);
           if (body.supplierId) await this.requireSupplier(tx, auth.tenantId, body.supplierId);
@@ -227,10 +231,20 @@ export class ProductsService {
     });
   }
 
-  async addVariant(auth: AuthContext, productId: string, body: VariantInput): Promise<Variant> {
+  async addVariant(
+    auth: AuthContext,
+    productId: string,
+    body: CreateVariantBody,
+  ): Promise<Variant> {
     try {
-      return await this.db.withContext(
+      return await idempotent(
+        this.db,
         { tenantId: auth.tenantId, userId: auth.userId },
+        {
+          scope: `POST /v1/products/${productId}/variants`,
+          key: body.idempotencyKey,
+          body,
+        },
         async (tx) => {
           const product = await tx.product.findFirst({
             where: { id: productId, tenantId: auth.tenantId },

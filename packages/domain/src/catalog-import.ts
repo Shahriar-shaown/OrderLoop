@@ -1,3 +1,4 @@
+import { MAX_MINOR } from '@orderloop/contracts';
 import { bdtToPaisa } from './money.js';
 import { CsvError, parseCsvRecords, type CsvRecord } from './csv.js';
 import { nameKey, normalizeSku, SKU_RULE } from './sku.js';
@@ -59,8 +60,6 @@ export interface ParsedImport {
   fatal: string | null;
   totalRows: number;
 }
-
-const MAX_MINOR = 2_000_000_000;
 
 export function parseMoney(raw: string, label: string): number {
   let minor: number;

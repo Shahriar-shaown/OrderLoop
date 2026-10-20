@@ -548,7 +548,7 @@ describe('safety around live shipments', () => {
     const real = orders.moveInTx.bind(orders);
     let calls = 0;
     orders.moveInTx = async (...args: Parameters<typeof real>) => {
-      if (++calls === 2) throw new ApiError(409, 'invalid_transition', 'forced failure');
+      if (++calls === 2) throw new ApiError('invalid_transition', 'forced failure');
       return real(...args);
     };
     let delivered;
@@ -832,7 +832,7 @@ describe('Pathao (mocked HTTP)', () => {
     const noCancel = await api.post(`/v1/shipments/${res.body.id}/cancel`, {
       reason: 'customer cancelled',
     });
-    expect(noCancel.status).toBe(409);
+    expect(noCancel.status).toBe(422);
     expect(noCancel.body.detail).toMatch(/no documented way to cancel/);
     const manual = await api
       .post(`/v1/shipments/${res.body.id}/resolve`, {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IdempotencyKey, OptionalIdempotencyKey } from './idempotency.js';
 import { Uuid } from './auth.js';
 
 // SKU rules mirror normalizeSku in @orderloop/domain (a domain test keeps the two in step); contracts depends on nothing.
@@ -10,8 +11,11 @@ export const UNITS = ['pcs', 'kg', 'g', 'l', 'ml', 'm', 'pack', 'dozen'] as cons
 export const Unit = z.enum(UNITS);
 export type Unit = z.infer<typeof Unit>;
 
-/** Money is integer paisa (1 BDT = 100 paisa), never a decimal. Capped well inside a 32-bit integer. */
-export const PriceMinor = z.number().int().min(0).max(2_000_000_000);
+/** The largest amount of money anywhere, in paisa. Capped well inside a 32-bit integer; the database CHECKs agree. */
+export const MAX_MINOR = 2_000_000_000;
+
+/** Money is integer paisa (1 BDT = 100 paisa), never a decimal. */
+export const PriceMinor = z.number().int().min(0).max(MAX_MINOR);
 
 const Name = (max: number) =>
   z
@@ -26,11 +30,7 @@ export const Sku = z
   .transform((v) => v.toUpperCase())
   .pipe(z.string().regex(SKU_RE, SKU_RULE));
 const Quantity = z.number().int().min(1).max(1_000_000);
-export const IdempotencyKey = z
-  .string()
-  .min(8)
-  .max(100)
-  .regex(/^[A-Za-z0-9._:-]+$/, 'Use letters, digits and . _ : -');
+export { IdempotencyKey };
 const Reference = {
   referenceType: z.string().trim().min(1).max(40).optional(),
   referenceId: z.string().trim().min(1).max(100).optional(),
@@ -42,12 +42,14 @@ const BoolQuery = z.enum(['true', 'false']).transform((v) => v === 'true');
 // ---- categories -----------------------------------------------------------------------------------------------------
 export const CategoryBody = z.object({ name: Name(100) });
 export type CategoryBody = z.infer<typeof CategoryBody>;
+export const CreateCategoryBody = CategoryBody.extend(OptionalIdempotencyKey);
+export type CreateCategoryBody = z.infer<typeof CreateCategoryBody>;
 export const Category = z.object({ id: Uuid, name: z.string() });
 export type Category = z.infer<typeof Category>;
 
 // ---- suppliers ------------------------------------------------------------------------------------------------------
 const OptionalText = (max: number) => z.string().trim().min(1).max(max).nullable().optional();
-export const SupplierBody = z.object({
+const SupplierFields = z.object({
   name: Name(150),
   contactName: OptionalText(100),
   phone: z
@@ -67,8 +69,9 @@ export const SupplierBody = z.object({
   address: OptionalText(300),
   notes: OptionalText(1000),
 });
+export const SupplierBody = SupplierFields.extend(OptionalIdempotencyKey);
 export type SupplierBody = z.infer<typeof SupplierBody>;
-export const SupplierUpdate = SupplierBody.partial().extend({ archived: z.boolean().optional() });
+export const SupplierUpdate = SupplierFields.partial().extend({ archived: z.boolean().optional() });
 export type SupplierUpdate = z.infer<typeof SupplierUpdate>;
 export const Supplier = z.object({
   id: Uuid,
@@ -97,6 +100,9 @@ export const VariantInput = z.object({
   reorderPoint: z.number().int().min(0).max(1_000_000).default(0),
 });
 export type VariantInput = z.infer<typeof VariantInput>;
+/** Adding a variant to an existing product. (A new product carries its variants without a key of their own.) */
+export const CreateVariantBody = VariantInput.extend(OptionalIdempotencyKey);
+export type CreateVariantBody = z.infer<typeof CreateVariantBody>;
 
 /** The SKU is deliberately absent: it never changes once created. */
 export const VariantUpdate = z.object({
@@ -158,6 +164,7 @@ export const ProductBody = z.object({
   imageUrls: ImageUrls.default([]),
   unit: Unit.default('pcs'),
   variants: z.array(VariantInput).min(1, 'A product needs at least one variant').max(50),
+  ...OptionalIdempotencyKey,
 });
 export type ProductBody = z.infer<typeof ProductBody>;
 
@@ -198,7 +205,11 @@ export const ProductPage = z.object({ items: z.array(Product), nextCursor: z.str
 export type ProductPage = z.infer<typeof ProductPage>;
 
 // ---- stock locations ------------------------------------------------------------------------------------------------
-export const LocationBody = z.object({ name: Name(100), isDefault: z.boolean().optional() });
+export const LocationBody = z.object({
+  name: Name(100),
+  isDefault: z.boolean().optional(),
+  ...OptionalIdempotencyKey,
+});
 export type LocationBody = z.infer<typeof LocationBody>;
 export const LocationUpdate = z.object({
   name: Name(100).optional(),
@@ -409,6 +420,9 @@ export const ImportBody = z.object({
   csv: z.string().min(1).max(2_000_000),
 });
 export type ImportBody = z.infer<typeof ImportBody>;
+/** Starting the import. (Checking a file first needs no key: it changes nothing.) */
+export const CreateImportBody = ImportBody.extend(OptionalIdempotencyKey);
+export type CreateImportBody = z.infer<typeof CreateImportBody>;
 export const ImportStatus = z.enum(['PENDING', 'RUNNING', 'COMPLETED', 'FAILED']);
 export type ImportStatus = z.infer<typeof ImportStatus>;
 export const ImportJob = z.object({

@@ -10,13 +10,11 @@ import { ApiError } from './api-error.js';
 export function mapStockError(error: unknown): never {
   if (error instanceof InsufficientStockError)
     throw new ApiError(
-      409,
       'insufficient_stock',
       `Only ${error.available} available, ${error.requested} requested`,
     );
   if (error instanceof InsufficientDamagedError)
     throw new ApiError(
-      409,
       'insufficient_stock',
       `Only ${error.damaged} damaged, ${error.requested} requested`,
     );

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type {
-  AddressBody,
+  CreateAddressBody,
   AddressFields,
   AddressRecord,
   AddressUpdate,
@@ -18,10 +18,11 @@ import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
 import { decodeCursor, encodeCursor } from '../common/cursor.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { idempotent } from '../common/idempotency.js';
 import { uuidv7 } from '../common/uuid.js';
 
 const validation = (path: string, message: string) =>
-  new ApiError(400, 'validation_failed', 'Request validation failed', [{ path, message }]);
+  new ApiError('validation_failed', 'Request validation failed', [{ path, message }]);
 
 const PHONE_TAKEN = () =>
   ApiError.conflict(
@@ -266,8 +267,10 @@ export class CustomersService {
 
   async create(auth: AuthContext, body: CustomerBody, ip: string | null): Promise<CustomerDetail> {
     try {
-      return await this.db.withContext(
+      return await idempotent(
+        this.db,
         { tenantId: auth.tenantId, userId: auth.userId },
+        { scope: 'POST /v1/customers', key: body.idempotencyKey, body },
         async (tx) => {
           const c = await tx.customer.create({
             data: {
@@ -343,10 +346,12 @@ export class CustomersService {
   async addAddress(
     auth: AuthContext,
     customerId: string,
-    body: AddressBody,
+    body: CreateAddressBody,
     ip: string | null,
   ): Promise<AddressRecord> {
-    return this.db.withContext({ tenantId: auth.tenantId, userId: auth.userId }, async (tx) => {
+    const scope = `POST /v1/customers/${customerId}/addresses`;
+    const ctx = { tenantId: auth.tenantId, userId: auth.userId };
+    return idempotent(this.db, ctx, { scope, key: body.idempotencyKey, body }, async (tx) => {
       const c = await tx.customer.findFirst({
         where: { id: customerId, tenantId: auth.tenantId },
         select: { id: true },

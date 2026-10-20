@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { OptionalIdempotencyKey } from './idempotency.js';
 
 export const Role = z.enum(['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTANT']);
 export type Role = z.infer<typeof Role>;
@@ -76,7 +77,14 @@ export const LoginBody = z.object({
 });
 export type LoginBody = z.infer<typeof LoginBody>;
 
-export const RefreshBody = z.object({ refreshToken: z.string().min(1).max(512).optional() });
+export const RefreshBody = z.object({
+  refreshToken: z.string().min(1).max(512).optional(),
+  /**
+   * The tenant this client believes it is in. When the session being refreshed belongs to another tenant (a second
+   * tab switched, and the shared web cookie now holds that session), the answer is 409 `tenant_changed` and nothing rotates.
+   */
+  expectedTenantId: Uuid.optional(),
+});
 export type RefreshBody = z.infer<typeof RefreshBody>;
 
 const OneTimeToken = z.string().min(20).max(512);
@@ -191,7 +199,7 @@ export const Member = z.object({
 });
 export type Member = z.infer<typeof Member>;
 
-export const InviteBody = z.object({ email: Email, role: Role });
+export const InviteBody = z.object({ email: Email, role: Role, ...OptionalIdempotencyKey });
 export type InviteBody = z.infer<typeof InviteBody>;
 
 export const Invitation = z.object({
@@ -238,6 +246,7 @@ export const CreateWorkspaceBody = z.object({
   currency: Currency.default(DEFAULT_CURRENCY),
   timezone: Timezone.default(DEFAULT_TIMEZONE),
   defaultLanguage: Language.default('en'),
+  ...OptionalIdempotencyKey,
 });
 export type CreateWorkspaceBody = z.input<typeof CreateWorkspaceBody>;
 

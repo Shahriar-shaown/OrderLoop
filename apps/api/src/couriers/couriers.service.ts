@@ -30,7 +30,7 @@ export const COURIER_HTTP = Symbol('COURIER_HTTP');
 type ConnectionRow = NonNullable<Awaited<ReturnType<Tx['courierConnection']['findFirst']>>>;
 
 const validation = (path: string, message: string) =>
-  new ApiError(400, 'validation_failed', 'Request validation failed', [{ path, message }]);
+  new ApiError('validation_failed', 'Request validation failed', [{ path, message }]);
 
 /** A courier's failure, in the API's words. Nothing from the courier's reply is trusted to be safe to forward beyond its message. */
 export function courierProblem(error: CourierError): ApiError {
@@ -38,30 +38,26 @@ export function courierProblem(error: CourierError): ApiError {
     case 'auth':
     case 'forbidden':
       return new ApiError(
-        502,
         'courier_rejected',
         'The courier did not accept the saved credentials. Check them in Settings → Couriers.',
       );
     case 'validation':
       return new ApiError(
-        422,
         'courier_rejected',
         `The courier refused the request: ${error.message}`,
         error.fields?.map((f) => ({ path: f.field, message: f.message })),
       );
     case 'unsupported':
-      return new ApiError(422, 'courier_unsupported', error.message);
+      return new ApiError('courier_unsupported', error.message);
     case 'rate_limited':
       return new ApiError(
-        429,
         'rate_limited',
         'The courier is limiting requests. Wait a moment and try again.',
       );
     case 'not_found':
-      return new ApiError(404, 'not_found', 'The courier has no record of this.');
+      return new ApiError('not_found', 'The courier has no record of this.');
     default:
       return new ApiError(
-        502,
         'courier_unavailable',
         'The courier could not be reached or did not answer properly. Try again shortly.',
       );
@@ -166,7 +162,7 @@ export class CouriersService {
   ): Promise<CourierEntry> {
     const info = PROVIDERS[provider];
     const { available, reason } = this.availability(provider);
-    if (!available) throw new ApiError(409, 'courier_not_configured', reason ?? undefined);
+    if (!available) throw new ApiError('courier_not_configured', reason ?? undefined);
 
     // Reject what this courier does not take, rather than quietly ignoring it.
     const allowedKeys = new Set(info.fields.map((f) => f.key));
@@ -314,19 +310,16 @@ export class CouriersService {
     const row = await tx.courierConnection.findFirst({ where: { tenantId, provider } });
     if (!row || !row.enabled)
       throw new ApiError(
-        409,
         'courier_not_configured',
         `${PROVIDERS[provider].name} is not connected. Connect it in Settings → Couriers.`,
       );
     if (provider === 'mock' && !this.mockEnabled)
       throw new ApiError(
-        409,
         'courier_not_configured',
         'The simulated courier is switched off on this server.',
       );
     if (provider !== 'mock' && !row.credentialsEnc)
       throw new ApiError(
-        409,
         'courier_not_configured',
         `${PROVIDERS[provider].name} has no saved credentials.`,
       );
@@ -341,7 +334,7 @@ export class CouriersService {
       let credentials: Record<string, string> = {};
       if (row.provider !== 'mock') {
         if (!row.credentialsEnc)
-          throw new ApiError(409, 'courier_not_configured', 'No saved credentials.');
+          throw new ApiError('courier_not_configured', 'No saved credentials.');
         try {
           credentials = this.vault.decryptJson<Record<string, string>>(row.credentialsEnc, {
             tenantId: row.tenantId,
@@ -349,7 +342,6 @@ export class CouriersService {
           });
         } catch {
           throw new ApiError(
-            409,
             'courier_not_configured',
             'The saved credentials can no longer be read. Enter them again in Settings → Couriers.',
           );
@@ -445,11 +437,7 @@ export class CouriersService {
     );
     const adapter = this.adapterFor(row);
     if (!adapter.locations)
-      throw new ApiError(
-        422,
-        'courier_unsupported',
-        `${PROVIDERS[provider].name} has no place lists.`,
-      );
+      throw new ApiError('courier_unsupported', `${PROVIDERS[provider].name} has no place lists.`);
     try {
       if (query.kind === 'cities') return await adapter.locations.cities();
       if (!query.parentId) throw validation('query.parentId', 'Choose the parent place first');

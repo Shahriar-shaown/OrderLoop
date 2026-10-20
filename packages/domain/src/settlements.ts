@@ -1,4 +1,4 @@
-import { normalizeBdPhone } from '@orderloop/contracts';
+import { MAX_MINOR, normalizeBdPhone } from '@orderloop/contracts';
 import { bdtToPaisa } from './money.js';
 import { CsvError, parseCsvRecords, type CsvRecord } from './csv.js';
 
@@ -9,8 +9,6 @@ import { CsvError, parseCsvRecords, type CsvRecord } from './csv.js';
 
 export const SETTLEMENT_LIMITS = { maxBytes: 2_000_000, maxRows: 2000, maxErrors: 100 } as const;
 
-/** The database stores amounts as int4 and checks each is at most this (see the finance migration). */
-export const SETTLEMENT_MAX_AMOUNT_MINOR = 2_000_000_000;
 const INT4_MIN = -2_147_483_648;
 const INT4_MAX = 2_147_483_647;
 
@@ -91,7 +89,7 @@ export function parseSettlementAmount(raw: string): number | null {
   if (cleaned.startsWith('-')) return null;
   try {
     const minor = bdtToPaisa(cleaned);
-    return minor <= SETTLEMENT_MAX_AMOUNT_MINOR ? minor : null;
+    return minor <= MAX_MINOR ? minor : null;
   } catch {
     return null;
   }
@@ -177,7 +175,7 @@ export function parseSettlementCsv(input: string): ParsedSettlement {
       const v = parseSettlementAmount(rec[col] ?? '');
       if (v === null)
         bad(
-          `${col}: "${rec[col]}" is not an amount in taka (no negatives, at most two decimals, at most ${SETTLEMENT_MAX_AMOUNT_MINOR / 100})`,
+          `${col}: "${rec[col]}" is not an amount in taka (no negatives, at most two decimals, at most ${MAX_MINOR / 100})`,
         );
       return v;
     };

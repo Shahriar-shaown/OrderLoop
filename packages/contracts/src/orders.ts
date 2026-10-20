@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Email, Uuid } from './auth.js';
 import { IdempotencyKey, PriceMinor } from './catalog.js';
+import { OptionalIdempotencyKey } from './idempotency.js';
 import { CourierProvider, ShipmentStatus } from './couriers.js';
 import { Day } from './day.js';
 import { normalizeBdPhone } from './phone.js';
@@ -133,6 +134,8 @@ export const AddressBody = AddressFields.extend({
   isDefault: z.boolean().optional(),
 });
 export type AddressBody = z.infer<typeof AddressBody>;
+export const CreateAddressBody = AddressBody.extend(OptionalIdempotencyKey);
+export type CreateAddressBody = z.infer<typeof CreateAddressBody>;
 export const AddressUpdate = AddressBody.partial();
 export type AddressUpdate = z.infer<typeof AddressUpdate>;
 
@@ -156,7 +159,7 @@ export const CustomerFields = z.object({
   email: Email.nullable().optional(),
   notes: optionalText('Notes', 1000, true),
 });
-export const CustomerBody = CustomerFields;
+export const CustomerBody = CustomerFields.extend(OptionalIdempotencyKey);
 export type CustomerBody = z.infer<typeof CustomerBody>;
 export const CustomerUpdate = CustomerFields.partial().refine(
   (v) => Object.keys(v).length > 0,

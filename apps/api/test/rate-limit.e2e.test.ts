@@ -1,5 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createTestApp, PASSWORD, uniqueEmail, type TestApp } from './app.js';
+import {
+  bearer,
+  createTestApp,
+  PASSWORD,
+  registerTenant,
+  uniqueEmail,
+  type TestApp,
+} from './app.js';
 
 /** A separate app instance with the limiter ON (the shared test config turns it off), so its counters are isolated. */
 let t: TestApp;
@@ -26,11 +33,6 @@ describe('rate limiting on sensitive authentication endpoints', () => {
       '/v1/auth/login',
       () => ({ email: uniqueEmail('nobody'), password: 'wrong wrong wrong' }),
     ],
-    [
-      'register',
-      '/v1/auth/register',
-      () => ({ email: 'not-an-email', password: 'x', name: '', tenantName: '' }),
-    ],
     ['forgot-password', '/v1/auth/forgot-password', () => ({ email: uniqueEmail('nobody') })],
     [
       'reset-password',
@@ -55,6 +57,17 @@ describe('rate limiting on sensitive authentication endpoints', () => {
     },
   );
 
+  it('register, which sends a verification email, is limited to 3 requests per minute per IP', async () => {
+    const { statuses, last } = await hammer(
+      '/v1/auth/register',
+      () => ({ email: 'not-an-email', password: 'x', name: '', tenantName: '' }),
+      5,
+    );
+    expect(statuses.slice(0, 3).every((s) => s !== 429)).toBe(true);
+    expect(statuses.slice(3)).toEqual([429, 429]);
+    expect(last.body).toMatchObject({ status: 429, code: 'rate_limited' });
+  });
+
   it('refresh has its own, higher budget (30 per minute)', async () => {
     const { statuses } = await hammer(
       '/v1/auth/refresh',
@@ -67,5 +80,36 @@ describe('rate limiting on sensitive authentication endpoints', () => {
 
   it('a limited caller does not affect public health checks used by load balancers', async () => {
     expect((await t.http.get('/health/live')).status).toBe(200);
+  });
+});
+
+describe('per-business budgets on expensive endpoints', () => {
+  let budget: TestApp;
+  beforeAll(async () => {
+    budget = await createTestApp({ RATE_LIMIT_ENABLED: 'true' });
+  });
+  afterAll(() => budget.close());
+
+  it('imports.validate and each export allow 5 per minute per business, however many callers, and another business is unaffected', async () => {
+    const [a, b] = [await registerTenant(budget), await registerTenant(budget)];
+    const call = (who: typeof a, method: 'get' | 'post', path: string) =>
+      budget.http[method](path)
+        .set(bearer(who.accessToken))
+        .send(method === 'post' ? { csv: 'product_name,sku,price\nTee,TEE-1,100\n' } : undefined);
+    for (const [method, path] of [
+      ['post', '/v1/imports/products/validate'],
+      ['get', '/v1/exports/products'],
+      ['get', '/v1/exports/stock'],
+      ['get', '/v1/exports/orders'],
+    ] as const) {
+      const statuses: number[] = [];
+      for (let i = 0; i < 6; i++) statuses.push((await call(a, method, path)).status);
+      expect(
+        statuses.slice(0, 5).every((s) => s === 200),
+        `${path}: ${statuses}`,
+      ).toBe(true);
+      expect(statuses[5], path).toBe(429);
+      expect((await call(b, method, path)).status, `${path} for another business`).toBe(200);
+    }
   });
 });

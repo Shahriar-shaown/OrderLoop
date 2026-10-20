@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Uuid } from './auth.js';
-import { IdempotencyKey } from './catalog.js';
+import { IdempotencyKey, MAX_MINOR } from './catalog.js';
 import { CourierProvider } from './couriers.js';
 import { Day } from './day.js';
 
@@ -314,7 +314,7 @@ export type FinanceSummary = z.infer<typeof FinanceSummary>;
 
 export const CreateCostBody = z.object({
   kind: ManualCostKind,
-  amountMinor: z.number().int().min(1).max(2_000_000_000),
+  amountMinor: z.number().int().min(1).max(MAX_MINOR),
   incurredOn: Day,
   orderId: Uuid.optional(),
   note: z.string().trim().min(2).max(300),

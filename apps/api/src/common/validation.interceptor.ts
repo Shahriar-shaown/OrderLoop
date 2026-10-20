@@ -31,8 +31,7 @@ export class ValidationInterceptor implements NestInterceptor {
       query: parse('query', spec.query, req.query),
       body: parse('body', spec.body, req.body),
     };
-    if (errors.length)
-      throw new ApiError(400, 'validation_failed', 'Request validation failed', errors);
+    if (errors.length) throw new ApiError('validation_failed', 'Request validation failed', errors);
     req.input = input;
     return next.handle();
   }

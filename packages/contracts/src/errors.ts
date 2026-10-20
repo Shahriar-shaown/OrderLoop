@@ -10,6 +10,7 @@ export const KNOWN_ERROR_CODES = [
   'not_found',
   'conflict',
   'rate_limited',
+  'tenant_changed',
   'invitation_invalid',
   'token_invalid',
   'email_not_verified',
@@ -24,21 +25,51 @@ export const KNOWN_ERROR_CODES = [
   'courier_unsupported',
   'shipment_conflict',
   'settlement_has_issues',
+  'service_unavailable',
   'internal_error',
 ] as const;
 export type ErrorCode = (typeof KNOWN_ERROR_CODES)[number];
 export const ErrorCode = z.enum(KNOWN_ERROR_CODES);
 
-/** True for a code this build knows. A newer API may send others: `Problem.code` accepts any string. */
-export const isKnownErrorCode = (code: string | undefined): code is ErrorCode =>
-  (KNOWN_ERROR_CODES as readonly string[]).includes(code ?? '');
+/**
+ * The one HTTP status each code is sent with, wherever it is raised (the API derives it from here, and docs/api.md's error table
+ * is generated from it). The JSON body parser alone may answer `validation_failed` with 413 (too large) or 415 (unsupported encoding).
+ */
+export const ERROR_STATUS = {
+  validation_failed: 400,
+  invitation_invalid: 400,
+  token_invalid: 400,
+  unauthorized: 401,
+  token_expired: 401,
+  invalid_credentials: 401,
+  token_reuse_detected: 401,
+  forbidden: 403,
+  email_not_verified: 403,
+  not_found: 404,
+  conflict: 409,
+  tenant_changed: 409,
+  last_owner: 409,
+  insufficient_stock: 409,
+  invalid_transition: 409,
+  version_conflict: 409,
+  idempotency_conflict: 409,
+  courier_not_configured: 409,
+  shipment_conflict: 409,
+  settlement_has_issues: 409,
+  courier_rejected: 422,
+  courier_unsupported: 422,
+  rate_limited: 429,
+  internal_error: 500,
+  courier_unavailable: 502,
+  service_unavailable: 503,
+} as const satisfies Record<ErrorCode, number>;
 
 /** RFC 9457 problem details, plus a stable machine-readable `code`. */
 export const Problem = z.object({
   type: z.string(),
   title: z.string(),
   status: z.number().int(),
-  /** One of `ErrorCode`, or a code added after this build (check with `isKnownErrorCode`). */
+  /** One of `ErrorCode`, or a code added after this build: any string is accepted so an unknown code never hides the message. */
   code: z.string(),
   detail: z.string().optional(),
   errors: z.array(z.object({ path: z.string(), message: z.string() })).optional(),

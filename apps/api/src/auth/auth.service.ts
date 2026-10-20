@@ -279,8 +279,8 @@ export class AuthService {
     return this.toResult(grant);
   }
 
-  async refresh(rawToken: string, meta: ClientMeta): Promise<Issued> {
-    const rotated = await this.sessions.rotate(rawToken, meta);
+  async refresh(rawToken: string, meta: ClientMeta, expectedTenantId?: string): Promise<Issued> {
+    const rotated = await this.sessions.rotate(rawToken, meta, expectedTenantId);
     const grant = await this.db.withContext(
       { tenantId: rotated.tenantId, userId: rotated.userId },
       (tx) =>
@@ -357,12 +357,11 @@ export class AuthService {
 
   async acceptInvitation(body: AcceptInvitationBody, meta: ClientMeta): Promise<Issued> {
     const match = INVITE_TOKEN_RE.exec(body.token);
-    if (!match)
-      throw new ApiError(400, 'invitation_invalid', 'Invitation is invalid or has expired');
+    if (!match) throw new ApiError('invitation_invalid', 'Invitation is invalid or has expired');
     const tenantId = match[1]!;
     const tokenHash = this.tokens.hashToken(body.token);
     const invalid = () =>
-      new ApiError(400, 'invitation_invalid', 'Invitation is invalid or has expired');
+      new ApiError('invitation_invalid', 'Invitation is invalid or has expired');
 
     // The tenant id inside the token puts us in the right tenant context without any cross-tenant lookup.
     const invitation = await this.db.withContext({ tenantId }, (tx) =>
@@ -390,11 +389,11 @@ export class AuthService {
     } else {
       const policy = Password.safeParse(body.password);
       if (!policy.success)
-        throw new ApiError(400, 'validation_failed', 'Request validation failed', [
+        throw new ApiError('validation_failed', 'Request validation failed', [
           { path: 'body.password', message: policy.error.issues[0]?.message ?? 'Invalid password' },
         ]);
       if (!body.name)
-        throw new ApiError(400, 'validation_failed', 'Request validation failed', [
+        throw new ApiError('validation_failed', 'Request validation failed', [
           { path: 'body.name', message: 'Name is required to create an account' },
         ]);
       newUser = {
@@ -509,7 +508,7 @@ export class AuthService {
       return true;
     });
     // One message for unknown, used, expired and wrong-purpose tokens.
-    if (!ok) throw new ApiError(400, 'token_invalid', 'This link is invalid or has expired');
+    if (!ok) throw new ApiError('token_invalid', 'This link is invalid or has expired');
   }
 
   async resendVerification(auth: { userId: string; tenantId: string }): Promise<void> {
@@ -590,7 +589,7 @@ export class AuthService {
   }
 
   async resetPassword(body: ResetPasswordBody, meta: ClientMeta): Promise<void> {
-    const invalid = () => new ApiError(400, 'token_invalid', 'This link is invalid or has expired');
+    const invalid = () => new ApiError('token_invalid', 'This link is invalid or has expired');
     // Reject junk tokens before spending ~50 ms of CPU on hashing.
     if (!(await this.userTokens.peek(this.db.global, body.token, TokenPurpose.PASSWORD_RESET)))
       throw invalid();

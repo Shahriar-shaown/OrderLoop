@@ -189,7 +189,9 @@ shelf, history) are rolled back to a savepoint and the shipment's event says "Th
 through the courier's API keeps the shipment row locked from the check to the update, so two cancels, or a webhook arriving
 meanwhile, take turns (the webhook waits for the courier's answer, which has its own timeout). A booking's weight is checked
 against the courier's range before a shipment row exists (`400`, naming the range: Pathao 0.5 to 10 kg; Steadfast and the
-simulated courier 0.1 to 50 kg), using `capabilities.weightKg` from the courier package. Every order status change also
+simulated courier 0.1 to 50 kg), using `capabilities.weightKg` from the courier package (always present on a courier's capabilities).
+A courier's refusal is `422 courier_rejected` (credentials, booking or cancellation) and something it cannot do through its API is
+`422 courier_unsupported`, wherever it happens, cancel included; an unreachable courier is `502 courier_unavailable`. Every order status change also
 re-checks the cash discrepancies of that order's settlement lines.
 
 ## Webhooks and how they are verified

@@ -10,9 +10,8 @@ import {
   type CourierEvent,
   type ParsedWebhook,
 } from '@orderloop/courier-sdk';
-import { Database, type Prisma } from '@orderloop/db';
+import { Database, UUID_RE, type Prisma } from '@orderloop/db';
 import { AuditService } from '../audit/audit.service.js';
-import { UUID_RE } from '../common/uuid.js';
 import { CouriersService } from './couriers.service.js';
 import { ShipmentsService } from './shipments.service.js';
 

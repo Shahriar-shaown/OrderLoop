@@ -11,6 +11,7 @@ import { Database, type Tx } from '@orderloop/db';
 import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { idempotent } from '../common/idempotency.js';
 import { uuidv7 } from '../common/uuid.js';
 
 /** A person can own this many businesses. A guard against runaway creation, not a billing rule. */
@@ -86,7 +87,9 @@ export class WorkspacesService {
   ): Promise<Workspace> {
     // Generated here so the tenant context exists before the tenant row does.
     const tenantId = uuidv7();
-    return this.db.withContext({ tenantId, userId: auth.userId }, async (tx) => {
+    // The key belongs to the person: the business it would belong to does not exist yet.
+    const call = { scope: 'POST /v1/workspaces', key: body.idempotencyKey, body, userScoped: true };
+    return idempotent(this.db, { tenantId, userId: auth.userId }, call, async (tx) => {
       // Serialise this person's creations so two simultaneous requests cannot both slip under the cap.
       await tx.$queryRaw`SELECT id FROM users WHERE id = ${auth.userId}::uuid FOR UPDATE`;
       const owned = await tx.membership.count({ where: { userId: auth.userId, role: 'OWNER' } });

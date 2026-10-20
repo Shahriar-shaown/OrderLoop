@@ -5,6 +5,7 @@ import { nameKey } from '@orderloop/domain';
 import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { idempotent } from '../common/idempotency.js';
 import { toSupplier } from './catalog.mapper.js';
 
 const DUPLICATE = () => ApiError.conflict('A supplier with that name already exists');
@@ -29,8 +30,10 @@ export class SuppliersService {
 
   async create(auth: AuthContext, body: SupplierBody): Promise<Supplier> {
     try {
-      return await this.db.withContext(
+      return await idempotent(
+        this.db,
         { tenantId: auth.tenantId, userId: auth.userId },
+        { scope: 'POST /v1/suppliers', key: body.idempotencyKey, body },
         async (tx) => {
           const s = await tx.supplier.create({
             data: {

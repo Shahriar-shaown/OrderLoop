@@ -1,4 +1,5 @@
 import { Controller, Req } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   routes,
   type Invitation,
@@ -19,6 +20,7 @@ export class MembersController {
   }
 
   @Endpoint(routes.inviteMember)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   invite(
     @Auth() auth: AuthContext,
     @Input() input: ParsedInput<typeof routes.inviteMember>,

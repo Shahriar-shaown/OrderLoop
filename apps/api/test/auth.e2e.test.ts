@@ -354,6 +354,30 @@ describe('refresh token grace window', () => {
     expect((await refresh(first.body.refreshToken)).status).toBe(401);
   });
 
+  it('a retry burns the first successor: using it later is theft, so two live chains never exist', async () => {
+    const owner = await registerTenant(graceApp);
+    const first = await refresh(owner.refreshToken);
+    const retry = await refresh(owner.refreshToken);
+    expect(retry.status).toBe(200);
+    const burnt = await refresh(first.body.refreshToken);
+    expect(burnt.status).toBe(401);
+    expect(burnt.body.code).toBe('token_reuse_detected');
+  });
+
+  it('two tabs refreshing the same instant both succeed; only the later token chain survives', async () => {
+    const owner = await registerTenant(graceApp);
+    const [x, y] = await Promise.all([refresh(owner.refreshToken), refresh(owner.refreshToken)]);
+    expect([x.status, y.status]).toEqual([200, 200]);
+    const session = await graceApp.db.global.session.findFirstOrThrow({
+      where: { user: { email: owner.email } },
+    });
+    expect(session.revokedAt).toBeNull();
+    const live = await graceApp.db.global.refreshToken.count({
+      where: { sessionId: session.id, usedAt: null },
+    });
+    expect(live).toBe(1);
+  });
+
   it('does not extend the window to a session that has been signed out', async () => {
     const owner = await registerTenant(graceApp);
     const first = await refresh(owner.refreshToken);
@@ -393,6 +417,33 @@ describe('switch tenant', () => {
     expect(other.body.tenant.id).toBe(b.tenant.id);
     await t.http.post('/v1/auth/logout').set(bearer(other.body.accessToken)).expect(200);
     expect((await t.http.get('/v1/me').set(bearer(refreshed.body.accessToken))).status).toBe(200);
+  });
+
+  it('a refresh that expects another tenant answers tenant_changed and rotates nothing', async () => {
+    const a = await registerTenant(t, { tenantName: 'Shop A' });
+    const b = await registerTenant(t, { tenantName: 'Shop B' });
+    await addMember(t, b, 'STAFF', { email: a.email, password: PASSWORD });
+    const switched = await t.http
+      .post('/v1/auth/switch-tenant')
+      .set(bearer(a.accessToken))
+      .send({ tenantId: b.tenant.id })
+      .expect(200);
+    // Tab A still believes it is in Shop A, but the shared cookie now holds the Shop B session.
+    const stale = await t.http
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: switched.body.refreshToken, expectedTenantId: a.tenant.id });
+    expect(stale.status).toBe(409);
+    expect(stale.body.code).toBe('tenant_changed');
+    // Nothing rotated: the same token still works, with a matching expectation or with none at all.
+    const match = await t.http
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: switched.body.refreshToken, expectedTenantId: b.tenant.id });
+    expect(match.status).toBe(200);
+    expect(match.body.tenant.id).toBe(b.tenant.id);
+    const none = await t.http
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: match.body.refreshToken });
+    expect(none.status).toBe(200);
   });
 
   it('a switched session cannot outlive the session it came from', async () => {

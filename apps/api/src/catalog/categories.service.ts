@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type { Category, CategoryBody } from '@orderloop/contracts';
+import type { Category, CategoryBody, CreateCategoryBody } from '@orderloop/contracts';
 import { Database, isUniqueViolation } from '@orderloop/db';
 import { nameKey } from '@orderloop/domain';
 import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { idempotent } from '../common/idempotency.js';
 import { toCategory } from './catalog.mapper.js';
 
 @Injectable()
@@ -25,10 +26,12 @@ export class CategoriesService {
     );
   }
 
-  async create(auth: AuthContext, body: CategoryBody): Promise<Category> {
+  async create(auth: AuthContext, body: CreateCategoryBody): Promise<Category> {
     try {
-      return await this.db.withContext(
+      return await idempotent(
+        this.db,
         { tenantId: auth.tenantId, userId: auth.userId },
+        { scope: 'POST /v1/categories', key: body.idempotencyKey, body },
         async (tx) => {
           const c = await tx.category.create({
             data: { tenantId: auth.tenantId, name: body.name, nameKey: nameKey(body.name) },

@@ -54,14 +54,30 @@ describe('finding imports that were saved but never queued', () => {
       ),
     ).toBe(0);
     expect(await t.db.withContext({}, (tx) => tx.importJob.count())).toBe(0);
-    // switching it on grants a read of PENDING rows only: no writes, and no other table
+    // the one way across is the sweep function: it names ids only, and cannot be used to read anything else
+    const rows = await t.db.withContext(
+      {},
+      (tx) =>
+        tx.$queryRaw<Record<string, unknown>[]>`SELECT * FROM stale_pending_imports(60, 100000)`,
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(Object.keys(row).sort()).toEqual(['id', 'tenant_id']);
+    // the old switch is gone: no setting opens any other row or table, and nothing can be written
     await t.db.withContext({}, async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.sweep', 'import_jobs', true)`;
-      expect(await tx.importJob.count({ where: { status: 'RUNNING' } })).toBe(0);
+      expect(await tx.importJob.count()).toBe(0);
       expect(
         await tx.importJob.updateMany({ where: { status: 'PENDING' }, data: { status: 'FAILED' } }),
       ).toEqual({ count: 0 });
       expect(await tx.order.count()).toBe(0);
+      expect(await tx.product.count()).toBe(0);
     });
+    // and a business that looks for stale imports still sees only the answer the function gives, not rows
+    await expect(
+      t.db.withContext(
+        { tenantId: a.tenant.id },
+        (tx) => tx.$queryRaw`SELECT csv FROM stale_pending_imports(60, 10)`,
+      ),
+    ).rejects.toThrow();
   });
 });

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { ImportBody, ImportJob, ImportPreview } from '@orderloop/contracts';
+import type { CreateImportBody, ImportBody, ImportJob, ImportPreview } from '@orderloop/contracts';
 import { IMPORT_JOB_OPTIONS, previewImportRows } from '@orderloop/catalog';
 import { IMPORT_LIMITS, parseCatalogCsv } from '@orderloop/domain';
 import { Database } from '@orderloop/db';
@@ -7,6 +7,7 @@ import type { Queue } from 'bullmq';
 import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { idempotent } from '../common/idempotency.js';
 import { IMPORTS_QUEUE, type ImportJobData } from '../queue/queue.module.js';
 
 type Row = {
@@ -84,9 +85,13 @@ export class ImportsService {
   }
 
   /** Record the job, then hand its id to the worker. The request returns at once; the file is processed in the background. */
-  async create(auth: AuthContext, body: ImportBody): Promise<ImportJob> {
-    const job = await this.db.withContext(
+  async create(auth: AuthContext, body: CreateImportBody): Promise<ImportJob> {
+    // A repeat of an import already started (same key) returns that job and queues nothing again.
+    let fresh = false;
+    const job = await idempotent(
+      this.db,
       { tenantId: auth.tenantId, userId: auth.userId },
+      { scope: 'POST /v1/imports/products', key: body.idempotencyKey, body },
       async (tx) => {
         // A fair share of the one worker: each business may have a few imports in flight, not an unbounded backlog.
         const inFlight = await tx.importJob.count({
@@ -98,7 +103,6 @@ export class ImportsService {
         });
         if (inFlight >= MAX_IMPORTS_IN_FLIGHT)
           throw new ApiError(
-            429,
             'rate_limited',
             `Finish your ${inFlight} running imports before starting another`,
           );
@@ -117,9 +121,12 @@ export class ImportsService {
           targetType: 'import',
           targetId: created.id,
         });
-        return created;
+        fresh = true;
+        // The stored response is the job as the caller sees it: the CSV stays out of it.
+        return toJob(created);
       },
     );
+    if (!fresh) return job;
 
     try {
       // jobId = importId makes enqueueing idempotent, and the worker claims the row atomically besides.
@@ -132,8 +139,8 @@ export class ImportsService {
       this.logger.error(
         `could not queue import ${job.id}: ${error instanceof Error ? error.message : 'error'}`,
       );
-      await this.db.withContext({ tenantId: auth.tenantId }, (tx) =>
-        tx.importJob.update({
+      await this.db.withContext({ tenantId: auth.tenantId }, async (tx) => {
+        await tx.importJob.update({
           where: { id: job.id },
           data: {
             status: 'FAILED',
@@ -141,15 +148,23 @@ export class ImportsService {
             finishedAt: new Date(),
             errors: [{ row: 0, message: 'The import could not be queued. Try again shortly.' }],
           },
-        }),
-      );
+        });
+        // The retry the caller was told to make must start a new import, not replay this failed one.
+        if (body.idempotencyKey)
+          await tx.idempotencyKey.deleteMany({
+            where: {
+              tenantId: auth.tenantId,
+              scope: 'POST /v1/imports/products',
+              key: body.idempotencyKey,
+            },
+          });
+      });
       throw new ApiError(
-        503,
-        'internal_error',
+        'service_unavailable',
         'The import queue is unavailable; try again shortly',
       );
     }
-    return toJob(job);
+    return job;
   }
 
   async get(auth: AuthContext, id: string): Promise<ImportJob> {

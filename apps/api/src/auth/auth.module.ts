@@ -21,6 +21,6 @@ import { UserTokenService } from './user-token.service.js';
     UserTokenService,
     AccessGuard,
   ],
-  exports: [TokenService, AccessGuard],
+  exports: [TokenService, AccessGuard, LoginThrottleService],
 })
 export class AuthModule {}

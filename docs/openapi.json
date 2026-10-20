@@ -687,7 +687,7 @@
     "/v1/auth/refresh": {
       "post": {
         "operationId": "refresh",
-        "summary": "Exchange a refresh token for a new access and refresh token (rotation)",
+        "summary": "Exchange a refresh token for a new access and refresh token (rotation). 409 tenant_changed when expectedTenantId differs from the session tenant",
         "requestBody": {
           "required": true,
           "content": {
@@ -700,6 +700,11 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 512
+                  },
+                  "expectedTenantId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   }
                 }
               }
@@ -2780,6 +2785,12 @@
                     "default": "en",
                     "type": "string",
                     "enum": ["en", "bn"]
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
                   }
                 },
                 "required": ["name"]
@@ -3038,6 +3049,12 @@
                   "role": {
                     "type": "string",
                     "enum": ["OWNER", "ADMIN", "MANAGER", "STAFF", "ACCOUNTANT"]
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
                   }
                 },
                 "required": ["email", "role"]
@@ -3644,6 +3661,12 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 100
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
                   }
                 },
                 "required": ["name"]
@@ -4353,6 +4376,12 @@
                       },
                       "required": ["sku", "priceMinor"]
                     }
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
                   }
                 },
                 "required": ["name", "variants"]
@@ -5256,6 +5285,12 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 1000000
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
                   }
                 },
                 "required": ["sku", "priceMinor"]
@@ -5867,6 +5902,12 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
                   }
                 },
                 "required": ["name"]
@@ -6301,6 +6342,12 @@
                   },
                   "isDefault": {
                     "type": "boolean"
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
                   }
                 },
                 "required": ["name"]
@@ -8893,6 +8940,12 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2000000
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
                   }
                 },
                 "required": ["csv"]
@@ -10328,6 +10381,12 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
                   }
                 },
                 "required": ["name", "phone"]
@@ -11083,6 +11142,12 @@
                   },
                   "isDefault": {
                     "type": "boolean"
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100,
+                    "pattern": "^[A-Za-z0-9._:-]+$"
                   }
                 },
                 "required": ["recipientName", "phone", "line1", "area", "district", "division"]
@@ -15213,7 +15278,8 @@
                           "cancel",
                           "returns",
                           "locations",
-                          "duplicateProtection"
+                          "duplicateProtection",
+                          "weightKg"
                         ],
                         "additionalProperties": false
                       },
@@ -15648,7 +15714,8 @@
                         "cancel",
                         "returns",
                         "locations",
-                        "duplicateProtection"
+                        "duplicateProtection",
+                        "weightKg"
                       ],
                       "additionalProperties": false
                     },
@@ -15958,7 +16025,8 @@
                         "cancel",
                         "returns",
                         "locations",
-                        "duplicateProtection"
+                        "duplicateProtection",
+                        "weightKg"
                       ],
                       "additionalProperties": false
                     },

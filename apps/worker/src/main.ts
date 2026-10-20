@@ -5,6 +5,7 @@ import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { z } from 'zod';
 import { SWEEP_EVERY_MS, sweepPendingImports } from './sweep-imports.js';
+import { PURGE_EVERY_MS, purgeIdempotencyKeys } from './purge-idempotency.js';
 
 /** What the API puts on the queue: ids only. Re-validated here, because the worker must not trust what comes out of Redis. */
 const ImportJobData = z.object({ tenantId: z.string().uuid(), importId: z.string().uuid() });
@@ -70,9 +71,18 @@ function main(): void {
     }).catch((e: Error) => console.error(`[worker] sweep failed: ${describe(e)}`));
   }, SWEEP_EVERY_MS);
 
+  // Idempotency keys only matter while a client might still retry; drop them after a day.
+  const purge = setInterval(() => {
+    purgeIdempotencyKeys({
+      purge: (olderThanSeconds) => db.purgeIdempotencyKeys(olderThanSeconds),
+      log: (message) => console.log(`[worker] ${message}`),
+    }).catch((e: Error) => console.error(`[worker] key purge failed: ${describe(e)}`));
+  }, PURGE_EVERY_MS);
+
   const shutdown = async (signal: string) => {
     console.log(`[worker] ${signal} received, finishing the current job and shutting down`);
     clearInterval(sweep);
+    clearInterval(purge);
     await queue.close();
     await imports.close(); // waits for the job in flight
     await db.disconnect();

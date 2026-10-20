@@ -15,7 +15,6 @@ const MAX_EXPORT_ROWS = 50_000;
 function assertExportable(rows: number | bigint): void {
   if (Number(rows) > MAX_EXPORT_ROWS)
     throw new ApiError(
-      422,
       'validation_failed',
       `This export has ${Number(rows)} rows; the limit is ${MAX_EXPORT_ROWS}. Narrow it down and try again.`,
     );

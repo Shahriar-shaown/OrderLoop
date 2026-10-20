@@ -1,4 +1,4 @@
-import { UUID_RE } from './uuid.js';
+import { UUID_RE } from '@orderloop/db';
 
 /** Keyset pagination cursor over (createdAt, id): opaque to clients, stable under concurrent inserts. */
 export function encodeCursor(createdAt: Date, id: string): string {

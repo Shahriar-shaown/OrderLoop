@@ -10,7 +10,7 @@ business's data away from another's.
 | ------------------- | ----------------------------- | ----------------------------------------------------------------------- |
 | Business, workspace | `Tenant` / `tenants`          | Name, logo link, contact, address, currency, time zone, language.       |
 | Membership          | `Membership`/`memberships`    | One row per (person, business) with a **role**. Roles are never global. |
-| Switching workspace | `POST /v1/auth/switch-tenant` | Re-scopes the session to another business the person belongs to.        |
+| Switching workspace | `POST /v1/auth/switch-tenant` | Starts a **new session** in another business the person belongs to.     |
 
 Defaults for a new business: currency `BDT`, time zone `Asia/Dhaka`, language `en` (Bangla is `bn`). A person also has their
 own language preference (`PATCH /v1/me`), which follows them into every business. Screen translations are not shipped yet;
@@ -60,35 +60,41 @@ Every protected route is declared once in `packages/contracts/src/routes.ts` wit
 route has no permission and is not on the short list of self-service routes (which act on the caller's own session,
 preferences or memberships, never on business data).
 
-| Route                                                                                                                                    | Needs                                                                   |
-| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `POST /v1/auth/logout`                                                                                                                   | any member                                                              |
-| `POST /v1/auth/switch-tenant`                                                                                                            | any member of the _target_ business                                     |
-| `POST /v1/auth/resend-verification`                                                                                                      | any member                                                              |
-| `GET /v1/me`, `PATCH /v1/me`                                                                                                             | any member                                                              |
-| `GET /v1/workspaces`                                                                                                                     | any member (lists the caller's own businesses only)                     |
-| `POST /v1/workspaces`                                                                                                                    | any member (caller becomes OWNER of the new business; at most 10 owned) |
-| `GET /v1/tenant`                                                                                                                         | `tenant:read`                                                           |
-| `PATCH /v1/tenant`                                                                                                                       | `tenant:update`                                                         |
-| `GET /v1/members`                                                                                                                        | `members:read`                                                          |
-| `GET/POST /v1/members/invitations`, `DELETE /v1/members/invitations/:id`                                                                 | `members:invite`                                                        |
-| `PATCH/DELETE /v1/members/:id`                                                                                                           | `members:manage`                                                        |
-| `GET /v1/dashboard`; `GET` orders, customers, order duplicates, customer order history, orders export; `POST /v1/orders/duplicate-check` | `orders:read`                                                           |
-| `POST/PATCH` orders and customers, customer addresses, order status, bulk status, orders import (check and apply)                        | `orders:write`                                                          |
-| `GET` couriers, an order's shipments, a shipment                                                                                         | `couriers:read`                                                         |
-| `PATCH/DELETE /v1/couriers/:provider`, `POST /v1/couriers/:provider/test`                                                                | `couriers:manage`                                                       |
-| courier places, shipping quote, book / refresh / cancel / settle / simulate a shipment                                                   | `orders:write`                                                          |
-| `POST /v1/webhooks/couriers/:provider/:tenantId/:connectionId`                                                                           | public; the courier's own proof (see [couriers.md](couriers.md))        |
-| `GET` settlements, outstanding COD, discrepancies, costs, finance summary                                                                | `finance:read`                                                          |
-| import a settlement, re-check, reconcile a settlement                                                                                    | `finance:import`                                                        |
-| match / undo / ignore a statement line, resolve or waive a discrepancy, record or void a cost                                            | `finance:adjust`                                                        |
-| `GET /v1/audit-logs`                                                                                                                     | `audit:read`                                                            |
-| `GET` categories, products, product by id                                                                                                | `catalog:read`                                                          |
-| `POST/PATCH/DELETE` categories, `POST/PATCH` products and variants, `POST/PATCH /v1/locations`, product imports                          | `catalog:write`                                                         |
-| `GET /v1/locations`, `/v1/inventory`, `/v1/inventory/movements`, `/v1/inventory/low-stock`, `/v1/reservations`                           | `inventory:read`                                                        |
-| `POST` receive, adjust, reserve, release, fulfil                                                                                         | `inventory:write`                                                       |
+| Route                                                                                                                                                                                    | Needs                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `POST /v1/auth/logout`                                                                                                                                                                   | any member                                                              |
+| `POST /v1/auth/switch-tenant`                                                                                                                                                            | any member of the _target_ business                                     |
+| `POST /v1/auth/resend-verification`                                                                                                                                                      | any member                                                              |
+| `GET /v1/me`, `PATCH /v1/me`                                                                                                                                                             | any member                                                              |
+| `GET /v1/workspaces`                                                                                                                                                                     | any member (lists the caller's own businesses only)                     |
+| `POST /v1/workspaces`                                                                                                                                                                    | any member (caller becomes OWNER of the new business; at most 10 owned) |
+| `GET /v1/tenant`                                                                                                                                                                         | `tenant:read`                                                           |
+| `PATCH /v1/tenant`                                                                                                                                                                       | `tenant:update`                                                         |
+| `GET /v1/members`                                                                                                                                                                        | `members:read`                                                          |
+| `GET/POST /v1/members/invitations`, `DELETE /v1/members/invitations/:id`                                                                                                                 | `members:invite`                                                        |
+| `PATCH/DELETE /v1/members/:id`                                                                                                                                                           | `members:manage`                                                        |
+| `GET /v1/dashboard` (its `profit` is `null` without `finance:read`); `GET` orders, customers, order duplicates, customer order history, orders export; `POST /v1/orders/duplicate-check` | `orders:read`                                                           |
+| `POST/PATCH` orders and customers, customer addresses, order status, bulk status, orders import (check and apply)                                                                        | `orders:write`                                                          |
+| `GET` couriers, an order's shipments, a shipment, `GET /v1/shipments` (the list), `GET /v1/shipment-stats`                                                                               | `couriers:read`                                                         |
+| `PATCH/DELETE /v1/couriers/:provider`, `POST /v1/couriers/:provider/test`                                                                                                                | `couriers:manage`                                                       |
+| courier places, shipping quote, book / refresh / cancel / settle / simulate a shipment                                                                                                   | `orders:write`                                                          |
+| `POST /v1/shipments/:id/resolve` with outcome `not_booked` or `cancelled_at_courier` (those let the order be booked again)                                                               | `orders:write` **and** `couriers:manage`                                |
+| `POST /v1/webhooks/couriers/:provider/:tenantId/:connectionId`                                                                                                                           | public; the courier's own proof (see [couriers.md](couriers.md))        |
+| `GET` settlements, outstanding COD, discrepancies, costs, finance summary, `GET /v1/finance/analytics`, `GET /v1/orders/:id/cash`                                                        | `finance:read`                                                          |
+| import a settlement, re-check, reconcile a settlement                                                                                                                                    | `finance:import`                                                        |
+| match / undo / ignore a statement line, resolve or waive a discrepancy, record or void a cost                                                                                            | `finance:adjust`                                                        |
+| `GET /v1/audit-logs`                                                                                                                                                                     | `audit:read`                                                            |
+| `GET` categories, products, product by id, suppliers, `GET /v1/exports/products`                                                                                                         | `catalog:read`                                                          |
+| `POST/PATCH/DELETE` categories, `POST/PATCH` products and variants, `POST/PATCH` suppliers, `POST/PATCH /v1/locations`, product imports                                                  | `catalog:write`                                                         |
+| `GET /v1/locations`, `/v1/inventory`, `/v1/inventory/summary`, `/v1/inventory/movements`, `/v1/inventory/low-stock`, `/v1/reservations`, `/v1/exports/stock`                             | `inventory:read`                                                        |
+| `POST` receive, adjust, damage, write-off, return, reserve, release, fulfil                                                                                                              | `inventory:write`                                                       |
 
 The generated, always-current list is `docs/openapi.json` (each protected operation carries its permission).
+
+**Cost prices are visible by design** to anyone with `catalog:read` or `inventory:read` (a variant's `costMinor`, the stock
+export, the product list): the people who receive stock and price products need them, and that includes STAFF. What needs
+`finance:read` is everything derived from sales: profit, revenue, margins, settlements, costs and COD cash. If a business must hide
+cost prices from some roles, that is a new permission, not a setting that exists today.
 
 ## How the business boundary is enforced
 
@@ -98,16 +104,21 @@ Five independent layers, so a bug in one does not open a hole:
    composite foreign keys (`tenant_id`, `id`) stop a row in one business from pointing at a row in another. A test fails if a
    table appears that is not classified as tenant-scoped or global, or if a tenant table lacks the column.
 2. **PostgreSQL row-level security**, forced, on every tenant table. The API connects as a role that is not the table owner and
-   cannot bypass policies. With no business set, every tenant table returns zero rows and rejects writes. The only widening is
-   deliberate and narrow: a person may _read_ the businesses they have a membership in (to list their workspaces); writes are
-   always confined to the current business.
+   cannot bypass policies. With no business set, every tenant table returns zero rows and rejects writes. The only widenings
+   are deliberate and narrow: a person may _read_ the businesses they have a membership in (to list their workspaces); writes are
+   always confined to the current business. The one cross-tenant read, the worker re-queuing imports that were saved but never
+   queued (`import_sweep`), is **not a policy**: it is the `SECURITY DEFINER` function `stale_pending_imports(seconds, max)`,
+   which can only return `(id, tenant_id)` of old `PENDING` imports and is executable by the app role alone. The function runs as
+   the table owner, which therefore has one `SELECT` policy of its own (`sweep_owner_select`, `TO` the owner role: it matches no one
+   else and no session setting switches it on); the app role stays fully confined, and the `imports-sweep` test asserts no other
+   row or table is reachable.
 3. **Every protected request is verified against the database.** The access token only names a user, a business and a
    session. On each request the guard re-reads the session (not revoked or expired), the user (not disabled) and the
    **membership and role** for that exact (user, business), then checks the route's permission. So role changes, removal and
    sign-out take effect on the next request, not at token expiry.
 4. **The business is never taken from the request.** There is no tenant header, query or body field that selects the
-   business. It comes from the verified session. `POST /v1/auth/switch-tenant` is the only way to change it, and it succeeds
-   only if a membership exists; a business that does not exist and one the caller does not belong to produce the **same**
+   business. It comes from the verified session. `POST /v1/auth/switch-tenant` is the only way to change it (it starts a new
+   session in the target business), and it succeeds only if a membership exists; a business that does not exist and one the caller does not belong to produce the **same**
    `403` response, so ids cannot be probed.
 5. **Ids in paths are looked up inside the current business.** Asking for another business's record by its id (member,
    invitation, product, variant, location, reservation, import, category) returns `404` as if it did not exist, and a write

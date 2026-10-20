@@ -75,7 +75,6 @@ export async function reserveOrder(
   }
   if (short.length)
     throw new ApiError(
-      409,
       'insufficient_stock',
       `Not enough stock for ${short.length === 1 ? 'one item' : `${short.length} items`}: ${short.map((s) => s.message).join('; ')}`,
       short,
@@ -120,7 +119,7 @@ export async function shipOrder(
       meta(actor, orderId, `ship:${orderId}:${line.id}`),
     );
     if (!done)
-      throw new ApiError(409, 'conflict', `The stock held for ${line.sku} is no longer reserved`);
+      throw new ApiError('conflict', `The stock held for ${line.sku} is no longer reserved`);
   }
 }
 
