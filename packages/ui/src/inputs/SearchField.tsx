@@ -3,8 +3,9 @@ import { Platform, TextInput, View, type TextInputProps } from 'react-native';
 import { Icon } from '../feedback/Icon';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
-import { fontFamily, radius, space } from '../theme/tokens';
+import { fontFamily, radius, space, touchTarget } from '../theme/tokens';
 import { useBreakpoint } from '../layout/useBreakpoint';
+import { translatedProps, useT } from '../i18n';
 
 /** A search box with a leading magnifier and an optional shortcut hint (⌘K). The label is for screen readers. */
 export function SearchField({
@@ -12,11 +13,11 @@ export function SearchField({
   hint,
   value,
   onChangeText,
-  placeholder,
   ...rest
 }: Omit<TextInputProps, 'style' | 'aria-label'> & { label: string; hint?: string }) {
   const { colors } = useTheme();
-  const { isMobile } = useBreakpoint();
+  const t = useT();
+  const { isTouch } = useBreakpoint();
   const [focused, setFocused] = useState(false);
   return (
     <View
@@ -24,7 +25,7 @@ export function SearchField({
         flexDirection: 'row',
         alignItems: 'center',
         gap: space[2],
-        minHeight: isMobile ? 44 : 40,
+        minHeight: isTouch ? touchTarget : 40,
         paddingHorizontal: space[3],
         borderRadius: radius.md,
         borderWidth: 1,
@@ -37,11 +38,10 @@ export function SearchField({
     >
       <Icon name="search" size={16} color={colors.muted} />
       <TextInput
-        accessibilityLabel={label}
-        aria-label={label}
+        accessibilityLabel={t(label)}
+        aria-label={t(label)}
         value={value}
         onChangeText={onChangeText}
-        placeholder={placeholder}
         placeholderTextColor={colors.muted}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
@@ -51,6 +51,7 @@ export function SearchField({
           Platform.OS === 'web' ? ({ outlineStyle: 'none', fontFamily } as object) : null,
         ]}
         {...rest}
+        {...translatedProps(rest, t)}
       />
       {hint && !focused && (
         <View

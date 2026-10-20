@@ -5,6 +5,7 @@ import { Link } from '../navigation/Link';
 import { Row } from './Stack';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
+import { useT } from '../i18n';
 
 export interface Crumb {
   label: string;
@@ -14,8 +15,9 @@ export interface Crumb {
 /** Where this page sits: Orders › #OL-24817. The last crumb is the current page. */
 export function Breadcrumbs({ items }: { items: Crumb[] }) {
   const { colors } = useTheme();
+  const t = useT();
   return (
-    <View role="navigation" aria-label="Breadcrumb">
+    <View role="navigation" aria-label={t('Breadcrumb')}>
       <Row gap={2} wrap>
         {items.map((c, i) => (
           <Fragment key={c.label + i}>

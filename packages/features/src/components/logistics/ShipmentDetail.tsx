@@ -21,6 +21,7 @@ import {
   Timeline,
   useToast,
   type TimelineStep,
+  useT,
 } from '@orderloop/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -35,6 +36,7 @@ import {
 import { messageFor } from '../../forms/errors';
 import { formatDayTime } from '../../lib/format';
 import { useFormState } from '../../forms/forms';
+import { ReasonDialog } from '../../forms/ReasonDialog';
 import { formatPrice } from '../../lib/money';
 import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
@@ -159,41 +161,28 @@ export function ResolveShipmentDialog({
 
 export function CancelShipmentDialog({
   shipment,
+  open = true,
   onClose,
 }: {
   shipment: ShipmentDetailData;
+  open?: boolean;
   onClose: () => void;
 }) {
   const api = useApi();
-  const toast = useToast();
   const queryClient = useQueryClient();
-  const form = useFormState({ reason: '' });
-  async function submit() {
-    const reason = form.values.reason.trim();
-    if (reason.length < 3) return form.setErrors({ reason: 'Say why (at least 3 characters)' });
-    const ok = await form.run(async () => {
-      await api.shipments.cancel(shipment.id, { reason });
-      await invalidateShipments(queryClient);
-    });
-    if (ok) {
-      toast.success('Shipment cancelled');
-      onClose();
-    }
-  }
   return (
-    <FormDialog
-      open
-      onClose={onClose}
+    <ReasonDialog
+      open={open}
       title="Cancel this shipment"
-      onSubmit={submit}
       submitLabel="Cancel shipment"
+      success="Shipment cancelled"
       danger
-      busy={form.busy}
-      error={form.formError}
-      size="sm"
-    >
-      <TextField label="Reason" required autoFocus {...form.field('reason')} />
-    </FormDialog>
+      onSubmit={async (reason) => {
+        await api.shipments.cancel(shipment.id, { reason });
+        await invalidateShipments(queryClient);
+      }}
+      onClose={onClose}
+    />
   );
 }
 
@@ -205,6 +194,7 @@ export function ShipmentDetail({ id }: { id: string }) {
   const api = useApi();
   const can = useCan();
   const toast = useToast();
+  const t = useT();
   const queryClient = useQueryClient();
   const query = useShipment(id);
   const [busy, setBusy] = useState<string | null>(null);
@@ -226,7 +216,7 @@ export function ShipmentDetail({ id }: { id: string }) {
     );
   if (!s)
     return (
-      <Stack gap={3} accessibilityLabel="Loading shipment">
+      <Stack gap={3} accessibilityLabel={t('Loading shipment')}>
         <Skeleton width="60%" />
         <Skeleton width="90%" />
         <Skeleton width="75%" />

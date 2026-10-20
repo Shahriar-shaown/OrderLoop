@@ -6,8 +6,10 @@ import {
   type OrderStatus,
 } from '@orderloop/contracts';
 import type { SelectOption, Tone } from '@orderloop/ui';
-import { useQuery, type QueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useApi } from '../core/runtime';
+
+export { invalidateOrders } from './invalidate';
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   pending_confirmation: 'Pending confirmation',
@@ -94,23 +96,3 @@ export function useCustomer(id: string) {
   const api = useApi();
   return useQuery({ queryKey: ['customer', id], queryFn: () => api.customers.get(id) });
 }
-
-/** After anything that changes an order: its lists, its page, the customer's counts and the stock figures. */
-export const invalidateOrders = (client: QueryClient) =>
-  Promise.all(
-    [
-      'orders',
-      'order',
-      'orderDuplicates',
-      'customers',
-      'customer',
-      'customerOrders',
-      'orderCash',
-      'inventory',
-      'product',
-      'products',
-      'lowStock',
-      'movements',
-      'reservations',
-    ].map((k) => client.invalidateQueries({ queryKey: [k] })),
-  );

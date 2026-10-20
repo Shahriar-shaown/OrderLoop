@@ -1,3 +1,4 @@
+import { ApiError, defaultTimeoutMs } from '@orderloop/api-client';
 import type { AuthResult } from '@orderloop/contracts';
 
 /**
@@ -15,7 +16,8 @@ import type { AuthResult } from '@orderloop/contracts';
 export type SessionStatus = 'loading' | 'anonymous' | 'authenticated';
 
 export interface SessionApi {
-  refresh(): Promise<AuthResult>;
+  /** `expectedTenantId` is the business this client is in; the server refuses (409 `tenant_changed`) when the session is in another. */
+  refresh(expectedTenantId?: string): Promise<AuthResult>;
   logout(): Promise<unknown>;
   /**
    * Called whenever the session is adopted or cleared (never for tokens in flight). Native apps use it to keep the
@@ -24,11 +26,14 @@ export interface SessionApi {
   persist?(session: AuthResult | null): void | Promise<void>;
 }
 
+/** Why a session ended without the person signing out: the server stopped accepting it, or another tab moved to another business. */
+export type EndedBy = 'expired' | 'tenant_changed';
+
 export interface Snapshot {
   status: SessionStatus;
   session: AuthResult | null;
-  /** Why there is no session: the server stopped accepting it (`expired`), as opposed to the person signing out. */
-  endedBy?: 'expired';
+  /** Why there is no session, as opposed to the person signing out. */
+  endedBy?: EndedBy;
 }
 
 type Message = { type: 'session'; session: AuthResult } | { type: 'logout' };
@@ -37,7 +42,13 @@ type Message = { type: 'session'; session: AuthResult } | { type: 'logout' };
 const REFRESH_MARGIN_MS = 60_000;
 const MIN_DELAY_MS = 5_000;
 const LOCK_NAME = 'orderloop-session-refresh';
-const RETRY_TIMEOUT_MS = 10_000;
+export const TENANT_CHANGED_MESSAGE =
+  'You switched business in another tab. Reload to continue in that business.';
+export const SIGN_OUT_FAILED =
+  'Could not sign out because the server cannot be reached. You are still signed in. Connect and try again.';
+
+export const isTenantChanged = (error: unknown): boolean =>
+  error instanceof ApiError && error.code === 'tenant_changed';
 
 export function isAuthRejection(error: unknown): boolean {
   const status = (error as { status?: number } | null)?.status;
@@ -97,11 +108,17 @@ export class SessionManager {
     this.setSession(session);
   }
 
+  /**
+   * Revoke the session on the server, then clear it here. If the server cannot be reached this refuses and changes nothing:
+   * clearing only the local state would leave the refresh token valid, and the next page load would sign the person back in.
+   * Any answer from the server (even "already signed out") means the session is gone, so then the local state is cleared too.
+   */
   async logout(): Promise<void> {
     try {
       await this.api.logout();
-    } catch {
-      // The session may already be gone; the local state must be cleared regardless.
+    } catch (error) {
+      if (error instanceof ApiError && !error.status)
+        throw new ApiError(SIGN_OUT_FAILED, undefined, 'offline');
     }
     this.clear();
     this.channel?.postMessage({ type: 'logout' } satisfies Message);
@@ -120,7 +137,7 @@ export class SessionManager {
       if (this.externalAt >= waitingSince && this.snapshot.session) return this.snapshot.session;
       const startedAt = this.epoch;
       try {
-        const session = await this.api.refresh();
+        const session = await this.api.refresh(this.snapshot.session?.tenant.id);
         // Signed out (or in again) while this request was in flight: its answer belongs to a session that no longer exists.
         if (this.epoch !== startedAt) return this.snapshot.session;
         this.setSession(session);
@@ -129,6 +146,12 @@ export class SessionManager {
       } catch (error) {
         // Likewise a refusal that arrives after the person signed in (a slow start-up restore): it is about the old state.
         if (this.epoch !== startedAt) return this.snapshot.session;
+        if (isTenantChanged(error)) {
+          // The shared cookie now holds a session in another business (a second tab switched). Nothing was rotated; do not
+          // quietly adopt that business under screens that are showing this one: end the session here and say why.
+          this.clear('tenant_changed');
+          return null;
+        }
         if (isAuthRejection(error)) {
           // A session that was running and is now refused has expired or been revoked: the sign-in screen says so.
           this.clear(this.snapshot.status === 'authenticated' ? 'expired' : undefined);
@@ -160,7 +183,7 @@ export class SessionManager {
     this.schedule(session.expiresIn);
   }
 
-  private clear(endedBy?: 'expired'): void {
+  private clear(endedBy?: EndedBy): void {
     this.epoch += 1;
     if (this.timer) clearTimeout(this.timer);
     this.timer = undefined;
@@ -218,7 +241,9 @@ export function withTokenRetry(
     return base(input, {
       ...init,
       // The first attempt's timeout may be mostly used up by the refresh: the retry gets a full one of its own.
-      ...(init?.signal ? { signal: AbortSignal.timeout(RETRY_TIMEOUT_MS) } : {}),
+      ...(init?.signal
+        ? { signal: AbortSignal.timeout(defaultTimeoutMs(init.method ?? 'GET')) }
+        : {}),
       headers: { ...headers, authorization: `Bearer ${fresh.accessToken}` },
     });
   };

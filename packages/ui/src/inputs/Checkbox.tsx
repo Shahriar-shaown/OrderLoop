@@ -3,6 +3,7 @@ import { Icon } from '../feedback/Icon';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
 import { radius, space, touchTarget } from '../theme/tokens';
+import { useT } from '../i18n';
 
 /**
  * A tick box. Always give it a `label`: on a table row use `hideLabel` and name the row ("Select order 1001"), so a screen
@@ -22,11 +23,12 @@ export function Checkbox({
   disabled?: boolean;
 }) {
   const { colors } = useTheme();
+  const t = useT();
   return (
     <Pressable
       role="checkbox"
       aria-checked={checked}
-      aria-label={label}
+      aria-label={t(label)}
       aria-disabled={disabled}
       disabled={disabled}
       onPress={() => onChange(!checked)}

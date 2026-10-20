@@ -1,5 +1,5 @@
 import type { AuthResult } from '@orderloop/contracts';
-import { useNavigation } from '@orderloop/ui';
+import { useNavigation, useToast } from '@orderloop/ui';
 import {
   createContext,
   useCallback,
@@ -10,15 +10,16 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
+import { messageFor } from '../forms/errors';
 import { setBusinessTimezone } from '../lib/format';
 import { useRuntime } from './runtime';
-import type { SessionStatus } from './session';
+import type { EndedBy, SessionStatus } from './session';
 
 interface AuthValue {
   status: SessionStatus;
   session: AuthResult | null;
-  /** `expired` when the server ended the session (see `Snapshot.endedBy`), so sign-in can explain. */
-  endedBy: 'expired' | undefined;
+  /** Set when the session ended without the person signing out (see `Snapshot.endedBy`), so sign-in can explain. */
+  endedBy: EndedBy | undefined;
   /** Restoring the saved session failed for lack of a connection (not because it is invalid): show a retry, not a spinner. */
   restoreFailed: boolean;
   retryRestore(): void;
@@ -114,4 +115,24 @@ export function useRequireAuth(): AuthValue {
       navigation.replace(`/login?next=${encodeURIComponent(pathname)}`);
   }, [auth.status, pathname]);
   return auth;
+}
+
+/** Sign out and go to the sign-in screen. If the server cannot be reached the person stays signed in and is told why. */
+export function useSignOut(): { signOut: () => Promise<void>; leaving: boolean } {
+  const { signOut: end } = useAuth();
+  const navigation = useNavigation();
+  const toast = useToast();
+  const [leaving, setLeaving] = useState(false);
+  const signOut = async () => {
+    setLeaving(true);
+    try {
+      await end();
+      navigation.replace('/login');
+    } catch (error) {
+      toast.error(messageFor(error));
+    } finally {
+      setLeaving(false);
+    }
+  };
+  return { signOut, leaving };
 }

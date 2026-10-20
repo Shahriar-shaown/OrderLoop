@@ -3,6 +3,7 @@ import { Button } from '../Button';
 import { Row } from '../layout/Stack';
 import { Text } from '../Text';
 import { useBreakpoint } from '../layout/useBreakpoint';
+import { useT } from '../i18n';
 
 /** The page numbers to show: the first, the last, and a window around the current page, with gaps as `null`. */
 export function pageWindow(page: number, pages: number): (number | null)[] {
@@ -41,6 +42,7 @@ export function Pagination({
   onNext?: () => void;
 }) {
   const { isMobile } = useBreakpoint();
+  const t = useT();
   const numbered = page !== undefined && pages !== undefined && onPage;
   const prevOk = numbered ? page > 1 : !!hasPrevious;
   const nextOk = numbered ? page < pages : !!hasNext;
@@ -49,7 +51,7 @@ export function Pagination({
       <Text variant="small" tone="muted" numeric>
         {summary}
       </Text>
-      <Row gap={2} role="navigation" aria-label="Pages">
+      <Row gap={2} role="navigation" aria-label={t('Pages')}>
         <Button
           size="sm"
           variant="secondary"

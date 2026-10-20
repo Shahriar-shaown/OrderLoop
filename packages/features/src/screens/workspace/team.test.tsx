@@ -1,3 +1,4 @@
+import { ApiError } from '@orderloop/api-client';
 import type { Invitation, Member } from '@orderloop/contracts';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -100,9 +101,32 @@ describe('team and permissions', () => {
       expect(a.members.invite).toHaveBeenCalledWith({
         email: 'friend@example.test',
         role: 'STAFF',
+        idempotencyKey: expect.stringMatching(/^app-/),
       }),
     );
     await waitFor(() => expect((email as HTMLInputElement).value).toBe(''));
+  });
+
+  it('retries a failed invitation with the same key, and uses a new key for the next one', async () => {
+    const invite = vi
+      .fn<(body: { idempotencyKey: string }) => Promise<unknown>>()
+      .mockRejectedValueOnce(new ApiError('timed out', undefined, 'request_timeout'))
+      .mockResolvedValue({});
+    const a = api({ invite });
+    mount(<TeamScreen />, a);
+    const email = (await screen.findByLabelText(/Email/)) as HTMLInputElement;
+    await userEvent.type(email, 'friend@example.test');
+    await userEvent.click(screen.getByRole('button', { name: 'Send invitation' }));
+    await waitFor(() => expect(invite).toHaveBeenCalledTimes(1));
+    await userEvent.click(await screen.findByRole('button', { name: 'Send invitation' }));
+    await waitFor(() => expect(invite).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(email.value).toBe(''));
+    await userEvent.type(email, 'other@example.test');
+    await userEvent.click(screen.getByRole('button', { name: 'Send invitation' }));
+    await waitFor(() => expect(invite).toHaveBeenCalledTimes(3));
+    const keys = invite.mock.calls.map((c) => c[0].idempotencyKey);
+    expect(keys[1]).toBe(keys[0]);
+    expect(keys[2]).not.toBe(keys[0]);
   });
 
   it('asks before removing someone, and does nothing if you back out', async () => {

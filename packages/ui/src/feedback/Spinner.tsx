@@ -2,6 +2,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
 import { space } from '../theme/tokens';
+import { useT } from '../i18n';
 
 /** A busy indicator. With `label`, it is a block that screen readers announce (`role="status"`). */
 export function Spinner({
@@ -14,11 +15,12 @@ export function Spinner({
   inline?: boolean;
 }) {
   const { colors } = useTheme();
+  const t = useT();
   const indicator = (
     <ActivityIndicator
       size={size}
       color={inline ? 'currentColor' : colors.muted}
-      accessibilityLabel={label ?? 'Loading'}
+      accessibilityLabel={t(label ?? 'Loading')}
     />
   );
   if (inline || !label) return indicator;

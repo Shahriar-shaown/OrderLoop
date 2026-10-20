@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -30,6 +31,15 @@ export interface Toaster {
 }
 
 const ToastContext = createContext<Toaster | null>(null);
+
+/** What the toast hosts draw, and which dialogs or sheets are open (innermost last). */
+interface ToastState {
+  items: ToastItem[];
+  dismiss: (id: number) => void;
+  layers: string[];
+  setLayer: (id: string, open: boolean) => void;
+}
+const ToastStateContext = createContext<ToastState | null>(null);
 
 export function useToast(): Toaster {
   const toaster = useContext(ToastContext);
@@ -62,6 +72,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const id = next.current++;
     setItems((all) => [...all.slice(-3), { id, tone, message }]);
   }, []);
+  const [layers, setLayers] = useState<string[]>([]);
+  const setLayer = useCallback(
+    (id: string, open: boolean) =>
+      setLayers((all) =>
+        open ? [...all.filter((x) => x !== id), id] : all.filter((x) => x !== id),
+      ),
+    [],
+  );
+  const state = useMemo<ToastState>(
+    () => ({ items, dismiss, layers, setLayer }),
+    [items, dismiss, layers, setLayer],
+  );
   const toaster = useMemo<Toaster>(
     () => ({
       success: (m) => push('success', m),
@@ -72,14 +94,41 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
   return (
     <ToastContext.Provider value={toaster}>
-      {children}
-      <View pointerEvents="box-none" style={HOST}>
-        {items.map((t) => (
-          <ToastView key={t.id} item={t} onDismiss={dismiss} />
-        ))}
-      </View>
+      <ToastStateContext.Provider value={state}>
+        {children}
+        <ToastHost visible={layers.length === 0} />
+      </ToastStateContext.Provider>
     </ToastContext.Provider>
   );
+}
+
+/**
+ * Draws the toasts. A modal dialog or sheet covers everything outside its own layer (the browser's top layer, a native
+ * Modal), so the page's host steps aside while one is open and the innermost one draws the toasts itself.
+ */
+export function ToastHost({ visible }: { visible: boolean }) {
+  const state = useContext(ToastStateContext);
+  if (!state || !visible || state.items.length === 0) return null;
+  return (
+    <View pointerEvents="box-none" style={HOST}>
+      {state.items.map((t) => (
+        <ToastView key={t.id} item={t} onDismiss={state.dismiss} />
+      ))}
+    </View>
+  );
+}
+
+/** Called by a dialog or sheet: says it is open, and returns whether it is the innermost one (and so shows the toasts). */
+export function useToastLayer(open: boolean): boolean {
+  const id = useId();
+  const state = useContext(ToastStateContext);
+  const setLayer = state?.setLayer;
+  useEffect(() => {
+    if (!open) return;
+    setLayer?.(id, true);
+    return () => setLayer?.(id, false);
+  }, [open, id, setLayer]);
+  return open && state?.layers.at(-1) === id;
 }
 
 const TOAST_ICON = {

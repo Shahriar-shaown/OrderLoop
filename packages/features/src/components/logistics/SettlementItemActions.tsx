@@ -16,6 +16,7 @@ import { useState } from 'react';
 import { DISCREPANCY_LABEL, invalidateFinance } from '../../lib/finance';
 import { formatWhen } from '../../lib/format';
 import { useFormState } from '../../forms/forms';
+import { hasReason, ReasonDialog, REASON_ERROR } from '../../forms/ReasonDialog';
 import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
 
@@ -44,8 +45,7 @@ function MatchDialog({ item, onClose }: { item: SettlementItem; onClose: () => v
   async function submit() {
     if (!form.values.shipmentId)
       return form.setErrors({ shipmentId: 'Find the order and choose its parcel' });
-    if (form.values.reason.trim().length < 3)
-      return form.setErrors({ reason: 'Say why (at least 3 characters)' });
+    if (!hasReason(form.values.reason)) return form.setErrors({ reason: REASON_ERROR });
     const ok = await form.run(async () => {
       await api.finance.matchItem(item.id, {
         shipmentId: form.values.shipmentId,
@@ -103,47 +103,13 @@ function MatchDialog({ item, onClose }: { item: SettlementItem; onClose: () => v
   );
 }
 
-function ReasonDialog({
-  title,
-  submit,
-  onClose,
-  danger,
-}: {
-  title: string;
-  submit: (reason: string) => Promise<unknown>;
-  onClose: () => void;
-  danger?: boolean;
-}) {
-  const toast = useToast();
+/** Run a decision on a line or discrepancy, then refresh every figure it moves. */
+function useSettle() {
   const queryClient = useQueryClient();
-  const form = useFormState({ reason: '' });
-  async function go() {
-    if (form.values.reason.trim().length < 3)
-      return form.setErrors({ reason: 'Say why (at least 3 characters)' });
-    const ok = await form.run(async () => {
-      await submit(form.values.reason.trim());
-      await invalidateFinance(queryClient);
-    });
-    if (ok) {
-      toast.success('Recorded');
-      onClose();
-    }
-  }
-  return (
-    <FormDialog
-      open
-      onClose={onClose}
-      title={title}
-      onSubmit={go}
-      submitLabel="Confirm"
-      danger={danger ?? false}
-      busy={form.busy}
-      error={form.formError}
-      size="sm"
-    >
-      <TextField label="Reason" required autoFocus {...form.field('reason')} />
-    </FormDialog>
-  );
+  return async (action: () => Promise<unknown>) => {
+    await action();
+    await invalidateFinance(queryClient);
+  };
 }
 
 function History({ id, onClose }: { id: string; onClose: () => void }) {
@@ -180,6 +146,7 @@ function History({ id, onClose }: { id: string; onClose: () => void }) {
 
 /** What a person may do with one statement line. Only offered to those who may adjust finances; the API checks it again. */
 export function SettlementItemActions({ item }: { item: SettlementItem }) {
+  const settle = useSettle();
   const api = useApi();
   const can = useCan();
   const [dialog, setDialog] = useState<'match' | 'unmatch' | 'ignore' | 'history' | null>(null);
@@ -209,14 +176,16 @@ export function SettlementItemActions({ item }: { item: SettlementItem }) {
       {dialog === 'unmatch' && (
         <ReasonDialog
           title={`Undo the match on line ${item.lineNo}`}
-          submit={(r) => api.finance.unmatchItem(item.id, r)}
+          success="Recorded"
+          onSubmit={(r) => settle(() => api.finance.unmatchItem(item.id, r))}
           onClose={close}
         />
       )}
       {dialog === 'ignore' && (
         <ReasonDialog
           title={`Set line ${item.lineNo} aside as not ours`}
-          submit={(r) => api.finance.ignoreItem(item.id, r)}
+          success="Recorded"
+          onSubmit={(r) => settle(() => api.finance.ignoreItem(item.id, r))}
           onClose={close}
           danger
         />
@@ -228,6 +197,7 @@ export function SettlementItemActions({ item }: { item: SettlementItem }) {
 
 /** Resolve a discrepancy with a note, or (for a shortfall) accept it as a loss. */
 export function DiscrepancyActions({ d }: { d: Discrepancy }) {
+  const settle = useSettle();
   const api = useApi();
   const can = useCan();
   const [dialog, setDialog] = useState<'resolve' | 'waive' | null>(null);
@@ -249,7 +219,10 @@ export function DiscrepancyActions({ d }: { d: Discrepancy }) {
               ? 'Accept this shortfall as a loss'
               : `Resolve: ${DISCREPANCY_LABEL[d.type]}`
           }
-          submit={(note) => api.finance.resolveDiscrepancy(d.id, { action: dialog, note })}
+          success="Recorded"
+          onSubmit={(note) =>
+            settle(() => api.finance.resolveDiscrepancy(d.id, { action: dialog, note }))
+          }
           onClose={() => setDialog(null)}
           danger={dialog === 'waive'}
         />

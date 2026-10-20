@@ -1,6 +1,13 @@
+import { ApiError } from '@orderloop/api-client';
 import type { AuthResult } from '@orderloop/contracts';
 import { describe, expect, it, vi } from 'vitest';
-import { SessionManager, isAuthRejection, withTokenRetry } from './session';
+import {
+  SIGN_OUT_FAILED,
+  TENANT_CHANGED_MESSAGE,
+  SessionManager,
+  isAuthRejection,
+  withTokenRetry,
+} from './session';
 
 const session = (token: string, expiresIn = 900): AuthResult =>
   ({
@@ -82,14 +89,40 @@ describe('SessionManager', () => {
     manager.dispose();
   });
 
-  it('start adopts a session; logout clears it locally even if the server call fails', async () => {
+  it('start adopts a session; logout clears it locally even if the server call fails oddly', async () => {
     const { manager, logout } = setup();
     manager.start(session('signed-in'));
     expect(manager.getAccessToken()).toBe('signed-in');
-    logout.mockRejectedValueOnce(new Error('offline'));
+    logout.mockRejectedValueOnce(new Error('boom'));
     await manager.logout();
     expect(manager.getSnapshot()).toEqual({ status: 'anonymous', session: null });
     manager.dispose();
+  });
+
+  it('logout clears locally when the server answers, even with an error (the session is gone)', async () => {
+    const { manager, logout } = setup();
+    manager.start(session('signed-in'));
+    logout.mockRejectedValueOnce(new ApiError('Unauthorized', 401, 'unauthorized'));
+    await manager.logout();
+    expect(manager.getSnapshot().status).toBe('anonymous');
+    manager.dispose();
+  });
+
+  it('logout refuses, and keeps the session, when the server cannot be reached', async () => {
+    for (const code of ['offline', 'network_error', 'request_timeout']) {
+      const persisted: (string | null)[] = [];
+      const logout = vi.fn(async () => Promise.reject(new ApiError('no route', undefined, code)));
+      const manager = new SessionManager({
+        refresh: async () => session('x'),
+        logout,
+        persist: (s) => void persisted.push(s?.accessToken ?? null),
+      });
+      manager.start(session('signed-in'));
+      await expect(manager.logout()).rejects.toThrow(SIGN_OUT_FAILED);
+      expect(manager.getSnapshot().status).toBe('authenticated');
+      expect(persisted).toEqual(['signed-in']);
+      manager.dispose();
+    }
   });
 
   it('notifies subscribers of every change, and not after they unsubscribe', () => {
@@ -287,6 +320,31 @@ describe('withTokenRetry', () => {
   });
 });
 
+describe('withTokenRetry: the retried request gets the wait its kind deserves', () => {
+  it('a retried write waits 30 s, a retried read 10 s', async () => {
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    try {
+      for (const method of ['POST', 'GET']) {
+        const base = vi
+          .fn()
+          .mockResolvedValueOnce(new Response('', { status: 401 }))
+          .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+        const guarded = withTokenRetry(base as unknown as typeof fetch, {
+          refresh: async () => session('new'),
+        });
+        await guarded('http://x/v1/orders', {
+          method,
+          headers: { authorization: 'Bearer old' },
+          signal: AbortSignal.abort(),
+        });
+      }
+      expect(spy.mock.calls.map((c) => c[0])).toEqual([30_000, 10_000]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
 describe('SessionManager: a slow start-up restore that is refused after the person signed in', () => {
   it('does not sign the new session out', async () => {
     let refuse!: (e: unknown) => void;
@@ -298,5 +356,34 @@ describe('SessionManager: a slow start-up restore that is refused after the pers
     await restoring;
     expect(manager.getSnapshot()).toMatchObject({ status: 'authenticated' });
     expect(manager.getAccessToken()).toBe('signed-in');
+  });
+});
+
+describe('SessionManager: the business another tab switched to', () => {
+  it('sends the business it is in once the session is known, and none before', async () => {
+    const { manager, refresh } = setup();
+    await manager.init();
+    expect(refresh).toHaveBeenLastCalledWith(undefined);
+    await manager.refresh();
+    expect(refresh).toHaveBeenLastCalledWith('t');
+    manager.dispose();
+  });
+
+  it('ends the session with a clear reason instead of adopting the other business', async () => {
+    const refresh = vi
+      .fn()
+      .mockResolvedValueOnce(session('first'))
+      .mockRejectedValueOnce(new ApiError('Tenant changed', 409, 'tenant_changed'));
+    const { manager, logout } = setup(refresh);
+    await manager.init();
+    expect(await manager.refresh()).toBeNull();
+    expect(manager.getSnapshot()).toEqual({
+      status: 'anonymous',
+      session: null,
+      endedBy: 'tenant_changed',
+    });
+    expect(logout).not.toHaveBeenCalled(); // the shared session belongs to the other tab
+    expect(TENANT_CHANGED_MESSAGE).toMatch(/Reload to continue in that business/);
+    manager.dispose();
   });
 });

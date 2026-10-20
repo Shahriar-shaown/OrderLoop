@@ -1,5 +1,6 @@
 import type { Product } from '@orderloop/contracts';
 import { FormDialog, useToast } from '@orderloop/ui';
+import { invalidateCatalog } from '../../lib/invalidate';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFormState } from '../../forms/forms';
 import { useApi } from '../../core/runtime';
@@ -28,8 +29,7 @@ function EditForm({ product, onClose }: { product: Product; onClose: () => void 
         imageUrls: parseImageLinks(form.values.imageUrls),
         unit: form.values.unit as Product['unit'],
       });
-      await queryClient.invalidateQueries({ queryKey: ['product'] });
-      await queryClient.invalidateQueries({ queryKey: ['products'] });
+      await invalidateCatalog(queryClient);
     });
     if (ok) {
       toast.success('Product saved');

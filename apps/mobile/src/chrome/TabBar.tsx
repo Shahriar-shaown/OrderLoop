@@ -1,4 +1,4 @@
-import { useCan, usePendingOrders, useAuth } from '@orderloop/features';
+import { useCan, useCreateActions, usePendingOrders, useAuth } from '@orderloop/features';
 import { Icon, Text, useT, useTheme, type IconName } from '@orderloop/ui';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
@@ -90,7 +90,7 @@ export function TabBar({ state, navigation }: TabBarProps) {
   const { status } = useAuth();
   const pending = usePendingOrders(status === 'authenticated' && can('orders:read'));
   const [creating, setCreating] = useState(false);
-  const canCreate = can('orders:write') || can('catalog:write');
+  const canCreate = useCreateActions().length > 0;
 
   const press = (name: string, index: number, key: string) => {
     const event = navigation.emit({ type: 'tabPress', target: key, canPreventDefault: true });

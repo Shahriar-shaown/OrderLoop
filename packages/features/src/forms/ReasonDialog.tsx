@@ -1,27 +1,52 @@
-import { FormDialog, TextField } from '@orderloop/ui';
+import { FormDialog, TextField, useToast } from '@orderloop/ui';
+import { useEffect } from 'react';
 import { useFormState } from './forms';
 
-/** Ask for a reason (at least 3 characters), then run `onSubmit`. Used for bulk cancellations. */
+/** The one rule for a reason a person must give (a cancellation, a write-off, a manual match). */
+export const REASON_ERROR = 'Say why (at least 3 characters)';
+export const hasReason = (text: string): boolean => text.trim().length >= 3;
+
+/**
+ * Ask for a reason (at least 3 characters), then run `onSubmit`. If `onSubmit` throws, the dialog stays open and shows the
+ * error with the reason still typed; on success it closes (and shows `success`, if given). Starts empty each time it opens.
+ */
 export function ReasonDialog({
-  open,
+  open = true,
   title,
-  submitLabel,
+  submitLabel = 'Confirm',
+  label = 'Reason',
+  success,
+  danger,
   onSubmit,
   onClose,
 }: {
-  open: boolean;
+  open?: boolean;
   title: string;
-  submitLabel: string;
-  onSubmit: (reason: string) => Promise<void>;
+  submitLabel?: string;
+  label?: string;
+  success?: string;
+  danger?: boolean;
+  onSubmit: (reason: string) => Promise<unknown>;
   onClose: () => void;
 }) {
+  const toast = useToast();
   const form = useFormState({ reason: '' });
+  const { set, clear } = form;
+  useEffect(() => {
+    if (!open) {
+      set('reason', '');
+      clear();
+    }
+  }, [open, set, clear]);
   if (!open) return null;
   async function submit() {
     const reason = form.values.reason.trim();
-    if (reason.length < 3) return form.setErrors({ reason: 'Say why (at least 3 characters)' });
+    if (!hasReason(reason)) return form.setErrors({ reason: REASON_ERROR });
     const ok = await form.run(() => onSubmit(reason));
-    if (ok) onClose();
+    if (ok) {
+      if (success) toast.success(success);
+      onClose();
+    }
   }
   return (
     <FormDialog
@@ -30,11 +55,12 @@ export function ReasonDialog({
       title={title}
       onSubmit={submit}
       submitLabel={submitLabel}
+      danger={danger ?? false}
       busy={form.busy}
       error={form.formError}
       size="sm"
     >
-      <TextField label="Reason" required autoFocus {...form.field('reason')} />
+      <TextField label={label} required autoFocus {...form.field('reason')} />
     </FormDialog>
   );
 }

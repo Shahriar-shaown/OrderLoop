@@ -15,7 +15,8 @@ import { useState } from 'react';
 import { COST_LABEL, invalidateFinance } from '../../lib/finance';
 import { dayBefore } from '../../lib/format';
 import { useFormState } from '../../forms/forms';
-import { newIdempotencyKey } from '../../lib/hooks';
+import { hasReason, REASON_ERROR } from '../../forms/ReasonDialog';
+import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
 import { formatPrice, parsePrice } from '../../lib/money';
 import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
@@ -26,7 +27,7 @@ function AddCost({ open, onClose }: { open: boolean; onClose: () => void }) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const form = useFormState({ kind: 'packaging', amount: '', incurredOn: dayBefore(0), note: '' });
-  const [key, setKey] = useState(newIdempotencyKey);
+  const { key, renew } = useIdempotencyKey();
   if (!open) return null;
   async function submit() {
     const amount = parsePrice(form.values.amount);
@@ -43,7 +44,7 @@ function AddCost({ open, onClose }: { open: boolean; onClose: () => void }) {
       await invalidateFinance(queryClient);
     });
     if (ok) {
-      setKey(newIdempotencyKey());
+      renew();
       toast.success('Cost recorded');
       onClose();
     }
@@ -156,8 +157,7 @@ export function CostsCard({ from, to }: { from: string; to: string }) {
           busy={reason.busy}
           error={reason.formError}
           onSubmit={async () => {
-            if (reason.values.reason.trim().length < 3)
-              return reason.setErrors({ reason: 'Say why (at least 3 characters)' });
+            if (!hasReason(reason.values.reason)) return reason.setErrors({ reason: REASON_ERROR });
             const ok = await reason.run(async () => {
               await api.finance.voidCost(voiding, reason.values.reason.trim());
               await invalidateFinance(queryClient);

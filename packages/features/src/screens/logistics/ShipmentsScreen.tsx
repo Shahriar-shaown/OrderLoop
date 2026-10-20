@@ -22,6 +22,7 @@ import {
   useBreakpoint,
   useTheme,
   type Column,
+  useT,
 } from '@orderloop/ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -68,6 +69,7 @@ function CourierCard({
   highlight: boolean;
 }) {
   const { colors } = useTheme();
+  const t = useT();
   const state = courierState(entry);
   const env = entry.connection?.environment;
   const figure = (value: string, label: string) => (
@@ -84,7 +86,7 @@ function CourierCard({
     <Card
       padding="md"
       role="group"
-      aria-label={entry.name}
+      aria-label={t(entry.name)}
       style={highlight ? { borderColor: colors.tones.warning.dot } : undefined}
     >
       <Stack gap={4}>
@@ -136,6 +138,7 @@ function CourierCard({
 
 /** Couriers & shipments: the courier connections, the day's numbers, and every parcel with its history. */
 export function ShipmentsScreen() {
+  const t = useT();
   const api = useApi();
   const can = useCan();
   const { isDesktop } = useBreakpoint();
@@ -267,6 +270,8 @@ export function ShipmentsScreen() {
       isPending={list.isPending}
       isError={list.isError}
       error={list.error}
+      data={list.data}
+      fetchStatus={list.fetchStatus}
       refetch={() => list.refetch()}
       label="Loading shipments"
     >
@@ -276,6 +281,7 @@ export function ShipmentsScreen() {
         rows={list.data?.items ?? []}
         rowKey={(r) => r.id}
         onRowPress={(r) => setSelected(r.id)}
+        rowLabel={(r) => `Shipment ${r.consignmentId ?? r.reference}`}
         renderCard={card}
         loading={list.isFetching && !list.data}
         empty={
@@ -301,7 +307,7 @@ export function ShipmentsScreen() {
 
   const detail = selected ? (
     isDesktop ? (
-      <Card padding="md" role="complementary" aria-label="Shipment detail">
+      <Card padding="md" role="complementary" aria-label={t('Shipment detail')}>
         <Stack gap={3}>
           <Row justify="end">
             <Button

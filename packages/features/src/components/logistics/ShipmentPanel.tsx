@@ -34,8 +34,9 @@ import {
 } from '../../lib/couriers';
 import { messageFor } from '../../forms/errors';
 import { formatDayTime, formatWhen } from '../../lib/format';
-import { newIdempotencyKey } from '../../lib/hooks';
+import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
 import { useFormState } from '../../forms/forms';
+import { CancelShipmentDialog } from './ShipmentDetail';
 import { formatPrice } from '../../lib/money';
 import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
@@ -123,49 +124,6 @@ function ResolveDialog({
         />
       )}
       <TextField label="What did you see?" required {...form.field('reason')} />
-    </FormDialog>
-  );
-}
-
-function CancelDialog({
-  shipment,
-  open,
-  onClose,
-}: {
-  shipment: ShipmentDetail;
-  open: boolean;
-  onClose: () => void;
-}) {
-  const api = useApi();
-  const toast = useToast();
-  const queryClient = useQueryClient();
-  const form = useFormState({ reason: '' });
-  if (!open) return null;
-  async function submit() {
-    const reason = form.values.reason.trim();
-    if (reason.length < 3) return form.setErrors({ reason: 'Say why (at least 3 characters)' });
-    const ok = await form.run(async () => {
-      await api.shipments.cancel(shipment.id, { reason });
-      await invalidateShipments(queryClient);
-    });
-    if (ok) {
-      toast.success('Shipment cancelled');
-      onClose();
-    }
-  }
-  return (
-    <FormDialog
-      open
-      onClose={onClose}
-      title="Cancel this shipment"
-      onSubmit={submit}
-      submitLabel="Cancel shipment"
-      danger
-      busy={form.busy}
-      error={form.formError}
-      size="sm"
-    >
-      <TextField label="Reason" required autoFocus {...form.field('reason')} />
     </FormDialog>
   );
 }
@@ -334,7 +292,11 @@ function ShipmentCard({
         ))}
       </Stack>
 
-      <CancelDialog shipment={s} open={dialog === 'cancel'} onClose={() => setDialog(null)} />
+      <CancelShipmentDialog
+        shipment={s}
+        open={dialog === 'cancel'}
+        onClose={() => setDialog(null)}
+      />
       <ResolveDialog shipment={s} open={dialog === 'resolve'} onClose={() => setDialog(null)} />
       <ResolveDialog
         shipment={s}
@@ -374,7 +336,7 @@ function BookForm({ order, couriers }: { order: OrderDetail; couriers: CourierEn
   }, [chosen, firstUsable]);
   // One key per intended booking. It is reused when a request fails without an answer (so a retry cannot book twice) and
   // replaced once the server has answered, so the next booking is a new one.
-  const [key, setKey] = useState(newIdempotencyKey);
+  const { key, renew } = useIdempotencyKey();
   const [quote, setQuote] = useState<string | null>(null);
   const [busy, setBusy] = useState<'quote' | 'book' | null>(null);
 
@@ -441,7 +403,7 @@ function BookForm({ order, couriers }: { order: OrderDetail; couriers: CourierEn
     try {
       const result = await api.shipments.book(order.id, { ...body(), idempotencyKey: key });
       // The server answered: whatever it says, the next press is a new booking.
-      setKey(newIdempotencyKey());
+      renew();
       await invalidateShipments(queryClient);
       if (result.status === 'booked')
         toast.success(result.simulated ? 'Booked (simulated)' : 'Booked with the courier');

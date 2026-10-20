@@ -1,8 +1,8 @@
 import { Platform, TextInput, View } from 'react-native';
-import { toAsciiDigits } from '../i18n';
+import { toAsciiDigits, useT } from '../i18n';
 import { Button } from '../Button';
 import { useTheme } from '../theme/theme';
-import { fontFamily, fontSize, radius } from '../theme/tokens';
+import { fontFamily, fontSize, radius, touchTarget } from '../theme/tokens';
 import { useBreakpoint } from '../layout/useBreakpoint';
 
 /**
@@ -24,7 +24,8 @@ export function QuantityStepper({
   max?: number;
 }) {
   const { colors } = useTheme();
-  const { isMobile } = useBreakpoint();
+  const { isTouch } = useBreakpoint();
+  const t = useT();
   const n = Number(value);
   const current = Number.isInteger(n) ? n : min;
   const step = (by: number) => onChange(String(Math.min(max, Math.max(min, current + by))));
@@ -48,8 +49,8 @@ export function QuantityStepper({
         onPress={() => step(-1)}
       />
       <TextInput
-        accessibilityLabel={label}
-        aria-label={label}
+        accessibilityLabel={t(label)}
+        aria-label={t(label)}
         value={value}
         onChangeText={(t) => onChange(toAsciiDigits(t).replace(/[^0-9]/g, ''))}
         keyboardType="number-pad"
@@ -57,7 +58,7 @@ export function QuantityStepper({
         style={[
           {
             width: 44,
-            minHeight: isMobile ? 44 : 32,
+            minHeight: isTouch ? touchTarget : 32,
             textAlign: 'center',
             fontSize: fontSize.sm,
             color: colors.foreground,

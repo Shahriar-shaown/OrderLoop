@@ -15,7 +15,7 @@ import {
   type Column,
 } from '@orderloop/ui';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CustomerDialog } from '../../components/orders/CustomerDialog';
 import { QueryBoundary } from '../../shell/QueryBoundary';
 import { formatDayTime } from '../../lib/format';
@@ -24,12 +24,18 @@ import { formatPrice } from '../../lib/money';
 import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
 
-export function CustomersScreen() {
+/** `openNew` opens the new-customer form straight away (the create menu links here with it). */
+export function CustomersScreen({ openNew = false }: { openNew?: boolean } = {}) {
   const api = useApi();
   const can = useCan();
   const navigation = useNavigation();
   const [search, setSearch] = useState('');
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(openNew && can('orders:write'));
+  // The create menu links here with ?new=1, also while this page is already open.
+  const canAdd = can('orders:write');
+  useEffect(() => {
+    if (openNew && canAdd) setAdding(true);
+  }, [openNew, canAdd]);
   const q = useDebounced(search.trim());
   const customers = useInfiniteQuery({
     queryKey: ['customers', { q }],
@@ -150,6 +156,7 @@ export function CustomersScreen() {
             rowKey={(c) => c.id}
             loading={customers.isPending}
             onRowPress={(c) => navigation.push(`/customers/${c.id}`)}
+            rowLabel={(c) => c.name}
             renderCard={(c) => (
               <Stack gap={1}>
                 <Row justify="between" gap={2}>

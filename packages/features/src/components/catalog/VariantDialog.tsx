@@ -1,9 +1,11 @@
 import { VariantInput, VariantUpdate, type Variant } from '@orderloop/contracts';
 import { FormDialog, useToast } from '@orderloop/ui';
+import { invalidateCatalog } from '../../lib/invalidate';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { validate, type FormErrors } from '../../forms/errors';
 import { useFormState } from '../../forms/forms';
+import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
 import { useApi } from '../../core/runtime';
 import {
   emptyVariant,
@@ -25,6 +27,7 @@ function VariantForm({
   const api = useApi();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { key: idempotencyKey } = useIdempotencyKey();
   const form = useFormState({});
   const [values, setValues] = useState<VariantValues>(() =>
     variant ? variantToValues(variant) : emptyVariant(),
@@ -48,9 +51,8 @@ function VariantForm({
     const body = checked.data;
     const ok = await form.run(async () => {
       if (variant) await api.products.updateVariant(variant.id, body as VariantUpdate);
-      else await api.products.addVariant(productId, body as VariantInput);
-      await queryClient.invalidateQueries({ queryKey: ['product'] });
-      await queryClient.invalidateQueries({ queryKey: ['products'] });
+      else await api.products.addVariant(productId, { ...(body as VariantInput), idempotencyKey });
+      await invalidateCatalog(queryClient);
     });
     if (ok) {
       toast.success(editing ? 'Variant saved' : 'Variant added');

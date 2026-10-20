@@ -19,7 +19,7 @@ import { formatWhen } from '../../lib/format';
 import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
 import { QueryBoundary } from '../../shell/QueryBoundary';
-import { invalidateStock } from './StockDialog';
+import { invalidateCatalog } from '../../lib/invalidate';
 
 const STATUSES = [
   { value: 'RELEASED', label: 'Released' },
@@ -50,7 +50,7 @@ export function ReservationsTab() {
     try {
       if (action === 'release') await api.reservations.release(r.id);
       else await api.reservations.fulfil(r.id);
-      await invalidateStock(queryClient);
+      await invalidateCatalog(queryClient);
       toast.success(
         action === 'release'
           ? 'Reservation released: the stock is available again'

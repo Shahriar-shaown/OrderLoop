@@ -7,6 +7,7 @@ import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
 import { radius, space, touchTarget } from '../theme/tokens';
 import { useBreakpoint } from '../layout/useBreakpoint';
+import { useT } from '../i18n';
 
 /**
  * One entry of the side navigation: an icon, a label, an optional count, and the active tint. `collapsed` shows only the icon
@@ -33,15 +34,16 @@ export function NavItem({
   const { pathname } = useNavigation();
   const { isTouch } = useBreakpoint();
   const { colors } = useTheme();
+  const t = useT();
   const follow = useLinkPress(href, false, onNavigate);
   const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
   return (
     <Pressable
       role="link"
       aria-current={active ? 'page' : undefined}
-      aria-label={collapsed ? label : undefined}
+      aria-label={collapsed ? t(label) : undefined}
       {...webLinkProps(href)}
-      {...(collapsed ? ({ title: label } as object) : {})}
+      {...(collapsed ? ({ title: t(label) } as object) : {})}
       onPress={follow}
       style={(state) => [
         {

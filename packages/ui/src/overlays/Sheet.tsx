@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Button } from '../Button';
+import { ToastHost, useToastLayer } from './Toast';
 import { Stack } from '../layout/Stack';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
@@ -28,6 +29,7 @@ export function Sheet({
   const { colors } = useTheme();
   const { isMobile, isTablet } = useBreakpoint();
   const titleId = useId();
+  const toasts = useToastLayer(open);
   const bottomInset = useBottomInset();
   const side = isMobile ? 'bottom' : 'right';
   return (
@@ -141,6 +143,7 @@ export function Sheet({
             </Stack>
           )}
         </View>
+        <ToastHost visible={toasts} />
       </KeyboardAvoidingView>
     </Modal>
   );

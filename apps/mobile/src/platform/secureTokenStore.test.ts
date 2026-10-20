@@ -45,4 +45,12 @@ describe('mobile refresh-token storage', () => {
     await secureTokenStore.set('fresh');
     expect(await secureTokenStore.get()).toBe('fresh'); // the marker is now set: it is kept
   });
+
+  it('keeps a token stored by the first-ever sign-in across a cold start', async () => {
+    const { secureTokenStore } = await import('./secureTokenStore');
+    await secureTokenStore.set('first'); // no get() before it: the marker was never written by a read
+    vi.resetModules(); // a cold start: nothing in memory, only what the storage holds
+    const fresh = await import('./secureTokenStore');
+    expect(await fresh.secureTokenStore.get()).toBe('first');
+  });
 });

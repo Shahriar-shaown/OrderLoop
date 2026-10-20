@@ -20,6 +20,12 @@ async function forgetTokenOfEarlierInstall(): Promise<void> {
   await AsyncStorage.setItem(INSTALL_MARKER, '1');
 }
 
+/** Storing a token makes it this install's own, so a later cold start must not take it for a leftover and delete it. */
+async function save(token: string): Promise<void> {
+  await AsyncStorage.setItem(INSTALL_MARKER, '1');
+  await SecureStore.setItemAsync(KEY, token, OPTIONS);
+}
+
 /**
  * The refresh token lives in the device's secure storage (Keychain on iOS, Keystore on Android), never in plain
  * storage. The short-lived access token stays in memory only, as on the web.
@@ -29,8 +35,5 @@ export const secureTokenStore: RefreshTokenStore = {
     await forgetTokenOfEarlierInstall();
     return SecureStore.getItemAsync(KEY, OPTIONS);
   },
-  set: (token) =>
-    token === null
-      ? SecureStore.deleteItemAsync(KEY, OPTIONS)
-      : SecureStore.setItemAsync(KEY, token, OPTIONS),
+  set: (token) => (token === null ? SecureStore.deleteItemAsync(KEY, OPTIONS) : save(token)),
 };

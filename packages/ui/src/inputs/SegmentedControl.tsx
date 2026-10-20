@@ -2,6 +2,8 @@ import { Pressable, View } from 'react-native';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
 import { radius, space, touchTarget } from '../theme/tokens';
+import { useT } from '../i18n';
+import { useBreakpoint } from '../layout/useBreakpoint';
 
 export interface Segment<T extends string> {
   value: T;
@@ -26,10 +28,12 @@ export function SegmentedControl<T extends string>({
   onChange: (value: T) => void;
 }) {
   const { colors } = useTheme();
+  const t = useT();
+  const { isTouch } = useBreakpoint();
   return (
     <View
       role="radiogroup"
-      aria-label={label}
+      aria-label={t(label)}
       style={{
         flexDirection: 'row',
         padding: 3,
@@ -47,11 +51,11 @@ export function SegmentedControl<T extends string>({
             key={s.value}
             role="radio"
             aria-checked={selected}
-            aria-label={s.accessibilityLabel ?? s.label}
+            aria-label={t(s.accessibilityLabel ?? s.label)}
             onPress={() => onChange(s.value)}
             style={{
               flex: 1,
-              minHeight: touchTarget - 8,
+              minHeight: isTouch ? touchTarget : 32,
               paddingHorizontal: space[3],
               alignItems: 'center',
               justifyContent: 'center',

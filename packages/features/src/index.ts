@@ -9,6 +9,8 @@ export {
 export { useRequireAuth } from './core/auth';
 export { AppProviders } from './shell/AppProviders';
 export { AppShell, usePendingOrders, VerifyBanner, type ShellNavItem } from './shell/AppShell';
+export { useCreateActions, type CreateAction } from './shell/createActions';
+export { CrashScreen, NotFoundScreen } from './shell/FallbackScreens';
 export { OfflineBanner } from './shell/OfflineBanner';
 export { RestoreFailed } from './shell/RestoreFailed';
 export { useOnline } from './core/online';
@@ -27,7 +29,7 @@ export { WorkspaceMenu } from './shell/WorkspaceMenu';
 export { AccountMenu } from './shell/AccountMenu';
 export { useCan } from './core/permissions';
 export { setBusinessTimezone } from './lib/format';
-export { useAuth } from './core/auth';
+export { useAuth, useSignOut } from './core/auth';
 export { safeNext } from './forms/errors';
 
 export { LoginScreen } from './screens/auth/LoginScreen';

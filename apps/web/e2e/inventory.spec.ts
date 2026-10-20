@@ -12,6 +12,8 @@ import {
 const newProduct = (page: Page, name: string, sku: string) =>
   catalogCreateProduct(page, { name, sku, price: '500' });
 
+const ONE_PIXEL_GIF = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 test.describe('inventory module', () => {
   test.beforeEach(async ({ page, request }) => {
     const { email } = await createAccount(request, 'inv');
@@ -32,6 +34,10 @@ test.describe('inventory module', () => {
     await dialog.getByRole('button', { name: 'Add supplier' }).click();
     await expect(page.getByRole('cell', { name: /Dhaka Weavers/ })).toBeVisible();
 
+    // The picture lives on a host that does not exist: serve a one-pixel image so no test depends on the network.
+    await page.route('https://cdn.example.test/**', (route) =>
+      route.fulfill({ contentType: 'image/gif', body: Buffer.from(ONE_PIXEL_GIF, 'base64') }),
+    );
     await page.goto('/products/new');
     await page.getByLabel('Product name').fill('Handloom panjabi');
     await page.getByLabel('Description').fill('Eid collection');

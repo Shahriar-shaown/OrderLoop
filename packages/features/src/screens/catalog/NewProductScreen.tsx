@@ -14,6 +14,7 @@ import {
   useNavigation,
   useToast,
 } from '@orderloop/ui';
+import { invalidateCatalog } from '../../lib/invalidate';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FormError } from '../../forms/FormError';
@@ -24,6 +25,7 @@ import {
 import { VariantFields } from '../../components/catalog/VariantFields';
 import { validate, type FormErrors } from '../../forms/errors';
 import { useFormState } from '../../forms/forms';
+import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
 import { formatPrice, parsePrice } from '../../lib/money';
 import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
@@ -35,6 +37,7 @@ export function NewProductScreen() {
   const navigation = useNavigation();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { key: idempotencyKey } = useIdempotencyKey();
   const form = useFormState({
     name: '',
     description: '',
@@ -72,9 +75,9 @@ export function NewProductScreen() {
     const body = checked.data;
     let createdId = '';
     const ok = await form.run(async () => {
-      const product = await api.products.create(body);
+      const product = await api.products.create({ ...body, idempotencyKey });
       createdId = product.id;
-      await queryClient.invalidateQueries({ queryKey: ['products'] });
+      await invalidateCatalog(queryClient);
       toast.success(`Created ${product.name}`);
     });
     if (ok) navigation.replace(`/products/${createdId}`);

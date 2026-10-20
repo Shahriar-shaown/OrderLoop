@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { View } from 'react-native';
 import { FormContext, type FormProps } from './formContext';
+import { useT } from '../i18n';
 import { space } from '../theme/tokens';
 
 /**
@@ -9,11 +10,16 @@ import { space } from '../theme/tokens';
  * autofill and Enter submits natively.)
  */
 export function Form({ onSubmit, children, gap = 4, accessibilityLabel }: FormProps) {
+  const t = useT();
   const submit = useCallback(() => onSubmit(), [onSubmit]);
   const value = useMemo(() => submit, [submit]);
   return (
     <FormContext.Provider value={value}>
-      <View role="form" aria-label={accessibilityLabel} style={{ gap: space[gap] }}>
+      <View
+        role="form"
+        aria-label={accessibilityLabel && t(accessibilityLabel)}
+        style={{ gap: space[gap] }}
+      >
         {children}
       </View>
     </FormContext.Provider>

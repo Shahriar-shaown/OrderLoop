@@ -43,12 +43,12 @@ export function createRuntime(
   };
   const raw = createApiClient(shared);
   const session = new SessionManager({
-    refresh: async () => {
-      if (!store) return raw.auth.refresh({});
+    refresh: async (expectedTenantId) => {
+      if (!store) return raw.auth.refresh({ expectedTenantId });
       const refreshToken = await store.get();
       // No stored token: there is no session to restore. Same shape as a refused refresh, so the app shows sign-in.
       if (!refreshToken) throw Object.assign(new Error('No session'), { status: 401 });
-      return raw.auth.refresh({ refreshToken });
+      return raw.auth.refresh({ refreshToken, expectedTenantId });
     },
     logout: () => api.auth.logout(),
     ...(store

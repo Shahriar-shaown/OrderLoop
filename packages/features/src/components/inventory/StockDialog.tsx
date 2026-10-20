@@ -11,10 +11,12 @@ import {
   type IconName,
   type Tone,
 } from '@orderloop/ui';
-import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { variantLabel } from '../../lib/format';
 import { useFormState } from '../../forms/forms';
+import { hasReason, REASON_ERROR } from '../../forms/ReasonDialog';
+import { invalidateCatalog } from '../../lib/invalidate';
 import { newIdempotencyKey, useDebounced, useLocations } from '../../lib/hooks';
 import { useApi } from '../../core/runtime';
 
@@ -39,13 +41,6 @@ export const variantRefOf = (
   onHand: v.stock.onHand,
   available: v.stock.available,
 });
-
-export const invalidateStock = (client: QueryClient) =>
-  Promise.all(
-    ['product', 'products', 'inventory', 'lowStock', 'movements', 'reservations'].map((k) =>
-      client.invalidateQueries({ queryKey: [k] }),
-    ),
-  );
 
 export type StockMode = 'receive' | 'adjust' | 'reserve' | 'damage' | 'writeOff' | 'return';
 const TITLES: Record<StockMode, string> = {
@@ -211,8 +206,7 @@ function StockForm({
           : 'Enter 1 or more';
     else if (Math.abs(amount) > 1_000_000) found.amount = 'That is more than 1,000,000';
     const reason = form.values.reason.trim();
-    if (NEEDS_REASON.includes(mode) && reason.length < 3)
-      found.reason = 'Say why (at least 3 characters)';
+    if (NEEDS_REASON.includes(mode) && !hasReason(reason)) found.reason = REASON_ERROR;
     form.setFormError('');
     if (Object.keys(found).length || !variant) return form.setErrors(found);
 
@@ -274,7 +268,7 @@ function StockForm({
           idempotencyKey,
         });
       }
-      await invalidateStock(queryClient);
+      await invalidateCatalog(queryClient);
     });
     if (ok) {
       toast.success(`${TITLES[mode]}: done for ${variant.sku}`);

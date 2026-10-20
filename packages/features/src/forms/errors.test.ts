@@ -1,4 +1,4 @@
-import { ApiError } from '@orderloop/api-client';
+import { ApiError, WRITE_TIMEOUT_SAFE_MESSAGE } from '@orderloop/api-client';
 import { LoginBody } from '@orderloop/contracts';
 import { describe, expect, it } from 'vitest';
 import { fieldErrorsFrom, messageFor, safeNext, validate } from './errors';
@@ -73,6 +73,11 @@ describe('safeNext (open-redirect guard)', () => {
   it('allows same-site paths', () => {
     expect(safeNext('/inventory')).toBe('/inventory');
     expect(safeNext('/products/123?tab=x')).toBe('/products/123?tab=x');
+    expect(safeNext('/orders?status=pending&q=a%20b#top')).toBe(
+      '/orders?status=pending&q=a%20b#top',
+    );
+    expect(safeNext('/%09/x')).toBe('/%09/x'); // percent-encoded stays a literal path segment, not a host
+    expect(safeNext('/%2F/evil.example')).toBe('/%2F/evil.example');
   });
 
   it('refuses anything that could leave the site, or is missing', () => {
@@ -83,6 +88,15 @@ describe('safeNext (open-redirect guard)', () => {
       'javascript:alert(1)',
       'products',
       '/a\nb',
+      '/\t/evil.example',
+      '/\n/evil.example',
+      '/\r/evil.example',
+      '/ /evil.example',
+      '/\\/evil.example',
+      '/\\\\evil.example',
+      '/a\\b',
+      '/\u0000/x',
+      '///evil.example',
       '',
       null,
       undefined,
@@ -90,5 +104,37 @@ describe('safeNext (open-redirect guard)', () => {
       expect(safeNext(bad)).toBe('/products');
     }
     expect(safeNext('//evil.example', '/home')).toBe('/home');
+  });
+});
+
+describe('messageFor: a server this app does not understand', () => {
+  it('says the versions differ, without showing the raw path or payload', () => {
+    for (const code of ['invalid_response', 'unexpected_response']) {
+      const text = messageFor(
+        new ApiError('Invalid response body from /v1/finance/analytics', 200, code),
+      );
+      expect(text).toMatch(/out of step/);
+      expect(text).not.toMatch(/\/v1\//);
+    }
+  });
+});
+
+describe('messageFor: a write that timed out', () => {
+  it('says the request may have been received, and to check before trying again', () => {
+    const text = messageFor(
+      new ApiError(
+        'The server did not answer in time. The request may have been received: check before trying again.',
+        undefined,
+        'request_timeout',
+      ),
+    );
+    expect(text).toMatch(/may have been received/);
+    expect(text).toMatch(/check before trying again/);
+  });
+
+  it('says it is safe to try again when the request carried an idempotency key', () => {
+    const text = messageFor(new ApiError(WRITE_TIMEOUT_SAFE_MESSAGE, undefined, 'request_timeout'));
+    expect(text).toMatch(/safe to try again/);
+    expect(text).not.toMatch(/check before/);
   });
 });

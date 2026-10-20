@@ -17,7 +17,9 @@ import {
   useToast,
   type Column,
   type MenuItem,
+  useT,
 } from '@orderloop/ui';
+import { invalidateCatalog } from '../../lib/invalidate';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Image } from 'react-native';
@@ -48,6 +50,7 @@ export function ProductDetailScreen({ id }: { id: string }) {
   const api = useApi();
   const can = useCan();
   const toast = useToast();
+  const t = useT();
   const queryClient = useQueryClient();
   const query = useProduct(id);
   const categories = useCategories();
@@ -66,10 +69,7 @@ export function ProductDetailScreen({ id }: { id: string }) {
       if (target.kind === 'product')
         await api.products.update(id, { status: archive ? 'ARCHIVED' : 'ACTIVE' });
       else await api.products.updateVariant(target.variant.id, { archived: archive });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['product'] }),
-        queryClient.invalidateQueries({ queryKey: ['products'] }),
-      ]);
+      await invalidateCatalog(queryClient);
       toast.success(archive ? 'Archived' : 'Restored');
       setArchiving(null);
     } catch (error) {
@@ -347,7 +347,10 @@ export function ProductDetailScreen({ id }: { id: string }) {
                         <Image
                           key={url}
                           source={{ uri: url }}
-                          accessibilityLabel={`${product.name}, picture ${i + 1}`}
+                          accessibilityLabel={t('{name}, picture {n}', {
+                            name: product.name,
+                            n: i + 1,
+                          })}
                           style={{ width: 96, height: 96, borderRadius: 8 }}
                           resizeMode="cover"
                         />

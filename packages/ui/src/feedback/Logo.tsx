@@ -1,5 +1,6 @@
 import Svg, { Circle, Path, Rect } from '../theme/svg';
 import { View } from 'react-native';
+import { useT } from '../i18n';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
 
@@ -30,12 +31,13 @@ export function LogoMark({ size = 32 }: { size?: number }) {
 
 /** The mark with the "OrderLoop" wordmark ("Loop" in indigo, teal on dark). */
 export function Logo({ size = 32, wordmark = true }: { size?: number; wordmark?: boolean }) {
+  const t = useT();
   const { colors, scheme } = useTheme() as ReturnType<typeof useTheme> & { scheme?: string };
   return (
     <View
       style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
       role="img"
-      aria-label="OrderLoop"
+      aria-label={t('OrderLoop')}
     >
       <LogoMark size={size} />
       {wordmark && (

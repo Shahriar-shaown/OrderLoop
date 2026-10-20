@@ -1,14 +1,15 @@
-import { Icon, Text, useLinkPress, useTheme, type IconName } from '@orderloop/ui';
+import { Icon, Text, useLinkPress, useTheme, type IconName, useT } from '@orderloop/ui';
 import { Pressable, View } from 'react-native';
 import { useCan } from '../core/permissions';
 
 function Tile({ label, icon, href }: { label: string; icon: IconName; href: string }) {
   const { colors } = useTheme();
   const follow = useLinkPress(href, false, undefined);
+  const t = useT();
   return (
     <Pressable
       role="link"
-      aria-label={label}
+      aria-label={t(label)}
       onPress={follow}
       style={({ pressed }) => ({
         flex: 1,

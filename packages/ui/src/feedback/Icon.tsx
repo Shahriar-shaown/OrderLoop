@@ -1,6 +1,7 @@
 import Svg, { Circle, Line, Path, Polygon, Polyline, Rect } from '../theme/svg';
 import { ICONS, type IconName, type Shape } from './icons';
 import { useTheme } from '../theme/theme';
+import { useT } from '../i18n';
 
 export type IconProps = {
   name: IconName;
@@ -34,6 +35,7 @@ function Draw({ shape }: { shape: Shape }) {
 /** One icon from the set, drawn as SVG on the web and on native alike. */
 export function Icon({ name, size = 18, color, strokeWidth = 2, label }: IconProps) {
   const { colors } = useTheme();
+  const t = useT();
   return (
     <Svg
       width={size}
@@ -45,7 +47,7 @@ export function Icon({ name, size = 18, color, strokeWidth = 2, label }: IconPro
       strokeLinecap="round"
       strokeLinejoin="round"
       {...(label
-        ? { role: 'img', 'aria-label': label }
+        ? { role: 'img', 'aria-label': t(label) }
         : { 'aria-hidden': true, focusable: false })}
     >
       {ICONS[name].map((shape, i) => (

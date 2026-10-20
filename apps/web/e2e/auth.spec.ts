@@ -256,4 +256,12 @@ test.describe('accessibility and layout of the signed-out screens', () => {
     await expect(email).toHaveAttribute('aria-describedby', /.+/);
     await expect(page.getByRole('alert').first()).toBeVisible();
   });
+  test('the chosen language is remembered across a reload', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByRole('combobox', { name: /^Language/ }).click();
+    await page.getByRole('option', { name: 'বাংলা', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'সাইন ইন' }).first()).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'সাইন ইন' }).first()).toBeVisible();
+  });
 });

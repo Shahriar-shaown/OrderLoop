@@ -396,6 +396,29 @@ describe('new product', () => {
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith('/products/new1'));
   });
 
+  it('sends one idempotency key, and the same one when the create is retried after a failure', async () => {
+    const create = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError('timed out', undefined, 'request_timeout'))
+      .mockResolvedValue({ ...vase, id: 'new1', name: 'Mug' });
+    const api = {
+      products: { create },
+      categories: { list: async () => [] },
+      suppliers: { list: async () => [] },
+    };
+    mount(<NewProductScreen />, api);
+    await userEvent.type(await screen.findByLabelText(/Product name/), 'Mug');
+    await userEvent.type(screen.getByLabelText(/SKU/), 'mug-1');
+    await userEvent.type(screen.getByLabelText(/Price/), '250');
+    await userEvent.click(screen.getByRole('button', { name: 'Create product' }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    await userEvent.click(await screen.findByRole('button', { name: 'Create product' }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+    const keys = create.mock.calls.map((c) => (c[0] as { idempotencyKey: string }).idempotencyKey);
+    expect(keys[0]).toMatch(/^app-/);
+    expect(keys[1]).toBe(keys[0]);
+  });
+
   it('shows what is missing instead of calling the API', async () => {
     const create = vi.fn();
     const api = {

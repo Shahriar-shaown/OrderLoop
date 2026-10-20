@@ -1,5 +1,15 @@
 import type { OrderTotals } from '@orderloop/domain';
-import { Alert, Card, Icon, KeyValueList, Section, Stack, Text, useTheme } from '@orderloop/ui';
+import {
+  Alert,
+  Card,
+  Icon,
+  KeyValueList,
+  Section,
+  Stack,
+  Text,
+  useTheme,
+  useT,
+} from '@orderloop/ui';
 import type { ReactNode } from 'react';
 import { Row } from '@orderloop/ui';
 import { formatPrice } from '../../lib/money';
@@ -17,8 +27,9 @@ export interface ChecklistItem {
 
 function Checklist({ items }: { items: ChecklistItem[] }) {
   const { colors } = useTheme();
+  const t = useT();
   return (
-    <Stack gap={2} role="list" aria-label="Before you confirm">
+    <Stack gap={2} role="list" aria-label={t('Before you confirm')}>
       {items.map((c) => (
         <Row key={c.label} gap={2} role="listitem">
           <Icon

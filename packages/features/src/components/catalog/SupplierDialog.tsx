@@ -3,6 +3,7 @@ import { FieldGrid, FormDialog, TextField, useToast } from '@orderloop/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { validate } from '../../forms/errors';
 import { useFormState } from '../../forms/forms';
+import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
 import { useApi } from '../../core/runtime';
 
 const blankToNull = (text: string) => (text.trim() === '' ? null : text.trim());
@@ -11,6 +12,7 @@ function SupplierForm({ supplier, onClose }: { supplier: Supplier | null; onClos
   const api = useApi();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { key: idempotencyKey } = useIdempotencyKey();
   const form = useFormState({
     name: supplier?.name ?? '',
     contactName: supplier?.contactName ?? '',
@@ -37,7 +39,7 @@ function SupplierForm({ supplier, onClose }: { supplier: Supplier | null; onClos
     const body = checked.data;
     const ok = await form.run(async () => {
       if (supplier) await api.suppliers.update(supplier.id, body);
-      else await api.suppliers.create(body as SupplierBody);
+      else await api.suppliers.create({ ...(body as SupplierBody), idempotencyKey });
       await queryClient.invalidateQueries({ queryKey: ['suppliers'] });
     });
     if (ok) {

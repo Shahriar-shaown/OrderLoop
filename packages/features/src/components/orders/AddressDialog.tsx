@@ -4,6 +4,7 @@ import { FieldGrid, FormDialog, SelectField, TextField, useToast } from '@orderl
 import { useQueryClient } from '@tanstack/react-query';
 import { validate } from '../../forms/errors';
 import { useFormState } from '../../forms/forms';
+import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
 import { DIVISION_OPTIONS, invalidateOrders } from '../../lib/orders';
 import { useApi } from '../../core/runtime';
 
@@ -21,6 +22,7 @@ function AddressForm({
   const api = useApi();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { key: idempotencyKey } = useIdempotencyKey();
   const form = useFormState({
     label: address?.label ?? '',
     recipientName: address?.recipientName ?? defaults.name,
@@ -49,7 +51,7 @@ function AddressForm({
     const body = checked.data;
     const ok = await form.run(async () => {
       if (address) await api.customers.updateAddress(customerId, address.id, body);
-      else await api.customers.addAddress(customerId, body);
+      else await api.customers.addAddress(customerId, { ...body, idempotencyKey });
       await invalidateOrders(queryClient);
     });
     if (ok) {

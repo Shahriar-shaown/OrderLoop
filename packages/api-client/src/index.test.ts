@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { routes } from '@orderloop/contracts';
 import { ApiError, createApiClient } from './index.js';
 
 type Seen = { url: string; init: RequestInit };
@@ -260,6 +261,41 @@ describe('catalog and inventory calls', () => {
       limit: 10,
     } as never);
     expect(seen[1]!.url).toBe('http://x/v1/inventory?lowStock=true&limit=10');
+  });
+});
+
+describe('idempotency keys', () => {
+  const KEY = 'key-12345678';
+  const sent = (seen: Seen[]) => JSON.parse(seen[0]!.init.body as string);
+
+  it('sends the key in the body of each create that supports one', async () => {
+    const cases: [string, (api: ReturnType<typeof createApiClient>) => Promise<unknown>][] = [
+      ['categories', (api) => api.categories.create('Shoes', KEY)],
+      ['imports', (api) => api.imports.products('product_name,sku,price\nA,B,1', KEY)],
+      ['suppliers', (api) => api.suppliers.create({ name: 'Acme', idempotencyKey: KEY })],
+      ['locations', (api) => api.locations.create({ name: 'Shop', idempotencyKey: KEY })],
+    ];
+    for (const [name, run] of cases) {
+      const { fetchImpl, seen } = stub(500, {});
+      await run(createApiClient({ baseUrl: 'http://x', fetch: fetchImpl })).catch(() => undefined);
+      expect(sent(seen).idempotencyKey, name).toBe(KEY);
+    }
+  });
+
+  it('sends nothing extra when no key is given', async () => {
+    const { fetchImpl, seen } = stub(500, {});
+    await createApiClient({ baseUrl: 'http://x', fetch: fetchImpl })
+      .categories.create('Shoes')
+      .catch(() => undefined);
+    expect(sent(seen)).toEqual({ name: 'Shoes' });
+  });
+
+  it('rejects a malformed key before sending', async () => {
+    const { fetchImpl, seen } = stub(500, {});
+    await expect(
+      createApiClient({ baseUrl: 'http://x', fetch: fetchImpl }).categories.create('Shoes', 'no'),
+    ).rejects.toMatchObject({ code: 'validation_failed' });
+    expect(seen).toHaveLength(0);
   });
 });
 
@@ -560,5 +596,48 @@ describe('order calls', () => {
       `DELETE http://x/v1/customers/${cid}/addresses/${aid}`,
       `GET http://x/v1/customers/${cid}/orders?limit=5`,
     ]);
+  });
+});
+
+describe('timeouts', () => {
+  const timedOut = (async () => {
+    throw new DOMException('The operation timed out.', 'TimeoutError');
+  }) as unknown as typeof fetch;
+
+  it('waits 10 s for a read and 30 s for a write', async () => {
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    try {
+      const { fetchImpl } = stub(200, { status: 'ok' });
+      const api = createApiClient({ baseUrl: 'http://x', fetch: fetchImpl });
+      await api.health.live();
+      await api.call(routes.createCategory, { body: { name: 'Shoes' } }).catch(() => undefined);
+      expect(spy.mock.calls.map((c) => c[0])).toEqual([10_000, 30_000]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('says a timed-out write may have been received, so nobody sends it twice blindly', async () => {
+    const api = createApiClient({ baseUrl: 'http://x', fetch: timedOut });
+    await expect(api.categories.create('Shoes')).rejects.toMatchObject({
+      code: 'request_timeout',
+      message: expect.stringMatching(/may have been received/),
+    });
+  });
+
+  it('says it is safe to try again when the timed-out write carried an idempotency key', async () => {
+    const api = createApiClient({ baseUrl: 'http://x', fetch: timedOut });
+    await expect(api.categories.create('Shoes', 'key-12345678')).rejects.toMatchObject({
+      code: 'request_timeout',
+      message: expect.stringMatching(/safe to try again/),
+    });
+    await expect(
+      api.customers.create({ name: 'Rina', phone: '01712345678', idempotencyKey: 'key-12345678' }),
+    ).rejects.toMatchObject({ message: expect.stringMatching(/safe to try again/) });
+  });
+
+  it('keeps "cannot reach the server" for a read that timed out', async () => {
+    const api = createApiClient({ baseUrl: 'http://x', fetch: timedOut });
+    await expect(api.health.live()).rejects.toMatchObject({ code: 'network_error' });
   });
 });

@@ -1,3 +1,4 @@
+import { MAX_MINOR } from '@orderloop/contracts';
 import { assertPaisa, bdtToPaisa, formatBdt } from '@orderloop/domain';
 import { toAsciiDigits } from '@orderloop/ui';
 
@@ -8,7 +9,7 @@ export function parsePrice(text: string): number | null {
   if (cleaned === '') return null;
   try {
     const minor = bdtToPaisa(cleaned);
-    return minor >= 0 && minor <= 2_000_000_000 ? minor : null;
+    return minor >= 0 && minor <= MAX_MINOR ? minor : null;
   } catch {
     return null;
   }

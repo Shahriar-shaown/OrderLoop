@@ -34,7 +34,8 @@ import { View } from 'react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { validate, type FormErrors } from '../../forms/errors';
 import { useFormState } from '../../forms/forms';
-import { newIdempotencyKey, useDebounced } from '../../lib/hooks';
+import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
+import { useDebounced } from '../../lib/hooks';
 import { parsePrice, priceToInput } from '../../lib/money';
 import { DIVISION_OPTIONS, invalidateOrders, SOURCE_OPTIONS } from '../../lib/orders';
 import { useApi } from '../../core/runtime';
@@ -79,7 +80,7 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
   const { isMobile } = useBreakpoint();
   const editing = order !== undefined;
   const scope = order ? editScope(order.status) : 'full';
-  const [key] = useState(newIdempotencyKey);
+  const { key } = useIdempotencyKey();
 
   const form = useFormState(
     order

@@ -3,7 +3,7 @@ import { Icon } from '../feedback/Icon';
 import type { PopoverTriggerProps } from './Popover';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
-import { radius, space } from '../theme/tokens';
+import { radius, space, touchTarget } from '../theme/tokens';
 import { useBreakpoint } from '../layout/useBreakpoint';
 
 /** The chip that opens a filter panel ("Date: Any ▾"). Tinted while a filter is on. Pass the Popover's trigger props. */
@@ -17,7 +17,7 @@ export function FilterChip({
   popover: PopoverTriggerProps;
 }) {
   const { colors } = useTheme();
-  const { isMobile } = useBreakpoint();
+  const { isTouch } = useBreakpoint();
   return (
     <Pressable
       role="button"
@@ -29,7 +29,7 @@ export function FilterChip({
           flexDirection: 'row',
           alignItems: 'center',
           gap: space[2],
-          minHeight: isMobile ? 44 : 36,
+          minHeight: isTouch ? touchTarget : 36,
           paddingHorizontal: space[3],
           borderRadius: radius.md,
           borderWidth: 1,

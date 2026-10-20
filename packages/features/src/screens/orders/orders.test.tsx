@@ -1,3 +1,4 @@
+import { ApiError } from '@orderloop/api-client';
 import type { CustomerDetail, OrderDetail, OrderSummary } from '@orderloop/contracts';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -143,6 +144,48 @@ describe('orders list', () => {
     expect(screen.getByText('Showing 26–26 of 2 orders')).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'Previous' }));
     expect(await screen.findByRole('row', { name: /#1001/ })).toBeTruthy();
+  });
+
+  it('never sends the cursor of an earlier page together with new filters', async () => {
+    const orders = vi.fn(async (query: { cursor?: string }) => ({
+      items: [summary(query.cursor ? 2 : 1, 'confirmed')],
+      nextCursor: query.cursor ? null : 'c2',
+      total: 2,
+      statusCounts: {},
+    }));
+    mount(<OrdersScreen />, { orders: { list: orders } });
+    await screen.findByRole('row', { name: /#1001/ });
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByRole('row', { name: /#1002/ });
+    await userEvent.type(screen.getByLabelText('Search'), 'rina');
+    await waitFor(() =>
+      expect(orders).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'rina' })),
+    );
+    for (const [query] of orders.mock.calls as unknown as [Record<string, unknown>][])
+      if (query.q) expect(query).not.toHaveProperty('cursor');
+  });
+
+  it('keeps the reason dialog open, with the reason typed and the error shown, when a bulk cancel fails', async () => {
+    const bulk = vi.fn(async () => {
+      throw new ApiError(
+        'You are offline. Nothing was sent. Connect and try again.',
+        undefined,
+        'offline',
+      );
+    });
+    mount(<OrdersScreen />, {
+      orders: { list: list([summary(1, 'confirmed')]), bulkChangeStatus: bulk },
+    });
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Select order 1001' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel…' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText(/Reason/), 'Courier strike');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel orders' }));
+    expect(await within(dialog).findByText(/You are offline/)).toBeTruthy();
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect((within(dialog).getByLabelText(/Reason/) as HTMLInputElement).value).toBe(
+      'Courier strike',
+    );
   });
 
   it('applies a bulk action to exactly the selected orders and reports the ones that could not move', async () => {

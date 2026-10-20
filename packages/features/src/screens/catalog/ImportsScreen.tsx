@@ -18,6 +18,7 @@ import {
   useToast,
   type Column,
 } from '@orderloop/ui';
+import { invalidateCatalog, invalidateKeys } from '../../lib/invalidate';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { CsvFilePicker } from '../../forms/CsvFilePicker';
@@ -26,6 +27,7 @@ import { FormError } from '../../forms/FormError';
 import { QueryBoundary } from '../../shell/QueryBoundary';
 import { formatWhen } from '../../lib/format';
 import { useFormState } from '../../forms/forms';
+import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
 import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
 import { saveTextFile } from '../../lib/saveFile';
@@ -92,11 +94,10 @@ function JobStatus({ id }: { id: string }) {
     queryFn: async () => {
       const job = await api.imports.get(id);
       if (job.status === 'COMPLETED' || job.status === 'FAILED') {
-        await Promise.all(
-          ['products', 'imports', 'inventory', 'categories'].map((k) =>
-            queryClient.invalidateQueries({ queryKey: [k] }),
-          ),
-        );
+        await Promise.all([
+          invalidateKeys(queryClient, ['imports', 'categories']),
+          invalidateCatalog(queryClient),
+        ]);
       }
       return job;
     },
@@ -188,6 +189,7 @@ export function ImportsScreen() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const form = useFormState({ csv: '' });
+  const { key: idempotencyKey, renew } = useIdempotencyKey();
   const [jobId, setJobId] = useState<string | null>(null);
   // The check belongs to the exact text it was run on: edit the text and it no longer counts.
   const [checked, setChecked] = useState<{ csv: string; preview: ImportPreview } | null>(null);
@@ -212,13 +214,14 @@ export function ImportsScreen() {
     if (!current || current.fatal || current.validRows === 0) return;
     let id = '';
     const ok = await form.run(async () => {
-      const job = await api.imports.products(form.values.csv);
+      const job = await api.imports.products(form.values.csv, idempotencyKey);
       id = job.id;
       await queryClient.invalidateQueries({ queryKey: ['imports'] });
     });
     if (ok) {
       setJobId(id);
       setChecked(null);
+      renew(); // the screen stays open: the next import is a new request
       toast.info('Import started');
     }
   }

@@ -2,6 +2,7 @@ import { LoginBody } from '@orderloop/contracts';
 import { Alert, Button, Form, Link, Row, Text, useNavigation } from '@orderloop/ui';
 import { useEffect } from 'react';
 import { useAuth } from '../../core/auth';
+import { TENANT_CHANGED_MESSAGE } from '../../core/session';
 import { AuthLayout } from '../../shell/AuthLayout';
 import { FormError } from '../../forms/FormError';
 import { FormPasswordField } from '../../forms/FormPasswordField';
@@ -21,9 +22,9 @@ export function LoginScreen({ next }: { next?: string | undefined }) {
     if (status === 'authenticated') navigation.replace(target);
   }, [status, target]);
 
+  // Signing in changes the status, and the effect above moves on: one place navigates.
   const submit = form.submit(async (data) => {
     await signIn(data);
-    navigation.replace(target);
   });
 
   return (
@@ -40,6 +41,7 @@ export function LoginScreen({ next }: { next?: string | undefined }) {
         {endedBy === 'expired' && (
           <Alert tone="warning">Your session has expired. Sign in again to continue.</Alert>
         )}
+        {endedBy === 'tenant_changed' && <Alert tone="warning">{TENANT_CHANGED_MESSAGE}</Alert>}
         <FormError message={form.formError} />
         <FormTextField control={form.control} name="email" label="Email" kind="email" required />
         <FormPasswordField

@@ -140,6 +140,7 @@ export function CustomerDetailScreen({ id }: { id: string }) {
                       rowKey={(o) => o.id}
                       loading={history.isPending}
                       onRowPress={(o) => navigation.push(`/orders/${o.id}`)}
+                      rowLabel={(o) => `Order #${o.orderNumber}`}
                       renderCard={(o) => <OrderCard order={o} showCustomer={false} />}
                       empty={<EmptyState icon="box" title="No orders yet" />}
                     />

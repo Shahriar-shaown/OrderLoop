@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { Alert } from '@orderloop/ui';
 import { View } from 'react-native';
 import type { FormErrors } from '../../forms/errors';
-import { formatPrice, priceToInput } from '../../lib/money';
+import { formatPrice, parsePrice, priceToInput } from '../../lib/money';
 import { VariantPicker, type PickedVariant } from '../catalog/VariantPicker';
 
 /** One product on the order form. Text fields stay text until the form is sent. */
@@ -85,8 +85,15 @@ function LineRow({
 }) {
   const { colors } = useTheme();
   const [pricing, setPricing] = useState(false);
+  const typed = line.unitPrice.trim();
+  const typedMinor = typed === '' ? null : parsePrice(typed);
+  // The typed price as the app writes money (৳1,250.50); what cannot be read yet (half typed) is shown as typed.
   const unit =
-    line.unitPrice.trim() === '' ? formatPrice(line.catalogPriceMinor) : `৳${line.unitPrice}`;
+    typed === ''
+      ? formatPrice(line.catalogPriceMinor)
+      : typedMinor === null
+        ? `৳${typed}`
+        : formatPrice(typedMinor);
   return (
     <Stack gap={2}>
       <Row gap={3} wrap justify="between">

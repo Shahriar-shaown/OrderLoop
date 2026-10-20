@@ -3,6 +3,7 @@ import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
 import { radius, space, touchTarget } from '../theme/tokens';
 import { useBreakpoint } from '../layout/useBreakpoint';
+import { useT } from '../i18n';
 
 export interface TabItem {
   value: string;
@@ -31,14 +32,9 @@ export function Tabs({
   variant?: 'underline' | 'segmented' | 'chips';
 }) {
   const { colors } = useTheme();
-  const { isMobile } = useBreakpoint();
-  const height = isMobile
-    ? touchTarget
-    : variant === 'underline'
-      ? 44
-      : variant === 'chips'
-        ? 36
-        : 36;
+  const { isTouch } = useBreakpoint();
+  const t = useT();
+  const height = isTouch ? touchTarget : variant === 'underline' ? 44 : 36;
   const tab = (item: TabItem) => {
     const selected = item.value === value;
     const count =
@@ -130,7 +126,7 @@ export function Tabs({
     >
       <View
         role="tablist"
-        aria-label={label}
+        aria-label={t(label)}
         style={
           variant === 'underline'
             ? {

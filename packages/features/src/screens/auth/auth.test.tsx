@@ -1,6 +1,6 @@
-import { screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '../../../test/mount';
 import { LoginScreen } from './LoginScreen';
 import { ResetPasswordScreen } from './ResetPasswordScreen';
@@ -63,5 +63,51 @@ describe('settings', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Preferences' }));
     expect(await screen.findByLabelText('Your language')).toBeTruthy();
     expect(screen.getByRole('radiogroup', { name: 'Colour theme' })).toBeTruthy();
+  });
+});
+
+describe('settings: the business changes on the server while the form is open', () => {
+  afterEach(() => vi.useRealTimers());
+
+  /** Come back to the tab after a while: stale data is refetched on focus. */
+  async function comeBack(tenant: ReturnType<typeof vi.fn>) {
+    const calls = tenant.mock.calls.length;
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 60_000);
+    act(() => void window.dispatchEvent(new Event('visibilitychange')));
+    await waitFor(() => expect(tenant.mock.calls.length).toBeGreaterThan(calls));
+  }
+  const open = (name: { value: string }) => {
+    const tenant = vi.fn(async () => ({
+      id: 't',
+      name: name.value,
+      logoUrl: null,
+      currency: 'BDT',
+      timezone: 'Asia/Dhaka',
+      defaultLanguage: 'en',
+      country: 'BD',
+    }));
+    mount(<WorkspaceSettingsScreen />, { tenant, workspaces: { list: async () => [] } });
+    return tenant;
+  };
+
+  it('does not wipe what is being typed', async () => {
+    const name = { value: 'Shop' };
+    const tenant = open(name);
+    const field = (await screen.findByDisplayValue('Shop')) as HTMLInputElement;
+    await userEvent.type(field, ' Extra');
+    name.value = 'Renamed elsewhere';
+    await comeBack(tenant);
+    await act(async () => undefined);
+    expect(field.value).toBe('Shop Extra');
+  });
+
+  it('shows the new value when nothing has been typed', async () => {
+    const name = { value: 'Shop' };
+    const tenant = open(name);
+    await screen.findByDisplayValue('Shop');
+    name.value = 'Renamed elsewhere';
+    await comeBack(tenant);
+    expect(await screen.findByDisplayValue('Renamed elsewhere')).toBeTruthy();
   });
 });

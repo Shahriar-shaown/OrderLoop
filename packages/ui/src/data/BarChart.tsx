@@ -2,6 +2,7 @@ import { View } from 'react-native';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
 import { radius, space } from '../theme/tokens';
+import { useT } from '../i18n';
 
 export interface Bar {
   key: string;
@@ -25,11 +26,12 @@ export function BarChart({
   height?: number;
 }) {
   const { colors } = useTheme();
+  const t = useT();
   const max = Math.max(0, ...bars.map((b) => b.value));
   // With many bars, caption only the first, the last and every few in between so captions never collide.
   const every = bars.length > 10 ? Math.ceil(bars.length / 6) : 1;
   return (
-    <View role="img" aria-label={summary} style={{ width: '100%' }}>
+    <View role="img" aria-label={t(summary)} style={{ width: '100%' }}>
       <View
         aria-hidden
         style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space[1], height, minWidth: 0 }}

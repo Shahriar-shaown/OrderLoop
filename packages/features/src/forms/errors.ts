@@ -11,8 +11,15 @@ export function messageFor(error: unknown): string {
         return error.message || 'Too many attempts. Wait a little and try again.';
       case 'offline':
         return error.message;
+      case 'invalid_response':
+      case 'unexpected_response':
+        // The server answered, but not in the shape this app expects: the two are different versions.
+        return 'This app and the server are out of step. Update the app, or ask whoever runs the server to update it.';
       case 'network_error':
         return 'Cannot reach the server. Check your connection and try again.';
+      case 'request_timeout':
+        // Worded by the client: "safe to try again" when the request carried an idempotency key, "check first" when not.
+        return error.message;
       case 'token_invalid':
         return 'This link is invalid or has expired. Request a new one.';
       case 'invitation_invalid':
@@ -27,6 +34,8 @@ export function messageFor(error: unknown): string {
         return 'Your session has ended. Sign in again.';
       case 'validation_failed':
         return error.errors?.length ? 'Please fix the highlighted fields.' : error.message;
+      case 'idempotency_conflict':
+        return 'This was already sent with different details. Close this form and check the list before adding it again.';
       case 'conflict':
       case 'insufficient_stock':
       case 'last_owner':
@@ -68,13 +77,14 @@ export function validate<S extends z.ZodType>(
 
 /** Only same-site relative paths may be used as a post-login destination (blocks open-redirect links). */
 export function safeNext(next: string | null | undefined, fallback = '/products'): string {
-  if (
-    !next ||
-    !next.startsWith('/') ||
-    next.startsWith('//') ||
-    next.startsWith('/\\') ||
-    /[\r\n]/.test(next)
-  )
+  // Browsers strip tabs and newlines inside URLs and treat `\` as `/`, so `/\t/evil.com` would mean `//evil.com`.
+  if (!next || !/^\/(?![/\\])/.test(next) || /[\u0000-\u0020\u007f\\]/.test(next)) return fallback;
+  try {
+    const base = new URL('https://safe.invalid');
+    const url = new URL(next, base);
+    if (url.origin !== base.origin) return fallback;
+  } catch {
     return fallback;
+  }
   return next;
 }

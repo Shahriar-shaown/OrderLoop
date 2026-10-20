@@ -1,6 +1,5 @@
-import { useAuth } from '@orderloop/features';
-import { Button, EmptyState, ThemeProvider, useTheme } from '@orderloop/ui';
-import { View } from 'react-native';
+import { CrashScreen, useAuth } from '@orderloop/features';
+import { ThemeProvider, useTheme } from '@orderloop/ui';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -35,20 +34,12 @@ function Root() {
   );
 }
 
-/** What expo-router shows when a screen throws while rendering: an apology and a way to try again, not a blank screen. */
+/** What expo-router shows when a screen throws while rendering. */
 export function ErrorBoundary({ retry }: { error: Error; retry: () => Promise<void> }) {
   // Rendered in place of the whole app, so outside the providers: it brings its own theme.
   return (
     <ThemeProvider>
-      <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
-        <EmptyState
-          icon="alert"
-          title="Something went wrong"
-          action={<Button onPress={() => void retry()}>Try again</Button>}
-        >
-          The app hit an unexpected problem. Nothing you saved was lost.
-        </EmptyState>
-      </View>
+      <CrashScreen retry={() => void retry()} />
     </ThemeProvider>
   );
 }

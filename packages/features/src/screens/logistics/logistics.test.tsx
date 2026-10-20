@@ -48,6 +48,7 @@ const courier = (
     returns: false,
     locations: false,
     duplicateProtection: 'none',
+    weightKg: { min: 0.1, max: 50 },
   },
   environments: provider === 'mock' ? ['simulated'] : ['production'],
   credentialFields: [],

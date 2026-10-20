@@ -11,7 +11,10 @@ export interface ApiClientOptions {
   baseUrl: string;
   /** Injectable for tests and non-standard runtimes. Defaults to global fetch. */
   fetch?: typeof fetch;
+  /** How long a read may take. Default 10 s. */
   timeoutMs?: number;
+  /** How long a write may take. Default 30 s: the server often finishes a slow booking or import after the wait ends. */
+  writeTimeoutMs?: number;
   /** Supplies the current access token for routes that require one. */
   getAccessToken?: () => string | undefined | Promise<string | undefined>;
   /** Sent on every request, e.g. `{ 'x-client': 'web' }` to receive the refresh token as an HttpOnly cookie. */
@@ -34,12 +37,32 @@ export class ApiError extends Error {
   }
 }
 
+const READ_TIMEOUT_MS = 10_000;
+const WRITE_TIMEOUT_MS = 30_000;
+
+export const isWrite = (method: string): boolean =>
+  !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
+
+/** The default time to wait for a request, by method. Also used by wrappers that replay a request. */
+export const defaultTimeoutMs = (method: string): number =>
+  isWrite(method) ? WRITE_TIMEOUT_MS : READ_TIMEOUT_MS;
+
+/** For a write that carried an `idempotencyKey`: sending it again with the same key cannot make a second one. */
+export const WRITE_TIMEOUT_SAFE_MESSAGE =
+  'The server did not answer in time. It is safe to try again.';
+export const WRITE_TIMEOUT_MESSAGE =
+  'The server did not answer in time. The request may have been received: check before trying again.';
+
+const hasIdempotencyKey = (body: unknown): boolean =>
+  typeof body === 'object' && body !== null && 'idempotencyKey' in body && !!body.idempotencyKey;
+
 type Args<R extends RouteSpec> = keyof RouteInput<R> extends never ? [] : [input: RouteInput<R>];
 
 export function createApiClient(options: ApiClientOptions) {
   const baseUrl = options.baseUrl.replace(/\/+$/, '');
   const doFetch = options.fetch ?? fetch;
-  const timeoutMs = options.timeoutMs ?? 10_000;
+  const timeoutMs = (method: string) =>
+    (isWrite(method) ? options.writeTimeoutMs : options.timeoutMs) ?? defaultTimeoutMs(method);
 
   async function call<R extends RouteSpec>(route: R, ...args: Args<R>): Promise<RouteOutput<R>> {
     const input = (args[0] ?? {}) as {
@@ -100,11 +123,18 @@ export function createApiClient(options: ApiClientOptions) {
         headers,
         ...(route.body ? { body: JSON.stringify(body) } : {}),
         ...(options.credentials ? { credentials: options.credentials } : {}),
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: AbortSignal.timeout(timeoutMs(route.method)),
       });
     } catch (cause) {
       // A wrapper around fetch may refuse a request on purpose (the offline guard): that error is already the right one.
       if (cause instanceof ApiError) throw cause;
+      // A write that timed out may still have been carried out: a different message, so nobody sends it again blindly.
+      if (isWrite(route.method) && cause instanceof Error && cause.name === 'TimeoutError')
+        throw new ApiError(
+          hasIdempotencyKey(body) ? WRITE_TIMEOUT_SAFE_MESSAGE : WRITE_TIMEOUT_MESSAGE,
+          undefined,
+          'request_timeout',
+        );
       throw new ApiError(
         `API unreachable at ${baseUrl}: ${cause instanceof Error ? cause.message : String(cause)}`,
         undefined,
@@ -191,7 +221,8 @@ export function createApiClient(options: ApiClientOptions) {
     },
     categories: {
       list: () => call(routes.listCategories),
-      create: (name: string) => call(routes.createCategory, { body: { name } }),
+      create: (name: string, idempotencyKey?: string) =>
+        call(routes.createCategory, { body: { name, idempotencyKey } }),
       rename: (id: string, name: string) =>
         call(routes.updateCategory, { params: { id }, body: { name } }),
       remove: (id: string) => call(routes.deleteCategory, { params: { id } }),
@@ -374,7 +405,8 @@ export function createApiClient(options: ApiClientOptions) {
     },
     imports: {
       /** Starts a background import and returns at once; poll `get` until the status is COMPLETED or FAILED. */
-      products: (csv: string) => call(routes.importProducts, { body: { csv } }),
+      products: (csv: string, idempotencyKey?: string) =>
+        call(routes.importProducts, { body: { csv, idempotencyKey } }),
       /** What the import would do, without changing anything. */
       validateProducts: (csv: string) => call(routes.validateProductImport, { body: { csv } }),
       get: (id: string) => call(routes.getImport, { params: { id } }),

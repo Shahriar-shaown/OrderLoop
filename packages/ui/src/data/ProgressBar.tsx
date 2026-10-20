@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 import { useTheme } from '../theme/theme';
+import { useT } from '../i18n';
 
 export interface Segment {
   key: string;
@@ -23,13 +24,14 @@ export function ProgressBar({
   label: string;
 }) {
   const { colors } = useTheme();
+  const t = useT();
   const parts: Segment[] = segments ?? [
     { key: 'v', share: Math.max(0, Math.min(1, value ?? 0)), color: color ?? colors.accent },
   ];
   return (
     <View
       role="progressbar"
-      aria-label={label}
+      aria-label={t(label)}
       {...(segments
         ? {}
         : {

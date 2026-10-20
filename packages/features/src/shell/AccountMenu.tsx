@@ -7,6 +7,7 @@ import {
   MenuRow,
   initials,
   useTheme,
+  useT,
 } from '@orderloop/ui';
 import { Pressable, View } from 'react-native';
 import { useAuth } from '../core/auth';
@@ -15,6 +16,7 @@ import { useAuth } from '../core/auth';
 export function AccountMenu({ onSignOut, leaving }: { onSignOut: () => void; leaving: boolean }) {
   const { session } = useAuth();
   const { colors } = useTheme();
+  const t = useT();
   if (!session) return null;
   return (
     <Popover
@@ -24,7 +26,7 @@ export function AccountMenu({ onSignOut, leaving }: { onSignOut: () => void; lea
       trigger={(p) => (
         <Pressable
           role="button"
-          aria-label={`${initials(session.user.name)} Account menu`}
+          aria-label={`${initials(session.user.name)} ${t('Account menu')}`}
           aria-haspopup="menu"
           aria-expanded={p['aria-expanded']}
           onPress={p.onPress}

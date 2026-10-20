@@ -41,6 +41,7 @@ import { validate } from '../../forms/errors';
 import { messageFor } from '../../forms/errors';
 import { formatWhen } from '../../lib/format';
 import { useFormState } from '../../forms/forms';
+import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
 import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
 
@@ -89,6 +90,7 @@ function InviteSection({ assignable }: { assignable: Role[] }) {
   const api = useApi();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { key: idempotencyKey, renew } = useIdempotencyKey();
   const form = useFormState({
     email: '',
     role: assignable.includes('STAFF') ? 'STAFF' : (assignable[0] ?? 'STAFF'),
@@ -99,12 +101,13 @@ function InviteSection({ assignable }: { assignable: Role[] }) {
     if (!checked.data) return form.setErrors(checked.errors ?? {});
     const body = checked.data;
     const ok = await form.run(async () => {
-      await api.members.invite(body);
+      await api.members.invite({ ...body, idempotencyKey });
       await queryClient.invalidateQueries({ queryKey: ['invitations'] });
     });
     if (ok) {
       toast.success(`Invitation sent to ${body.email}`);
       form.set('email', '');
+      renew(); // the form stays open for the next invitation, which is a new request
     }
   }
   return (

@@ -1,9 +1,11 @@
 import { createElement, useCallback, useMemo } from 'react';
 import { FormContext, type FormProps } from './formContext';
+import { useT } from '../i18n';
 import { space } from '../theme/tokens';
 
 /** Web implementation: a real <form>, so Enter submits, password managers work, and assistive tech sees a form landmark. */
 export function Form({ onSubmit, children, gap = 4, accessibilityLabel }: FormProps) {
+  const t = useT();
   const submit = useCallback(() => onSubmit(), [onSubmit]);
   const value = useMemo(() => submit, [submit]);
   return (
@@ -12,7 +14,7 @@ export function Form({ onSubmit, children, gap = 4, accessibilityLabel }: FormPr
         'form',
         {
           noValidate: true,
-          'aria-label': accessibilityLabel,
+          'aria-label': accessibilityLabel && t(accessibilityLabel),
           style: { display: 'flex', flexDirection: 'column', gap: space[gap] },
           onSubmit: (event: { preventDefault(): void }) => {
             event.preventDefault();

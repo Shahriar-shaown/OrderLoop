@@ -7,6 +7,7 @@ import { Stack } from '../layout/Stack';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
 import { radius } from '../theme/tokens';
+import { useT } from '../i18n';
 
 /**
  * One headline figure (a KPI card): a label with an icon chip, the value in tabular type, and a line of context. `tone`
@@ -29,6 +30,7 @@ export function StatCard({
   tone?: 'default' | 'danger' | 'warning';
 }) {
   const { colors } = useTheme();
+  const t = useT();
   const accent =
     tone === 'danger'
       ? colors.tones.error
@@ -40,7 +42,7 @@ export function StatCard({
       variant="outlined"
       padding="md"
       role="group"
-      aria-label={`${label}: ${value}`}
+      aria-label={`${t(label)}: ${t(value)}`}
       style={{ flexGrow: 1, minWidth: 0 }}
     >
       <Stack gap={2}>

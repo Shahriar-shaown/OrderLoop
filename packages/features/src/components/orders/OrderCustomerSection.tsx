@@ -15,6 +15,7 @@ import {
   Text,
   TextField,
   useTheme,
+  useT,
 } from '@orderloop/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -98,6 +99,7 @@ export function OrderCustomerSection({
 }) {
   const api = useApi();
   const { colors } = useTheme();
+  const t = useT();
   const [search, setSearch] = useState('');
   const q = useDebounced(search.trim());
   const results = useQuery({
@@ -159,7 +161,7 @@ export function OrderCustomerSection({
             <Pressable
               key={c.id}
               role="button"
-              aria-label={`Use customer ${c.name}`}
+              aria-label={t('Use customer {name}', { name: c.name })}
               onPress={() => onPick(c.id)}
               style={{
                 flexDirection: 'row',

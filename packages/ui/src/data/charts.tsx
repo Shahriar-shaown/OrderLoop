@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Stop } from '../theme/svg';
+import { useT } from '../i18n';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
 import { chartColors, radius, space } from '../theme/tokens';
@@ -47,6 +48,7 @@ export function AreaChart({
   tooltipTitle?: (index: number) => string;
 }) {
   const { colors } = useTheme();
+  const t = useT();
   const id = useId().replace(/:/g, '');
   const [width, setWidth] = useState(560);
   const [active, setActive] = useState<number | null>(null);
@@ -116,20 +118,20 @@ export function AreaChart({
         style={{ height, width: '100%', minWidth: 0, overflow: 'hidden' }}
         onLayout={(e) => setWidth(Math.max(1, Math.floor(e.nativeEvent.layout.width)))}
       >
-        <Svg width={width} height={height} role="img" aria-label={title}>
+        <Svg width={width} height={height} role="img" aria-label={t(title)}>
           <Defs>
             <LinearGradient id={`g${id}`} x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor={paths[0]?.color ?? colors.primary} stopOpacity={0.18} />
               <Stop offset="1" stopColor={paths[0]?.color ?? colors.primary} stopOpacity={0} />
             </LinearGradient>
           </Defs>
-          {ticks.map((t, i) => (
+          {ticks.map((tick, i) => (
             <G key={i}>
               <Line
                 x1={PAD.left}
                 x2={width - PAD.right}
-                y1={y(t)}
-                y2={y(t)}
+                y1={y(tick)}
+                y2={y(tick)}
                 stroke={colors.border}
                 strokeWidth={1}
                 strokeDasharray={i === 0 ? undefined : '3 4'}
@@ -176,7 +178,7 @@ export function AreaChart({
             </G>
           )}
         </Svg>
-        {ticks.map((t, i) => (
+        {ticks.map((tick, i) => (
           <Text
             key={i}
             variant="caption"
@@ -187,10 +189,10 @@ export function AreaChart({
               left: 0,
               width: PAD.left - 8,
               textAlign: 'right',
-              top: y(t) - 8,
+              top: y(tick) - 8,
             }}
           >
-            {(formatAxis ?? format)(t)}
+            {(formatAxis ?? format)(tick)}
           </Text>
         ))}
         {labels.map((l, i) =>
@@ -266,7 +268,7 @@ export function AreaChart({
       {/* The same data, for screen readers. */}
       <View
         role="table"
-        aria-label={`${title} (data)`}
+        aria-label={t('{title} (data)', { title: t(title) })}
         style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 }}
       >
         {labels.map((l, i) => (
@@ -309,13 +311,14 @@ export function DonutChart({
   title: string;
 }) {
   const { colors } = useTheme();
+  const t = useT();
   const total = slices.reduce((n, s) => n + Math.max(0, s.value), 0);
   const r = (size - thickness) / 2;
   const c = 2 * Math.PI * r;
   let offset = 0;
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} role="img" aria-label={title}>
+      <Svg width={size} height={size} role="img" aria-label={t(title)}>
         <G transform={`rotate(-90 ${size / 2} ${size / 2})`}>
           <Circle
             cx={size / 2}
@@ -384,6 +387,7 @@ export function WaterfallChart({
   title: string;
 }) {
   const { colors } = useTheme();
+  const t = useT();
   let running = 0;
   const bars = steps.map((s) => {
     let from: number;
@@ -413,7 +417,7 @@ export function WaterfallChart({
       horizontal
       showsHorizontalScrollIndicator={false}
       role="group"
-      aria-label={title}
+      aria-label={t(title)}
       tabIndex={0}
     >
       <View

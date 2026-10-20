@@ -11,6 +11,7 @@ import {
   useToast,
   type Column,
 } from '@orderloop/ui';
+import { invalidateCatalog } from '../../lib/invalidate';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NameDialog } from '../../forms/NameDialog';
@@ -28,7 +29,11 @@ export function LocationsScreen() {
   const query = useLocations();
   const [editing, setEditing] = useState<{ location: Location | null } | null>(null);
   const [working, setWorking] = useState<string | null>(null);
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['locations'] });
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['locations'] }),
+      invalidateCatalog(queryClient),
+    ]);
   const writable = can('catalog:write') || can('inventory:write');
 
   async function change(
@@ -155,9 +160,9 @@ export function LocationsScreen() {
         initial={editing?.location?.name ?? ''}
         submitLabel={editing?.location ? 'Save' : 'Create location'}
         success={editing?.location ? 'Location renamed' : 'Location created'}
-        onSubmit={async (name) => {
+        onSubmit={async (name, idempotencyKey) => {
           if (editing?.location) await api.locations.update(editing.location.id, { name });
-          else await api.locations.create({ name });
+          else await api.locations.create({ name, idempotencyKey });
           await refresh();
         }}
         onClose={() => setEditing(null)}

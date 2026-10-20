@@ -11,6 +11,7 @@ import {
   useToast,
   type Column,
 } from '@orderloop/ui';
+import { invalidateCatalog } from '../../lib/invalidate';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { messageFor } from '../../forms/errors';
@@ -37,7 +38,7 @@ export function CategoriesPanel() {
     setBusy(true);
     try {
       await api.categories.remove(category.id);
-      await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ['products'] })]);
+      await Promise.all([refresh(), invalidateCatalog(queryClient)]);
       toast.success(`Deleted ${category.name}`);
       setDeleting(null);
     } catch (error) {
@@ -134,9 +135,9 @@ export function CategoriesPanel() {
         submitLabel={editing?.category ? 'Save' : 'Create category'}
         success={editing?.category ? 'Category renamed' : 'Category created'}
         icon="tag"
-        onSubmit={async (name) => {
+        onSubmit={async (name, idempotencyKey) => {
           if (editing?.category) await api.categories.rename(editing.category.id, name);
-          else await api.categories.create(name);
+          else await api.categories.create(name, idempotencyKey);
           await refresh();
         }}
         onClose={() => setEditing(null)}

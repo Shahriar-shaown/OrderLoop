@@ -20,6 +20,7 @@ import {
   type Column,
   type MenuItem,
 } from '@orderloop/ui';
+import { invalidateCatalog } from '../../lib/invalidate';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { messageFor } from '../../forms/errors';
@@ -130,11 +131,7 @@ export function ProductsTab({
     setBusy(true);
     try {
       await api.products.update(product.id, { status: archive ? 'ARCHIVED' : 'ACTIVE' });
-      await Promise.all(
-        ['product', 'products', 'inventory'].map((k) =>
-          queryClient.invalidateQueries({ queryKey: [k] }),
-        ),
-      );
+      await invalidateCatalog(queryClient);
       toast.success(archive ? 'Archived' : 'Restored');
       setArchiving(null);
     } catch (error) {

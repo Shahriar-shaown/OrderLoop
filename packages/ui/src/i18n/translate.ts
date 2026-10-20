@@ -15,8 +15,8 @@ const fillIn = (text: string, params?: Params): string =>
  * with enough fixed words around it ("{a} is now {b}") to make an accidental match unlikely.
  */
 function fitsPlaceholder(catalog: CompiledCatalog, value: string, literalLength: number): boolean {
-  // Numbers, amounts, percentages and e-mail addresses are data, never a sentence to be swallowed by accident.
-  if (/[0-9৳%@]/.test(value) || catalog.exact.has(value.trim())) return true;
+  // Numbers (Latin or Bengali digits), amounts, percentages and e-mail addresses are data, never a sentence to be swallowed by accident.
+  if (/[0-9০-৯৳%@]/.test(value) || catalog.exact.has(value.trim())) return true;
   const looksLikeAName =
     value.length <= 40 && !/[.!?:]/.test(value) && value.split(/\s+/).length <= 4;
   return literalLength >= 6 && looksLikeAName;

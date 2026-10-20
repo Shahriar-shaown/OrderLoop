@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { renderUi } from '../../test/render';
@@ -62,6 +62,49 @@ describe('DataTable', () => {
   });
 });
 
+describe('DataTable rows that open something', () => {
+  const rows = [{ id: '1001' }];
+  const columns = [{ key: 'id', header: 'Order', render: (r: { id: string }) => r.id }];
+
+  it('are reachable by keyboard: focusable, named, opened by Enter and Space', async () => {
+    const onRowPress = vi.fn();
+    renderUi(
+      <DataTable
+        label="Orders"
+        rowKey={(r) => r.id}
+        rows={rows}
+        columns={columns}
+        onRowPress={onRowPress}
+        rowLabel={(r) => `Order ${r.id}`}
+      />,
+    );
+    const row = screen.getByRole('row', { name: 'Order 1001' });
+    expect(row).toHaveAttribute('tabindex', '0');
+    await userEvent.tab();
+    await userEvent.tab(); // the scroll region comes first
+    expect(row).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard(' ');
+    expect(onRowPress).toHaveBeenCalledTimes(2);
+  });
+
+  it('are not pressed by a space typed in a field inside the row', async () => {
+    const onRowPress = vi.fn();
+    renderUi(
+      <DataTable
+        label="Orders"
+        rowKey={(r) => r.id}
+        rows={rows}
+        columns={[{ key: 'id', header: 'Order', render: () => <input aria-label="Note" /> }]}
+        onRowPress={onRowPress}
+      />,
+    );
+    screen.getByLabelText('Note').focus(); // typing, not clicking, which would press the row
+    await userEvent.keyboard('a b');
+    expect(onRowPress).not.toHaveBeenCalled();
+  });
+});
+
 describe('Dialog (web)', () => {
   beforeAll(() => {
     // jsdom has no modal <dialog> behaviour; this stands in for the browser's.
@@ -117,6 +160,28 @@ describe('Dialog (web)', () => {
       </Dialog>,
     );
     expect(screen.getByLabelText('Quantity')).toHaveFocus();
+  });
+
+  it('shows toasts inside the open dialog (the top layer hides the page host), and back on the page after it closes', async () => {
+    function Page({ open }: { open: boolean }) {
+      const toast = useToast();
+      return (
+        <>
+          <button onClick={() => toast.success('Saved')}>save</button>
+          <Dialog open={open} onClose={() => undefined} title="Edit">
+            Body
+          </Dialog>
+        </>
+      );
+    }
+    const { rerender } = renderUi(<Page open />);
+    // Every control outside the dialog is inert in the browser: use the DOM click, as the dialog's own button would.
+    fireEvent.click(screen.getByText('save'));
+    expect(screen.getAllByText('Saved')).toHaveLength(1);
+    expect(within(screen.getByRole('dialog')).getByText('Saved')).toBeInTheDocument();
+    rerender(<Page open={false} />);
+    expect(screen.getAllByText('Saved')).toHaveLength(1);
+    expect(screen.queryByRole('dialog')?.contains(screen.getByText('Saved'))).not.toBe(true);
   });
 
   it('ConfirmDialog confirms or cancels', async () => {

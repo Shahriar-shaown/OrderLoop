@@ -19,7 +19,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, View, type ViewStyle } from 'react-native';
-import { useAuth, useRequireAuth } from '../core/auth';
+import { useAuth, useRequireAuth, useSignOut } from '../core/auth';
 import { OfflineBanner } from './OfflineBanner';
 import { RestoreFailed } from './RestoreFailed';
 import { messageFor } from '../forms/errors';
@@ -27,6 +27,7 @@ import { useCan } from '../core/permissions';
 import { useApi, useRuntime } from '../core/runtime';
 import { AccountMenu } from './AccountMenu';
 import { GlobalSearch, useSearchShortcut } from './GlobalSearch';
+import { useCreateActions, type CreateAction } from './createActions';
 import { BOTTOM_HREFS, WEB_NAV, type ShellNavItem } from './nav';
 import { WorkspaceMenu } from './WorkspaceMenu';
 
@@ -96,20 +97,7 @@ export function usePendingOrders(enabled: boolean) {
 
 const sticky = { position: 'sticky', top: 0 } as unknown as ViewStyle;
 
-function QuickCreate({ compact }: { compact?: boolean }) {
-  const can = useCan();
-  const items = [
-    ...(can('orders:write')
-      ? [{ key: 'order', label: 'New order', icon: 'box' as const, href: '/orders/new' }]
-      : []),
-    ...(can('catalog:write')
-      ? [{ key: 'product', label: 'New product', icon: 'layers' as const, href: '/products/new' }]
-      : []),
-    ...(can('orders:write')
-      ? [{ key: 'customer', label: 'New customer', icon: 'users' as const, href: '/customers' }]
-      : []),
-  ];
-  if (!items.length) return null;
+function QuickCreate({ compact, items }: { compact?: boolean; items: CreateAction[] }) {
   return (
     <Menu
       items={items}
@@ -141,13 +129,14 @@ export function AppShell({
   /** The menu. The web app shows the whole catalogue; the mobile app shows what it has built so far. */
   nav?: ShellNavItem[];
 }) {
-  const { status, session: current, signOut, restoreFailed } = useAuth();
+  const { status, session: current, restoreFailed } = useAuth();
+  const { signOut, leaving } = useSignOut();
   useRequireAuth();
   const navigation = useNavigation();
   const can = useCan();
+  const create = useCreateActions();
   const { colors } = useTheme();
   const { isMobile, isTablet, isDesktop } = useBreakpoint();
-  const [leaving, setLeaving] = useState(false);
   const [searching, setSearching] = useState(false);
   const [more, setMore] = useState(false);
   const { pathname } = navigation;
@@ -172,12 +161,6 @@ export function AppShell({
         </Stack>
       </Screen>
     );
-  }
-
-  async function leave() {
-    setLeaving(true);
-    await signOut();
-    navigation.replace('/login');
   }
 
   const items = nav.filter((item) => !item.needs || can(item.needs));
@@ -313,8 +296,8 @@ export function AppShell({
       {!isDesktop && (
         <Button variant="ghost" icon="search" accessibilityLabel="Search" onPress={openSearch} />
       )}
-      {!isMobile && <QuickCreate compact={isTablet} />}
-      <AccountMenu onSignOut={leave} leaving={leaving} />
+      {!isMobile && create.length > 0 && <QuickCreate compact={isTablet} items={create} />}
+      <AccountMenu onSignOut={signOut} leaving={leaving} />
     </View>
   );
 
@@ -344,43 +327,31 @@ export function AppShell({
         const i = items.find((x) => x.href === href);
         return i ? <BottomItem key={href} item={i} /> : null;
       })}
-      <Menu
-        items={[
-          ...(can('orders:write')
-            ? [{ key: 'order', label: 'New order', icon: 'box' as const, href: '/orders/new' }]
-            : []),
-          ...(can('catalog:write')
-            ? [
-                {
-                  key: 'product',
-                  label: 'New product',
-                  icon: 'layers' as const,
-                  href: '/products/new',
-                },
-              ]
-            : []),
-        ]}
-        align="start"
-        trigger={(p) => (
-          <Pressable
-            role="button"
-            aria-label="Create"
-            aria-haspopup="menu"
-            aria-expanded={p['aria-expanded']}
-            onPress={p.onPress}
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 24,
-              backgroundColor: colors.primary,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ color: colors.onPrimary, fontSize: 24, lineHeight: 26 }}>+</Text>
-          </Pressable>
-        )}
-      />
+      {create.length > 0 && (
+        <Menu
+          items={create}
+          align="start"
+          trigger={(p) => (
+            <Pressable
+              role="button"
+              aria-label="Create"
+              aria-haspopup="menu"
+              aria-expanded={p['aria-expanded']}
+              onPress={p.onPress}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: colors.primary,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: colors.onPrimary, fontSize: 24, lineHeight: 26 }}>+</Text>
+            </Pressable>
+          )}
+        />
+      )}
       {(() => {
         const i = items.find((x) => x.href === BOTTOM_HREFS[2]);
         return i ? <BottomItem item={i} /> : null;

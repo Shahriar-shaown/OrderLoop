@@ -8,6 +8,7 @@ import {
   useTheme,
   useToast,
   MenuRow,
+  useT,
 } from '@orderloop/ui';
 import { Pressable, View } from 'react-native';
 import { useAuth } from '../core/auth';
@@ -24,6 +25,7 @@ export function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
   const navigation = useNavigation();
   const toast = useToast();
   const { colors } = useTheme();
+  const t = useT();
   if (!session) return null;
   const many = (query.data?.length ?? 0) > 1;
   return (
@@ -34,7 +36,7 @@ export function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
       trigger={(p) => (
         <Pressable
           role="button"
-          aria-label={`${session.tenant.name} ${session.role.charAt(0) + session.role.slice(1).toLowerCase()}. Switch business`}
+          aria-label={`${session.tenant.name} ${t(session.role.charAt(0) + session.role.slice(1).toLowerCase())}. ${t('Switch business')}`}
           aria-haspopup="menu"
           aria-expanded={p['aria-expanded']}
           onPress={p.onPress}

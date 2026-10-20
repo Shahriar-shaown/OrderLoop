@@ -1,5 +1,6 @@
 import { FormDialog, TextField, useToast, type IconName } from '@orderloop/ui';
 import { useFormState } from './forms';
+import { useIdempotencyKey } from './useIdempotencyKey';
 
 function NameForm({
   title,
@@ -12,11 +13,12 @@ function NameForm({
   icon,
 }: Omit<NameDialogProps, 'open'>) {
   const toast = useToast();
+  const { key } = useIdempotencyKey();
   const form = useFormState({ name: initial });
   async function submit() {
     const name = form.values.name.trim();
     if (!name) return form.setErrors({ name: 'Enter a name' });
-    if (await form.run(() => onSubmit(name))) {
+    if (await form.run(() => onSubmit(name, key))) {
       toast.success(success);
       onClose();
     }
@@ -46,7 +48,8 @@ interface NameDialogProps {
   submitLabel: string;
   /** The toast shown after saving. */
   success: string;
-  onSubmit: (name: string) => Promise<unknown>;
+  /** `idempotencyKey` is the same for every retry from one opening of the dialog: pass it to the create call. */
+  onSubmit: (name: string, idempotencyKey: string) => Promise<unknown>;
   onClose: () => void;
   /** A round icon above the title. */
   icon?: IconName;

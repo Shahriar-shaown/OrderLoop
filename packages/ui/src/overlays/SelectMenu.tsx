@@ -5,6 +5,7 @@ import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
 import { radius, space, touchTarget } from '../theme/tokens';
 import { Popover } from './Popover';
+import { useT } from '../i18n';
 
 export interface SelectMenuOption<T extends string> {
   value: T;
@@ -30,6 +31,7 @@ export function SelectMenu<T extends string>({
 }) {
   const { colors } = useTheme();
   const { isTouch } = useBreakpoint();
+  const t = useT();
   const current = options.find((o) => o.value === value);
   return (
     <Popover
@@ -40,7 +42,7 @@ export function SelectMenu<T extends string>({
       trigger={(p) => (
         <Pressable
           role="combobox"
-          aria-label={`${label}: ${current?.accessibilityLabel ?? current?.label ?? ''}`}
+          aria-label={`${t(label)}: ${t(current?.accessibilityLabel ?? current?.label ?? '')}`}
           aria-haspopup="listbox"
           aria-expanded={p['aria-expanded']}
           onPress={p.onPress}
@@ -67,7 +69,7 @@ export function SelectMenu<T extends string>({
       )}
     >
       {(close) => (
-        <View aria-label={label}>
+        <View aria-label={t(label)}>
           {options.map((o) => {
             const selected = o.value === value;
             return (
@@ -75,7 +77,7 @@ export function SelectMenu<T extends string>({
                 key={o.value}
                 role="option"
                 aria-selected={selected}
-                aria-label={o.accessibilityLabel ?? o.label}
+                aria-label={t(o.accessibilityLabel ?? o.label)}
                 onPress={() => {
                   onChange(o.value);
                   close();

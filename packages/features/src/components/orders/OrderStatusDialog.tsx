@@ -4,6 +4,7 @@ import { FormDialog, SelectField, Stack, Text, TextField, useToast } from '@orde
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useFormState } from '../../forms/forms';
+import { hasReason, REASON_ERROR } from '../../forms/ReasonDialog';
 import { invalidateOrders, STATUS_ACTION, STATUS_LABEL } from '../../lib/orders';
 import { useApi } from '../../core/runtime';
 
@@ -37,8 +38,7 @@ function StatusForm({
 
   async function submit() {
     const reason = form.values.reason.trim();
-    if (needsReason && reason.length < 3)
-      return form.setErrors({ reason: 'Say why (at least 3 characters)' });
+    if (needsReason && !hasReason(reason)) return form.setErrors({ reason: REASON_ERROR });
     const ok = await form.run(async () => {
       await api.orders.changeStatus(order.id, {
         status,

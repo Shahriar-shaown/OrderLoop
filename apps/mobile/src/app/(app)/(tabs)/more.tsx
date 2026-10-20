@@ -1,19 +1,12 @@
-import { useAuth } from '@orderloop/features';
-import { useNavigation } from '@orderloop/ui';
+import { useSignOut } from '@orderloop/features';
 import { MoreScreen } from '@/chrome/MoreScreen';
 import { ScreenFrame } from '@/chrome/ScreenFrame';
 
 export default function More() {
-  const { signOut } = useAuth();
-  const navigation = useNavigation();
+  const { signOut } = useSignOut();
   return (
     <ScreenFrame tab verify>
-      <MoreScreen
-        onSignOut={async () => {
-          await signOut();
-          navigation.replace('/login');
-        }}
-      />
+      <MoreScreen onSignOut={signOut} />
     </ScreenFrame>
   );
 }

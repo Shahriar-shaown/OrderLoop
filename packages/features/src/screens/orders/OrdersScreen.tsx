@@ -26,6 +26,7 @@ import {
   type Column,
   type MenuItem,
   isRealDay,
+  useT,
 } from '@orderloop/ui';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -79,6 +80,7 @@ export function OrdersScreen({
   const api = useApi();
   const can = useCan();
   const toast = useToast();
+  const t = useT();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -109,9 +111,16 @@ export function OrdersScreen({
   const filtered = Object.keys(filters).length > 0;
 
   // The API reads by cursor, so Previous needs the cursors already passed: a stack with the first page (no cursor) at the bottom.
-  const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);
+  // The stack belongs to one set of filters: read under any other it is the first page, so a stale cursor is never sent with new filters.
+  const filterKey = JSON.stringify([filters, sortKey]);
+  const [paging, setPaging] = useState<{ key: string; stack: (string | undefined)[] }>({
+    key: filterKey,
+    stack: [undefined],
+  });
+  const cursors = paging.key === filterKey ? paging.stack : [undefined];
   const cursor = cursors[cursors.length - 1];
-  useEffect(() => setCursors([undefined]), [filters, sortKey]);
+  const setCursors = (next: (stack: (string | undefined)[]) => (string | undefined)[]) =>
+    setPaging({ key: filterKey, stack: next(cursors) });
 
   const orders = useQuery({
     queryKey: ['orders', filters, sortKey, cursor ?? null],
@@ -162,12 +171,13 @@ export function OrdersScreen({
       if (result.succeeded > 0 && result.failed > 0)
         toast.info(`${result.succeeded} updated, ${result.failed} could not be`);
       setSelected(result.results.filter((r) => !r.ok).map((r) => r.orderId));
-    } catch (error) {
-      toast.error(messageFor(error));
     } finally {
       setBulkBusy(false);
     }
   }
+  // Errors reach the caller: the reason dialog shows them and stays open, the plain buttons toast them.
+  const bulkWithToast = (target: OrderStatus) =>
+    bulk(target).catch((error: unknown) => toast.error(messageFor(error)));
 
   async function cancelOne(order: OrderSummary, reason: string) {
     await api.orders.changeStatus(order.id, { status: 'cancelled', reason });
@@ -320,7 +330,7 @@ export function OrdersScreen({
 
       {selected.length > 0 && (
         <Stack gap={2}>
-          <Card variant="filled" padding="sm" role="toolbar" aria-label="Selected orders">
+          <Card variant="filled" padding="sm" role="toolbar" aria-label={t('Selected orders')}>
             <Row gap={2} wrap justify="between">
               <Text
                 variant="label"
@@ -333,7 +343,7 @@ export function OrdersScreen({
                     size="sm"
                     variant={b.status === 'cancelled' ? 'danger' : 'tertiary'}
                     loading={bulkBusy}
-                    onPress={() => (b.reason ? setCancelling('bulk') : bulk(b.status))}
+                    onPress={() => (b.reason ? setCancelling('bulk') : bulkWithToast(b.status))}
                   >
                     {b.label}
                   </Button>
@@ -377,6 +387,7 @@ export function OrdersScreen({
           loading={orders.isPending}
           empty={empty}
           onRowPress={(o) => navigation.push(`/orders/${o.id}`)}
+          rowLabel={(o) => `Order #${o.orderNumber}`}
           renderCard={(o) => <OrderCard order={o} />}
           {...(write
             ? { selection: { selected, onChange: setSelected }, selectLabel: selectOrderLabel }

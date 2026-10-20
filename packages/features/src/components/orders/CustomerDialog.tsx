@@ -4,6 +4,7 @@ import { FieldGrid, FormDialog, TextField, useToast } from '@orderloop/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { validate } from '../../forms/errors';
 import { useFormState } from '../../forms/forms';
+import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
 import { invalidateOrders } from '../../lib/orders';
 import { useApi } from '../../core/runtime';
 
@@ -21,6 +22,7 @@ function CustomerForm({
   const api = useApi();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { key: idempotencyKey } = useIdempotencyKey();
   const form = useFormState({
     name: customer?.name ?? '',
     phone: customer ? formatBdPhone(customer.phone) : '',
@@ -38,7 +40,7 @@ function CustomerForm({
     const ok = await form.run(async () => {
       saved = customer
         ? await api.customers.update(customer.id, body)
-        : await api.customers.create(body as CustomerBody);
+        : await api.customers.create({ ...(body as CustomerBody), idempotencyKey });
       await invalidateOrders(queryClient);
     });
     if (ok && saved) {

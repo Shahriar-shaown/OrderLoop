@@ -1,4 +1,4 @@
-import { Skeleton, Stack } from '@orderloop/ui';
+import { Skeleton, Stack, useT } from '@orderloop/ui';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 import { QueryBoundary } from './QueryBoundary';
@@ -12,6 +12,8 @@ export function SectionBoundary({
   isError,
   error,
   refetch,
+  data,
+  fetchStatus,
   label,
   lines = 3,
   height = 16,
@@ -21,14 +23,18 @@ export function SectionBoundary({
   isError: boolean;
   error: unknown;
   refetch: () => void;
+  data?: unknown;
+  fetchStatus?: 'fetching' | 'paused' | 'idle';
   label: string;
   lines?: number;
   height?: number;
   children: ReactNode;
 }) {
-  if (isPending)
+  const t = useT();
+  // Offline with nothing loaded: the boundary's offline state, not placeholders that never fill.
+  if (isPending && fetchStatus !== 'paused')
     return (
-      <View role="status" aria-label={label}>
+      <View role="status" aria-label={t(label)}>
         <Stack gap={3}>
           {Array.from({ length: lines }, (_, i) => (
             <Skeleton
@@ -41,7 +47,14 @@ export function SectionBoundary({
       </View>
     );
   return (
-    <QueryBoundary isPending={false} isError={isError} error={error} refetch={refetch}>
+    <QueryBoundary
+      isPending={isPending}
+      isError={isError}
+      error={error}
+      refetch={refetch}
+      data={data}
+      fetchStatus={fetchStatus}
+    >
       {children}
     </QueryBoundary>
   );

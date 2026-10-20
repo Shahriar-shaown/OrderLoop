@@ -2,6 +2,7 @@ import { Pressable, View } from 'react-native';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
 import { space, touchTarget } from '../theme/tokens';
+import { useT } from '../i18n';
 
 export interface RadioOption {
   value: string;
@@ -24,10 +25,11 @@ export function RadioGroup({
   direction?: 'row' | 'column';
 }) {
   const { colors } = useTheme();
+  const t = useT();
   return (
     <View
       role="radiogroup"
-      aria-label={label}
+      aria-label={t(label)}
       style={{
         flexDirection: direction,
         flexWrap: 'wrap',
@@ -92,11 +94,12 @@ export function Switch({
   disabled?: boolean;
 }) {
   const { colors } = useTheme();
+  const t = useT();
   return (
     <Pressable
       role="switch"
       aria-checked={value}
-      aria-label={label}
+      aria-label={t(label)}
       disabled={disabled}
       onPress={() => onChange(!value)}
       style={{

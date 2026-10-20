@@ -62,13 +62,16 @@ function ProfileForm({ business, canEdit }: { business: TenantInfo; canEdit: boo
   const form = useZodForm(BusinessProfileForm, toValues(business));
   const editable = canEdit;
 
+  // Take in changes from the server (a refresh, another tab) only while there is nothing typed to lose.
+  const { isDirty } = form.formState;
   useEffect(() => {
-    form.reset(toValues(business));
+    if (!isDirty) form.reset(toValues(business));
   }, [business]);
 
   const submit = form.submit(async (data) => {
     const updated = await api.updateTenant(data);
     queryClient.setQueryData(['tenant', updated.id], updated);
+    form.reset(toValues(updated)); // what was just saved is the new starting point, so the form is pristine again
     await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
     // The save succeeded; a failed refresh of the session (offline just now) must not make it look as if it had not.
     await manager.refresh().catch(() => undefined);

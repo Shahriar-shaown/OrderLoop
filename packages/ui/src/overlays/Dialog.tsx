@@ -5,6 +5,7 @@ import { Content } from '../layout/Content';
 import { Stack } from '../layout/Stack';
 import { useTheme } from '../theme/theme';
 import { DialogHeader } from './DialogHeader';
+import { ToastHost, useToastLayer } from './Toast';
 import { radius, space } from '../theme/tokens';
 
 export type { DialogProps } from './dialogTypes';
@@ -22,6 +23,7 @@ export function Dialog({
 }: DialogProps) {
   const { colors } = useTheme();
   const titleId = useId();
+  const toasts = useToastLayer(open);
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
       {/* Lifts the dialog above the keyboard, so the focused field is never covered. */}
@@ -69,6 +71,7 @@ export function Dialog({
             )}
           </ScrollView>
         </View>
+        <ToastHost visible={toasts} />
       </KeyboardAvoidingView>
     </Modal>
   );

@@ -22,6 +22,7 @@ import {
   useSwitchWorkspace,
 } from '../../lib/workspaces';
 import { useRuntime } from '../../core/runtime';
+import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
 
 /** Start another business. You become its owner and are taken into it. */
 export function WorkspaceCreateScreen() {
@@ -29,6 +30,8 @@ export function WorkspaceCreateScreen() {
   const navigation = useNavigation();
   const toast = useToast();
   const switchTo = useSwitchWorkspace();
+  // Kept across retries: if the first attempt got through but the answer was lost, the retry returns that business.
+  const { key: idempotencyKey } = useIdempotencyKey();
   const form = useZodForm(CreateWorkspaceBody, {
     name: '',
     currency: 'BDT',
@@ -37,7 +40,7 @@ export function WorkspaceCreateScreen() {
   });
 
   const submit = form.submit(async (data) => {
-    const created = await api.workspaces.create(data);
+    const created = await api.workspaces.create({ ...data, idempotencyKey });
     await switchTo(created.id);
     toast.success(`${created.name} is ready`);
     navigation.replace('/settings');

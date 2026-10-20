@@ -28,6 +28,7 @@ import {
   type Column,
   type IconName,
   useBreakpoint,
+  useT,
 } from '@orderloop/ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -49,6 +50,7 @@ import { SectionBoundary } from '../../shell/SectionBoundary';
 import { COURIER_NAME } from '../../lib/couriers';
 import {
   formatDayTime,
+  formatLongDate,
   formatShortDay,
   formatWeekdayDay,
   formatWhen,
@@ -75,17 +77,11 @@ const STATUS_COLOR: Record<(typeof ORDER_STATUS_VALUES)[number], string> = {
 };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-const longDate = (d: Date) =>
-  new Intl.DateTimeFormat('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(d);
 
 function DashboardSkeleton() {
+  const t = useT();
   return (
-    <View role="status" aria-label="Loading the dashboard">
+    <View role="status" aria-label={t('Loading the dashboard')}>
       <PageStack>
         <Grid columns={{ mobile: 2, tablet: 3, desktop: 6 }}>
           {Array.from({ length: 6 }, (_, i) => (
@@ -631,7 +627,7 @@ export function DashboardScreen() {
     <PageStack>
       <PageHeader
         title={firstName ? `${greeting()}, ${firstName}` : greeting()}
-        description={`${longDate(new Date())}${session ? ` · ${session.tenant.name}` : ''}`}
+        description={`${formatLongDate(new Date())}${session ? ` · ${session.tenant.name}` : ''}`}
         actions={
           <>
             <Tabs
@@ -657,6 +653,8 @@ export function DashboardScreen() {
           isPending={false}
           isError={query.isError}
           error={query.error}
+          data={query.data}
+          fetchStatus={query.fetchStatus}
           refetch={() => query.refetch()}
         >
           {d && (
@@ -801,7 +799,7 @@ export function DashboardScreen() {
               </Grid>
 
               <Text variant="caption" tone="muted">
-                {`Updated ${formatWhen(d.generatedAt)}. ${d.timezone} time.`}
+                {`Updated ${formatWhen(d.generatedAt)}. ${session?.tenant.timezone ?? d.timezone} time.`}
               </Text>
             </PageStack>
           )}

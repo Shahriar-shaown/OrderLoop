@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Checkbox } from '../inputs/Checkbox';
 import { Skeleton } from '../feedback/Skeleton';
+import { useT } from '../i18n';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
 import { radius, space } from '../theme/tokens';
@@ -38,21 +39,35 @@ export interface Selection {
   onChange: (ids: string[]) => void;
 }
 
+type KeyEvent = { key: string; target: unknown; currentTarget: unknown; preventDefault(): void };
+
+/** Space presses the row (web only: native has no keyboard focus). Only the row's own Space: one typed in a field inside it is not a press. */
+const pressOnSpace = (onPress: () => void) => (event: KeyEvent) => {
+  if (event.key === ' ' && event.target === event.currentTarget) {
+    event.preventDefault();
+    onPress();
+  }
+};
+
 /**
  * A table row or card. Only a row that can be pressed is a `Pressable`: a disabled one would mark itself `aria-disabled`, and
- * everything inside it (the row's own action buttons) with it.
+ * everything inside it (the row's own action buttons) with it. A pressable row is reachable by keyboard whatever its role:
+ * Tab focuses it, Enter (by the Pressable) and Space (here: it is only a native button key) open it.
  */
 function RowShell({
   onPress,
   style,
   children,
   role,
+  label,
 }: {
   onPress: (() => void) | undefined;
   style: StyleProp<ViewStyle> | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>);
   children: ReactNode;
   role: 'row' | 'listitem';
+  label?: string | undefined;
 }) {
+  const t = useT();
   if (!onPress) {
     const plain =
       typeof style === 'function' ? style({ pressed: false } as PressableStateCallbackType) : style;
@@ -63,7 +78,14 @@ function RowShell({
     );
   }
   return (
-    <Pressable role={role} focusable={role === 'listitem'} onPress={onPress} style={style}>
+    <Pressable
+      role={role}
+      focusable
+      aria-label={label && t(label)}
+      onPress={onPress}
+      {...({ onKeyDown: pressOnSpace(onPress) } as object)}
+      style={style}
+    >
       {children}
     </Pressable>
   );
@@ -88,6 +110,7 @@ export function DataTable<T>({
   footer,
   rowHeight = 56,
   selectLabel,
+  rowLabel,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -104,8 +127,11 @@ export function DataTable<T>({
   rowHeight?: number;
   /** Names a row's checkbox for screen readers ("Select order 1001"). Default: "Select <row key>". */
   selectLabel?: (row: T) => string;
+  /** Names a pressable row for screen readers ("Order 1001"). Default: the row's own text. */
+  rowLabel?: (row: T) => string;
 }) {
   const { colors } = useTheme();
+  const t = useT();
   const { breakpoint, isMobile } = useBreakpoint();
   const visible = columns.filter((c) => RANK[breakpoint] >= NEEDS[c.show ?? 'always']);
   const CHECK = 44;
@@ -138,7 +164,7 @@ export function DataTable<T>({
 
   if (isMobile && renderCard) {
     return (
-      <View style={{ gap: space[3] }} role="list" aria-label={label}>
+      <View style={{ gap: space[3] }} role="list" aria-label={t(label)}>
         {loading
           ? [0, 1, 2].map((i) => (
               <View key={i} style={[frame, { padding: space[4], gap: space[2] }]}>
@@ -154,6 +180,7 @@ export function DataTable<T>({
                   key={id}
                   role="listitem"
                   onPress={onRowPress ? () => onRowPress(row) : undefined}
+                  label={rowLabel?.(row)}
                   style={[
                     frame,
                     { padding: space[4], flexDirection: 'row', gap: space[3] },
@@ -187,9 +214,9 @@ export function DataTable<T>({
         contentContainerStyle={{ flexGrow: 1 }}
         tabIndex={0}
         role="region"
-        aria-label={label ? `${label}, scrollable` : undefined}
+        aria-label={label ? t('{label}, scrollable', { label: t(label) }) : undefined}
       >
-        <View role="table" aria-label={label} style={{ minWidth: minTotal, flexGrow: 1 }}>
+        <View role="table" aria-label={t(label)} style={{ minWidth: minTotal, flexGrow: 1 }}>
           <View
             role="row"
             style={{
@@ -258,6 +285,7 @@ export function DataTable<T>({
                     key={id}
                     role="row"
                     onPress={onRowPress ? () => onRowPress(row) : undefined}
+                    label={rowLabel?.(row)}
                     style={(state) => [
                       {
                         flexDirection: 'row',

@@ -2,6 +2,7 @@ import { createElement, useEffect, useId, useRef } from 'react';
 import { Content } from '../layout/Content';
 import { Stack } from '../layout/Stack';
 import { DialogHeader } from './DialogHeader';
+import { ToastHost, useToastLayer } from './Toast';
 import { space } from '../theme/tokens';
 import { DIALOG_WIDTHS, type DialogProps } from './dialogTypes';
 
@@ -31,6 +32,7 @@ export function Dialog({
 }: DialogProps) {
   const ref = useRef<DialogElement | null>(null);
   const titleId = useId();
+  const toasts = useToastLayer(open);
 
   useEffect(() => {
     const el = ref.current;
@@ -85,6 +87,7 @@ export function Dialog({
               </Stack>
             )}
           </Stack>,
+          <ToastHost visible={toasts} />,
         )
       : null,
   );

@@ -21,7 +21,7 @@ export function Providers({ children }: { children: ReactNode }) {
     [pathname, router],
   );
   return (
-    <AppProviders runtime={runtime} navigation={navigation} language={language} refetchOnFocus>
+    <AppProviders runtime={runtime} navigation={navigation} language={language}>
       {children}
     </AppProviders>
   );

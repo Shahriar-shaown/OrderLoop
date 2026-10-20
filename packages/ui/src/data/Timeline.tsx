@@ -4,6 +4,7 @@ import { Icon } from '../feedback/Icon';
 import { Stack } from '../layout/Stack';
 import { Text } from '../Text';
 import { useTheme } from '../theme/theme';
+import { useT } from '../i18n';
 
 export interface TimelineStep {
   key: string;
@@ -18,8 +19,9 @@ export interface TimelineStep {
 /** A vertical sequence of steps with a connecting line: order progress, shipment tracking. */
 export function Timeline({ steps, label }: { steps: TimelineStep[]; label: string }) {
   const { colors } = useTheme();
+  const t = useT();
   return (
-    <View role="list" aria-label={label}>
+    <View role="list" aria-label={t(label)}>
       {steps.map((s, i) => {
         const last = i === steps.length - 1;
         const done = s.state === 'done';

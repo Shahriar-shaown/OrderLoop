@@ -453,8 +453,8 @@ export const IMPORT_JOB_OPTIONS = {
 
 /**
  * Imports saved as PENDING for longer than `olderThanMs`: normally they are picked up within seconds, so these were never
- * queued (the API died between saving and queueing) or were lost from the queue. Looks across tenants, which row-level
- * security allows only for this one read (see the import_sweep migration); it returns ids and never the CSV.
+ * queued (the API died between saving and queueing) or were lost from the queue. Looks across tenants through one
+ * SECURITY DEFINER function (see the import_sweep_function migration) that returns ids only, never the CSV.
  */
 export async function findStalePendingImports(
   db: Database,
@@ -462,13 +462,8 @@ export async function findStalePendingImports(
   limit = 100,
 ): Promise<ImportInput[]> {
   return db.withContext({}, async (tx) => {
-    await tx.$executeRaw`SELECT set_config('app.sweep', 'import_jobs', true)`;
-    const rows = await tx.importJob.findMany({
-      where: { status: 'PENDING', createdAt: { lt: new Date(Date.now() - olderThanMs) } },
-      select: { id: true, tenantId: true },
-      orderBy: { createdAt: 'asc' },
-      take: limit,
-    });
-    return rows.map((r) => ({ tenantId: r.tenantId, importId: r.id }));
+    const rows = await tx.$queryRaw<{ id: string; tenant_id: string }[]>`
+      SELECT id, tenant_id FROM stale_pending_imports(${Math.ceil(olderThanMs / 1000)}::int, ${limit}::int)`;
+    return rows.map((r) => ({ tenantId: r.tenant_id, importId: r.id }));
   });
 }
