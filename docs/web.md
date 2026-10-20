@@ -32,7 +32,7 @@ const useCardStyle = createVariants((t) => ({
 }));
 ```
 
-To add a component: put it in `packages/ui/src`, give it variants rather than one-off styles, export it from `index.ts`, and add a test next to it. To restyle the product, change `tokens.ts`.
+To add a component: put it in the matching folder of `packages/ui/src` (`inputs`, `overlays`, `data`, `layout`, `navigation`, `feedback`, `theme`), give it variants rather than one-off styles, export it from `index.ts`, and add a test next to it. To restyle the product, change `theme/tokens.ts`.
 
 ### One implementation or two?
 
@@ -77,11 +77,11 @@ Set `MAIL_PROVIDER=smtp`, `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025` in `.env` to s
 
 ## Tests
 
-| What                                                                                                  | Where                                | Run                                     |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------ | --------------------------------------- |
-| Components (theme, variants, forms, links, dialogs, tables, toasts) in jsdom through react-native-web | `packages/ui/src/*.test.tsx`         | `pnpm test`                             |
-| Session manager, error messages, money, variants, form state                                          | `packages/features/src/*.test.ts(x)` | `pnpm test`                             |
-| Browser scenarios in real Chrome, with a WCAG A/AA scan (axe) of every screen                         | `apps/web/e2e`                       | `pnpm --filter @orderloop/web test:e2e` |
+| What                                                                                                  | Where                                   | Run                                     |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------- |
+| Components (theme, variants, forms, links, dialogs, tables, toasts) in jsdom through react-native-web | `packages/ui/src/**/*.test.tsx`         | `pnpm test`                             |
+| Session manager, error messages, money, variants, form state                                          | `packages/features/src/**/*.test.ts(x)` | `pnpm test`                             |
+| Browser scenarios in real Chrome, with a WCAG A/AA scan (axe) of every screen                         | `apps/web/e2e`                          | `pnpm --filter @orderloop/web test:e2e` |
 
 The browser tests need `pnpm services:up` and `pnpm services:mail`. Their setup uses the isolated `orderloop_test` database and Redis index 2, builds the web app into `apps/web/build/e2e`, starts the API (:4100), worker and web app (:3100), and follows the real links from emails delivered to Mailpit. Every test also fails if the browser console shows anything other than an expected 4xx response. Set `E2E_SKIP_BUILD=1` to reuse the last build and `E2E_VERBOSE=1` to see server logs.
 

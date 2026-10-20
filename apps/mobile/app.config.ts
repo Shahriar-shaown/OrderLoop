@@ -7,7 +7,18 @@ import pkg from './package.json';
  * The API address is not here: it is `EXPO_PUBLIC_API_URL`, set per profile in eas.json and in the repository's .env locally.
  */
 type Variant = 'development' | 'preview' | 'production';
-const variant = (process.env.APP_VARIANT as Variant | undefined) ?? 'development';
+const requested = process.env.APP_VARIANT as Variant | undefined;
+// A cloud build that forgot to say which variant it is must stop, not quietly ship as the development app.
+if (!requested && process.env.EAS_BUILD_PROFILE)
+  throw new Error(
+    `APP_VARIANT is not set for the EAS build profile "${process.env.EAS_BUILD_PROFILE}" (see eas.json)`,
+  );
+const variant = requested ?? 'development';
+// Release builds must point at a real server: the placeholder addresses of eas.json are for you to replace.
+if (variant !== 'development' && /(^|\.)example\.com\b/.test(process.env.EXPO_PUBLIC_API_URL ?? ''))
+  throw new Error(
+    `EXPO_PUBLIC_API_URL is still the placeholder (${process.env.EXPO_PUBLIC_API_URL}): set your server's address in eas.json`,
+  );
 
 const IDS: Record<Variant, { name: string; id: string; scheme: string }> = {
   development: { name: 'OrderLoop (Dev)', id: 'com.orderloop.app.dev', scheme: 'orderloop-dev' },
@@ -21,6 +32,14 @@ const IDS: Record<Variant, { name: string; id: string; scheme: string }> = {
 const { name, id, scheme } = IDS[variant];
 
 const INDIGO = '#4F46E5';
+
+/**
+ * The web app's address, when emails should open this app instead of the browser: the links in verification, password-reset
+ * and invitation emails are https addresses of the web app, so they reach the app only as universal links (iOS) and app links
+ * (Android) for that host. Needs the host's `.well-known` files too: see docs/mobile.md. Unset, links open in the browser.
+ */
+const webHost = process.env.APP_WEB_HOST;
+const EMAIL_LINK_PATHS = ['/verify-email', '/reset-password', '/accept-invitation'];
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -36,6 +55,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     bundleIdentifier: id,
     supportsTablet: true,
+    ...(webHost ? { associatedDomains: [`applinks:${webHost}`] } : {}),
     icon: './assets/images/icon.png',
     infoPlist: {
       // The app only uses the platform's own TLS: no export-compliance questions at upload.
@@ -59,6 +79,22 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.WRITE_EXTERNAL_STORAGE',
       ...(variant === 'production' ? ['android.permission.SYSTEM_ALERT_WINDOW'] : []),
     ],
+    ...(webHost
+      ? {
+          intentFilters: [
+            {
+              action: 'VIEW',
+              autoVerify: true,
+              data: EMAIL_LINK_PATHS.map((pathPrefix) => ({
+                scheme: 'https',
+                host: webHost,
+                pathPrefix,
+              })),
+              category: ['BROWSABLE', 'DEFAULT'],
+            },
+          ],
+        }
+      : {}),
     softwareKeyboardLayoutMode: 'resize',
     predictiveBackGestureEnabled: false,
   },

@@ -16,7 +16,7 @@
     "format:check": "prettier --check .",
     "check:versions": "node scripts/check-versions.mjs",
     "check:boundaries": "node scripts/check-boundaries.mjs",
-    "check": "turbo run lint typecheck test build && node --test scripts/*.test.mjs && node scripts/check-versions.mjs && node scripts/check-boundaries.mjs",
+    "check": "pnpm format:check && pnpm check:versions && pnpm check:boundaries && turbo run lint typecheck test build",
     "services:up": "docker compose -f infra/docker-compose.yml up -d --wait",
     "services:down": "docker compose -f infra/docker-compose.yml --profile mail down",
     "services:logs": "docker compose -f infra/docker-compose.yml logs -f",

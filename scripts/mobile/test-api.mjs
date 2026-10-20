@@ -1,10 +1,10 @@
 // An API on :4100 against the isolated test database, for trying the app on a simulator or device without touching the
-// development data (the same stack the web e2e tests use). Needs `pnpm services:up` and a built API (`pnpm --filter @orderloop/api build`).
+// development data (the same stack the web e2e tests use). Refuses to run for a non-local database.. Needs `pnpm services:up` and a built API (`pnpm --filter @orderloop/api build`).
 import { spawn } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 try {
   process.loadEnvFile(resolve(root, '.env'));
 } catch {
@@ -20,6 +20,11 @@ const withDb = (url, db) => {
   u.pathname = db;
   return u.toString();
 };
+for (const name of ['DATABASE_URL', 'REDIS_URL']) {
+  const host = new URL(need(name)).hostname;
+  if (!['localhost', '127.0.0.1', '::1'].includes(host))
+    throw new Error(`${name} is not local (${host}): this launcher is for development only`);
+}
 const PORT = process.env.MOBILE_TEST_API_PORT ?? '4100';
 
 const child = spawn('node', ['dist/main.js'], {

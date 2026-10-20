@@ -17,7 +17,7 @@ vi.mock('./env', () => ({ env: { API_URL: 'http://api.test' } }));
 // The store itself is plain TypeScript; load it without the screens (they need react-native).
 vi.mock(
   '@orderloop/features',
-  async () => import('../../../../packages/features/src/connectivity'),
+  async () => import('../../../../packages/features/src/core/connectivity'),
 );
 
 const load = async () => {

@@ -22,6 +22,42 @@ const WEB_EXTENSIONS = [
   '.json',
 ];
 
+const isProduction = process.env.NODE_ENV === 'production';
+
+/**
+ * The browser's own defences for a page that holds a login. The Content-Security-Policy lets the page talk only to itself and
+ * to the API, load nothing from other sites, and never be framed: so a stray injected script could neither load more code nor
+ * send what it finds anywhere else. Scripts keep 'unsafe-inline' because Next writes inline bootstrap scripts; tightening
+ * that needs a per-request nonce (the proxy convention in Next's docs) and is the next step.
+ */
+function securityHeaders() {
+  const api = new URL(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').origin;
+  const csp = [
+    "default-src 'self'",
+    `script-src 'self' 'unsafe-inline'${isProduction ? '' : " 'unsafe-eval'"}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    `connect-src 'self' ${api}${isProduction ? '' : ' ws: wss:'}`,
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+  ].join('; ');
+  return [
+    { key: 'Content-Security-Policy', value: csp },
+    { key: 'X-Content-Type-Options', value: 'nosniff' },
+    { key: 'X-Frame-Options', value: 'DENY' },
+    { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+    { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+    { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+    // Only over TLS: sent on a plain http://localhost it would be ignored, but a production build behind https keeps it.
+    ...(isProduction
+      ? [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' }]
+      : []),
+  ];
+}
+
 const nextConfig: NextConfig = {
   // The end-to-end tests build into their own folder so they never disturb a running `next dev`.
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
@@ -39,17 +75,7 @@ const nextConfig: NextConfig = {
     return config;
   },
   async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-        ],
-      },
-    ];
+    return [{ source: '/:path*', headers: securityHeaders() }];
   },
 };
 

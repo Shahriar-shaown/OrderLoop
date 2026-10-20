@@ -1,13 +1,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const store = new Map<string, string>();
+const plain = new Map<string, string>();
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: async (k: string) => plain.get(k) ?? null,
+    setItem: async (k: string, v: string) => void plain.set(k, v),
+  },
+}));
 vi.mock('expo-secure-store', () => ({
+  WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'this-device-only',
   getItemAsync: async (key: string) => store.get(key) ?? null,
   setItemAsync: async (key: string, value: string) => void store.set(key, value),
   deleteItemAsync: async (key: string) => void store.delete(key),
 }));
 
-afterEach(() => store.clear());
+afterEach(() => {
+  store.clear();
+  plain.clear();
+});
 
 describe('mobile refresh-token storage', () => {
   it('reads nothing before sign-in, stores the token, and forgets it on sign-out', async () => {
@@ -25,5 +36,13 @@ describe('mobile refresh-token storage', () => {
     const { secureTokenStore } = await import('./secureTokenStore');
     await secureTokenStore.set('x');
     expect([...store.keys()]).toEqual(['orderloop.refresh-token']);
+  });
+
+  it('forgets a token left behind by an earlier install (the keychain outlives an uninstall)', async () => {
+    const { secureTokenStore } = await import('./secureTokenStore');
+    store.set('orderloop.refresh-token', 'stale'); // no install marker: a fresh install
+    expect(await secureTokenStore.get()).toBeNull();
+    await secureTokenStore.set('fresh');
+    expect(await secureTokenStore.get()).toBe('fresh'); // the marker is now set: it is kept
   });
 });

@@ -1,6 +1,10 @@
 // Creates a demo business with products, stock and orders through the public API, so the app has something to show.
-// Usage: node scripts/seed-demo.mjs [apiUrl]   (default http://localhost:4100; see test-api.mjs)
+// Usage: node scripts/mobile/seed-demo.mjs [apiUrl]   (default http://localhost:4100; see test-api.mjs)
 const API = process.argv[2] ?? 'http://localhost:4100';
+if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(API))
+  throw new Error(
+    `${API} is not a local address: this script creates demo data with a known password`,
+  );
 const stamp = Date.now().toString(36);
 const email = `demo-${stamp}@example.test`;
 const password = 'Demo-password-1';

@@ -43,15 +43,23 @@ refresh, the offline banner. The bottom bar (`src/chrome/TabBar.tsx`) and the ta
 ```
 apps/mobile/
   app.config.ts, eas.json        identity per build variant; build profiles
-  scripts/                       icons, test API, demo data, env loading
+  scripts/                       icons, env loading (the test API and demo data live in the repo's scripts/mobile/)
   src/
     app/                         the routes: thin files that mount a shared screen inside a ScreenFrame
     chrome/                      what surrounds the screens: ScreenFrame, TabBar, MobileHeader, CreateSheet, MoreScreen
     platform/                    the phone's side of the app: runtime, env, secure token store, language store,
                                  connectivity, and Providers (the router adapter + the shared providers)
     navigation.ts                the tabs and the More menu (the single list the routes test checks)
-packages/features/               the screens, flows and shared logic (offline guard, session, query cache, i18n catalogue)
-packages/ui/                     components; src/i18n/ is the translation engine (catalog, translate, dates, provider)
+packages/features/src/          the screens, flows and shared logic
+  core/                          session, runtime, auth, permissions, connectivity (offline guard), query cache
+  forms/                         form state, zod forms, error messages, form fields and small dialogs
+  lib/                           formatting, money, and the labels and hooks of each area (orders, finance, couriers…)
+  screens/<area>/                auth, orders, catalog, logistics, insights, workspace (+ their tests)
+  components/<area>/             the pieces of those screens
+  shell/                         app frame, providers, header menus, search, banners
+  i18n/                          the Bangla catalogue of the app
+packages/ui/src/                 components in folders: inputs, overlays, data, layout, navigation, feedback, theme;
+                                 i18n/ is the translation engine (catalog, translate, dates, provider)
 ```
 
 ### Touch targets, safe areas, keyboard
@@ -93,8 +101,8 @@ pnpm --filter @orderloop/api build && pnpm --filter @orderloop/api start
 pnpm --filter @orderloop/mobile start    # Metro; press i (iOS) or a (Android), or scan the QR code with Expo Go
 ```
 
-Handy for trying the app without touching development data: `node apps/mobile/scripts/test-api.mjs` runs an API on :4100
-against the isolated test database, and `node apps/mobile/scripts/seed-demo.mjs http://localhost:4100` creates a business with
+Handy for trying the app without touching development data: `node scripts/mobile/test-api.mjs` runs an API on :4100
+against the isolated test database, and `node scripts/mobile/seed-demo.mjs http://localhost:4100` creates a business with
 products, stock and orders and prints the sign-in.
 
 ### Expo Go and development builds
@@ -126,6 +134,19 @@ Platform requirements:
 - **Android**: JDK 17, Android Studio with an SDK and an emulator (or a device with USB debugging), and `adb` on the PATH.
   Store builds are `.aab` files signed by EAS (or your own upload key).
 - EAS: `npm i -g eas-cli`, `eas login`, `eas init` (sets `EAS_PROJECT_ID`).
+
+## Email links (universal and app links)
+
+The emails (verify, reset password, invitation) link to the web app's pages. Without more, a phone opens them in the browser.
+To open the app instead, set `APP_WEB_HOST` (for example `app.example.com`) when building: `app.config.ts` then declares the
+associated domain (iOS) and the verified intent filters (Android) for `/verify-email`, `/reset-password` and
+`/accept-invitation`. The web host must also serve, over https and without a redirect:
+
+- `/.well-known/apple-app-site-association` (your Apple team id and the bundle id, with those three paths), and
+- `/.well-known/assetlinks.json` (the package name and the SHA-256 fingerprint of the app signing key).
+
+The app already has the three screens; they read the `token` from the link. Until a domain is set up, people finish these
+flows in the web app, which is fully supported.
 
 ## Sessions, offline and expiry
 
