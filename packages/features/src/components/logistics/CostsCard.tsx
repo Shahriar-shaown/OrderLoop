@@ -1,4 +1,4 @@
-import { COST_KIND_VALUES, type CostKind } from '@orderloop/contracts';
+import { MANUAL_COST_KIND_VALUES, type ManualCostKind } from '@orderloop/contracts';
 import {
   Button,
   DataTable,
@@ -34,7 +34,7 @@ function AddCost({ open, onClose }: { open: boolean; onClose: () => void }) {
       return form.setErrors({ amount: 'Enter an amount in taka, like 450 or 450.50' });
     const ok = await form.run(async () => {
       await api.finance.createCost({
-        kind: form.values.kind as CostKind,
+        kind: form.values.kind as ManualCostKind,
         amountMinor: amount,
         incurredOn: form.values.incurredOn,
         note: form.values.note.trim(),
@@ -62,7 +62,8 @@ function AddCost({ open, onClose }: { open: boolean; onClose: () => void }) {
         label="What kind of cost"
         value={form.values.kind}
         onChange={(v) => form.set('kind', v)}
-        options={COST_KIND_VALUES.map((k) => ({ value: k, label: COST_LABEL[k] }))}
+        // Courier charges come from the statements; only the costs a seller records themselves are offered.
+        options={MANUAL_COST_KIND_VALUES.map((k) => ({ value: k, label: COST_LABEL[k] }))}
       />
       <TextField label="Amount (৳)" required keyboardType="decimal-pad" {...form.field('amount')} />
       <TextField label="Date (YYYY-MM-DD)" required {...form.field('incurredOn')} />

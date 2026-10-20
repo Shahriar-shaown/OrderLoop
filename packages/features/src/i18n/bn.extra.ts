@@ -1,5 +1,9 @@
 /** Bangla for the mobile shell and the offline / session screens (kept apart from the generated catalogue; these win on a clash). */
 export const bnExtra: Record<string, string> = {
+  Appearance: 'চেহারা',
+  Auto: 'অটো',
+  Light: 'হালকা',
+  Dark: 'গাঢ়',
   [`A confirmation link works once. If you already used it, your email is confirmed: just sign in. Otherwise sign in and use “Resend verification email” to get a fresh link.`]:
     'নিশ্চিতকরণ লিংক একবারই কাজ করে। আগে ব্যবহার করে থাকলে আপনার ইমেইল নিশ্চিত হয়ে গেছে: শুধু সাইন ইন করুন। না হলে সাইন ইন করে “যাচাইয়ের ইমেইল আবার পাঠান” ব্যবহার করুন।',
   'Add stock': 'স্টক যোগ করুন',

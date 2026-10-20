@@ -92,7 +92,7 @@ export class SessionManager {
     this.channel?.postMessage({ type: 'session', session } satisfies Message);
   }
 
-  /** Replace the session after switching tenant (the refresh token is unchanged). */
+  /** Adopt the session of another business: a switch creates a new session (with its own refresh token), see `AuthService.switchTenant`. */
   update(session: AuthResult): void {
     this.setSession(session);
   }

@@ -383,7 +383,10 @@ interface ProductRow {
   strong: boolean;
 }
 
-/** Top products, then "Other products" (the totals less the top ones) and the total. */
+/**
+ * Top products, then "Other products" (the totals less the top ones) and the total. Product revenue is the item lines only:
+ * delivery charges and order-level discounts belong to no product (they are in the totals above).
+ */
 export function productRows(a: Analytics): ProductRow[] {
   const top: ProductRow[] = a.topProducts.map((p) => ({
     key: `${p.sku}-${p.variantName}`,
@@ -392,11 +395,11 @@ export function productRows(a: Analytics): ProductRow[] {
     revenue: p.revenueMinor,
     cost: p.costMinor,
     profit: p.grossProfitMinor,
-    share: a.totalRevenueMinor > 0 ? p.revenueMinor / a.totalRevenueMinor : 0,
+    share: a.itemRevenueMinor > 0 ? p.revenueMinor / a.itemRevenueMinor : 0,
     strong: false,
   }));
   const units = a.totalUnits - top.reduce((n, r) => n + r.units, 0);
-  const revenue = a.totalRevenueMinor - top.reduce((n, r) => n + r.revenue, 0);
+  const revenue = a.itemRevenueMinor - top.reduce((n, r) => n + r.revenue, 0);
   const topCostsKnown = top.every((r) => r.cost !== null);
   const otherCost =
     a.totalCostMinor === null || !topCostsKnown
@@ -411,16 +414,16 @@ export function productRows(a: Analytics): ProductRow[] {
       revenue,
       cost: otherCost,
       profit: otherCost === null ? null : revenue - otherCost,
-      share: a.totalRevenueMinor > 0 ? revenue / a.totalRevenueMinor : 0,
+      share: a.itemRevenueMinor > 0 ? revenue / a.itemRevenueMinor : 0,
       strong: false,
     });
   rows.push({
     key: 'total',
     name: 'Total · delivered',
     units: a.totalUnits,
-    revenue: a.totalRevenueMinor,
+    revenue: a.itemRevenueMinor,
     cost: a.totalCostMinor,
-    profit: a.totalCostMinor === null ? null : a.totalRevenueMinor - a.totalCostMinor,
+    profit: a.totalCostMinor === null ? null : a.itemRevenueMinor - a.totalCostMinor,
     share: null,
     strong: true,
   });

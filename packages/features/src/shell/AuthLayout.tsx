@@ -1,7 +1,6 @@
 import {
   Card,
   Icon,
-  Link,
   Logo,
   Screen,
   SkipLink,
@@ -11,12 +10,13 @@ import {
   radius,
   space,
   useBreakpoint,
+  useNavigation,
   useTheme,
   type IconName,
   LanguageToggle,
 } from '@orderloop/ui';
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 const BENEFITS: { icon: IconName; title: string; text: string }[] = [
   {
@@ -78,6 +78,38 @@ function BrandPanel() {
 }
 
 /**
+ * Theme and language, side by side under the card, each with its caption and the same height and shape (one
+ * `SegmentedControl`). They share the card's width, so they line up with it on every screen size.
+ */
+function Preferences() {
+  const { isWide } = useBreakpoint();
+  return (
+    <View
+      style={{
+        width: '100%',
+        maxWidth: isWide ? 920 : 440,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: space[4],
+      }}
+    >
+      <Stack gap={1} style={{ flexGrow: 3, flexBasis: 200 }}>
+        <Text variant="caption" tone="muted" weight="medium">
+          Appearance
+        </Text>
+        <ThemeToggle />
+      </Stack>
+      <Stack gap={1} style={{ flexGrow: 2, flexBasis: 160 }}>
+        <Text variant="caption" tone="muted" weight="medium">
+          Language
+        </Text>
+        <LanguageToggle />
+      </Stack>
+    </View>
+  );
+}
+
+/**
  * The frame of every signed-out screen: the logo, then a card with the title, a short description and the form, and on a
  * wider screen a brand panel beside it. `footer` holds the secondary links (Create an account, Back to sign in).
  */
@@ -94,14 +126,16 @@ export function AuthLayout({
 }) {
   const { colors } = useTheme();
   const { isWide } = useBreakpoint();
+  const navigation = useNavigation();
   return (
     <>
       <SkipLink />
       <Screen width="lg">
         <Stack gap={6} align="center" style={{ paddingVertical: space[4] }}>
-          <Link href="/" variant="plain">
+          {/* A Pressable, not a Link: a Link is inline text on a phone, and its line box clips the logo tile. */}
+          <Pressable role="link" aria-label="OrderLoop home" onPress={() => navigation.push('/')}>
             <Logo size={36} />
-          </Link>
+          </Pressable>
           <Card
             padding="none"
             style={{
@@ -134,10 +168,7 @@ export function AuthLayout({
             </View>
             {isWide ? <BrandPanel /> : null}
           </Card>
-          <Stack direction="row" gap={3} wrap align="center" justify="center">
-            <ThemeToggle />
-            <LanguageToggle />
-          </Stack>
+          <Preferences />
         </Stack>
       </Screen>
     </>

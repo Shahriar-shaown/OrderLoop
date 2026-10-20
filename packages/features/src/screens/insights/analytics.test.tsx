@@ -86,6 +86,7 @@ const analytics = (over: Partial<Analytics> = {}): Analytics => ({
   ],
   totalUnits: 170,
   totalRevenueMinor: 213_000_00,
+  itemRevenueMinor: 213_000_00,
   totalCostMinor: 130_950_00,
   deliveredOrders: 96,
   placedOrders: 124,

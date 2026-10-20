@@ -3,6 +3,7 @@ import { Platform, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Container } from './Container';
 import { useTheme } from '../theme/theme';
+import { useKeyboardInset } from './useKeyboardInset';
 
 /**
  * Native implementation: a scrolling screen that keeps clear of the notch, the home indicator and the keyboard, and
@@ -17,6 +18,7 @@ export function Screen({
 }) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const keyboard = useKeyboardInset();
   return (
     <ScrollView
       // The screen paints its own page colour: without it the window's (light) background shows through in dark mode.
@@ -27,7 +29,7 @@ export function Screen({
       contentContainerStyle={{
         flexGrow: 1,
         paddingTop: insets.top,
-        paddingBottom: insets.bottom,
+        paddingBottom: insets.bottom + keyboard,
       }}
     >
       <Container role="main" nativeID="main" {...(width ? { width } : {})}>

@@ -161,6 +161,7 @@ const analytics: Analytics = {
   topProducts: [],
   totalUnits: 0,
   totalRevenueMinor: 300_000,
+  itemRevenueMinor: 300_000,
   totalCostMinor: 120_000,
   deliveredOrders: 3,
   placedOrders: 5,

@@ -1,5 +1,12 @@
 import { OfflineBanner, useRefreshAll, VerifyBanner } from '@orderloop/features';
-import { Container, ScreenChromeProvider, Stack as Column, useT, useTheme } from '@orderloop/ui';
+import {
+  Container,
+  ScreenChromeProvider,
+  Stack as Column,
+  useKeyboardInset,
+  useT,
+  useTheme,
+} from '@orderloop/ui';
 import { Stack } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { Platform, RefreshControl, ScrollView } from 'react-native';
@@ -25,6 +32,7 @@ export function ScreenFrame({
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const keyboard = useKeyboardInset();
   const { colors } = useTheme();
   const t = useT();
   const [barTitle, setBarTitle] = useState<string | undefined>(undefined);
@@ -39,7 +47,10 @@ export function ScreenFrame({
       {title !== undefined && <Stack.Screen options={{ title: t(barTitle ?? title) }} />}
       <ScrollView
         style={{ flex: 1, backgroundColor: colors.background }}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: tab ? 16 : insets.bottom + 24 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: (tab ? 16 : insets.bottom + 24) + keyboard,
+        }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         automaticallyAdjustKeyboardInsets

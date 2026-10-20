@@ -8,6 +8,7 @@ export {
 } from './theme/theme';
 export { THEME_STORAGE_KEY, themeInitScript } from './theme/themeScript';
 export { ThemeToggle } from './theme/ThemeToggle';
+export { SegmentedControl, type Segment as SegmentOption } from './inputs/SegmentedControl';
 export { NavigationContext, useNavigation, type Navigation } from './navigation/navigation';
 export {
   createTextVariants,
@@ -53,6 +54,7 @@ export { RadioGroup, Switch, type RadioOption } from './inputs/Controls';
 export { KeyValueList } from './data/KeyValue';
 export { SkipLink } from './navigation/SkipLink';
 export { isRealDay } from './data/day';
+export { useKeyboardInset } from './layout/useKeyboardInset';
 export { ScreenChromeProvider, useScreenChrome } from './layout/screenChrome';
 export { LanguageToggle } from './theme/LanguageToggle';
 export {
