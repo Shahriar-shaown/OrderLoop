@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Platform, TextInput, View, type TextInputProps } from 'react-native';
 import { Field } from './Field';
 import { useFormSubmit } from './formContext';
+import { translatedProps, useT } from './i18n';
 import { Icon } from './Icon';
 import type { IconName } from './icons';
 import { useTheme } from './theme';
@@ -104,6 +105,7 @@ export function TextField({
   ...rest
 }: TextFieldProps) {
   const { colors } = useTheme();
+  const t = useT();
   const submit = useFormSubmit();
   const { isMobile } = useBreakpoint();
   const [focused, setFocused] = useState(false);
@@ -123,7 +125,7 @@ export function TextField({
             aria-describedby={a.describedBy}
             aria-invalid={a.invalid || undefined}
             aria-required={required || undefined}
-            accessibilityLabel={label}
+            accessibilityLabel={t(label)}
             placeholderTextColor={colors.muted}
             editable={editable}
             multiline={multiline}
@@ -157,6 +159,7 @@ export function TextField({
                 })}
             {...KINDS[kind]}
             {...rest}
+            {...translatedProps(rest, t)}
           />
           {leadingIcon && (
             <View

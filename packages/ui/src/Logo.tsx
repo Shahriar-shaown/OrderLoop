@@ -44,11 +44,13 @@ export function Logo({ size = 32, wordmark = true }: { size?: number; wordmark?:
           role="none"
           style={{ fontSize: size * 0.7, lineHeight: size, fontWeight: '700' }}
           aria-hidden
+          verbatim
         >
           Order
           <Text
             variant="body"
             role="none"
+            verbatim
             style={{
               fontSize: size * 0.7,
               fontWeight: '700',

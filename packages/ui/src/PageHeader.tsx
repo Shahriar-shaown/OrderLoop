@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Breadcrumbs, type Crumb } from './Breadcrumbs';
+import { useScreenChrome } from './screenChrome';
 import { Stack } from './Stack';
 import { Text } from './Text';
 
@@ -20,17 +21,25 @@ export function PageHeader({
   breadcrumbs?: Crumb[];
   badges?: ReactNode;
 }) {
+  const { titleInBar, setTitle } = useScreenChrome();
+  useEffect(() => {
+    if (titleInBar) setTitle?.(title);
+  }, [titleInBar, setTitle, title]);
   return (
     <Stack gap={2}>
-      {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
+      {breadcrumbs && !titleInBar && <Breadcrumbs items={breadcrumbs} />}
       <Stack direction="row" justify="between" align="start" gap={3} wrap>
         <Stack gap={1} grow style={{ minWidth: 240 }}>
-          <Stack direction="row" gap={3} align="center" wrap>
-            <Text variant="display" aria-level={1}>
-              {title}
-            </Text>
-            {badges}
-          </Stack>
+          {(!titleInBar || badges) && (
+            <Stack direction="row" gap={3} align="center" wrap>
+              {!titleInBar && (
+                <Text variant="display" aria-level={1}>
+                  {title}
+                </Text>
+              )}
+              {badges}
+            </Stack>
+          )}
           {description && <Text tone="muted">{description}</Text>}
         </Stack>
         {actions && (

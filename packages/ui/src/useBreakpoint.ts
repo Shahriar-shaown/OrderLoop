@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Dimensions } from 'react-native';
+import { Dimensions, Platform } from 'react-native';
 import { breakpoints } from './tokens';
 
 export type Breakpoint = 'mobile' | 'tablet' | 'desktop';
@@ -27,7 +27,12 @@ export interface Responsive {
  * (on the server and on hydration) assumes desktop so server and browser markup agree; the real width is applied right after.
  */
 export function useBreakpoint(): Responsive {
-  const [width, setWidth] = useState<number>(breakpoints.desktop);
+  // Only a browser has a server render to agree with; a phone knows its real width from the first frame.
+  const [width, setWidth] = useState<number>(() =>
+    Platform.OS === 'web'
+      ? breakpoints.desktop
+      : Dimensions.get('window').width || breakpoints.desktop,
+  );
   useEffect(() => {
     setWidth(Dimensions.get('window').width || breakpoints.desktop);
     const sub = Dimensions.addEventListener('change', ({ window }) =>

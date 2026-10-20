@@ -19,6 +19,7 @@ export function ThemeToggle() {
       aria-label="Colour theme"
       style={{
         flexDirection: 'row',
+        alignSelf: 'flex-start',
         borderWidth: 1,
         borderColor: colors.border,
         borderRadius: radius.md,
@@ -36,7 +37,7 @@ export function ThemeToggle() {
             style={{
               paddingHorizontal: space[3],
               paddingVertical: space[1],
-              minHeight: 32,
+              minHeight: 44,
               justifyContent: 'center',
               backgroundColor: selected ? colors.primary : 'transparent',
             }}

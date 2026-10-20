@@ -52,6 +52,21 @@ export { Logo, LogoMark } from './Logo';
 export { RadioGroup, Switch, type RadioOption } from './Controls';
 export { KeyValueList } from './KeyValue';
 export { SkipLink } from './SkipLink';
+export { ScreenChromeProvider, useScreenChrome } from './screenChrome';
+export { LanguageToggle } from './LanguageToggle';
+export {
+  I18nProvider,
+  LOCALES,
+  LOCALE_NAMES,
+  localizeDigits,
+  missingTranslations,
+  registerCatalog,
+  translate,
+  useLocale,
+  useT,
+  type Locale,
+  type LocaleStore,
+} from './i18n';
 
 // Actions and navigation
 export { Button, type ButtonProps } from './Button';

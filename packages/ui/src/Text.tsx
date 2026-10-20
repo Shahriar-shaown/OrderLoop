@@ -1,5 +1,6 @@
 import { Platform, Text as RNText, type TextProps as RNTextProps } from 'react-native';
 import { fontFamily, fontSize, lineHeight, type } from './tokens';
+import { localizeChildren, useLocale } from './i18n';
 import { useTheme } from './theme';
 import { createTextVariants } from './variants';
 
@@ -75,10 +76,23 @@ export interface TextProps extends RNTextProps {
   weight?: 'normal' | 'medium' | 'semibold' | 'bold';
   /** Tabular figures, so numbers line up. Use for money, counts and percentages. */
   numeric?: boolean;
+  /** Show the text exactly as given, in every language: for names and brands that must never be translated. */
+  verbatim?: boolean;
 }
 
-export function Text({ variant, tone, align, weight, numeric, style, ...rest }: TextProps) {
+export function Text({
+  variant,
+  tone,
+  align,
+  weight,
+  numeric,
+  style,
+  children,
+  verbatim,
+  ...rest
+}: TextProps) {
   useTheme(); // fail loudly if rendered outside <ThemeProvider>
+  const { locale } = useLocale();
   const variantStyle = useTextStyle({
     variant,
     tone,
@@ -94,6 +108,8 @@ export function Text({ variant, tone, align, weight, numeric, style, ...rest }: 
       {...(role === 'heading' ? { 'aria-level': variant === 'display' ? 1 : 2 } : {})}
       style={[variantStyle, style]}
       {...rest}
-    />
+    >
+      {verbatim ? children : localizeChildren(locale, children)}
+    </RNText>
   );
 }

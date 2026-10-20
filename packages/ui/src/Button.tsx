@@ -7,6 +7,7 @@ import {
   type PressableProps,
 } from 'react-native';
 import { useFormSubmit } from './formContext';
+import { translatedProps, useT } from './i18n';
 import { Icon } from './Icon';
 import type { IconName } from './icons';
 import { useLinkPress, webLinkProps } from './Link';
@@ -93,6 +94,7 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const { colors } = useTheme();
+  const t = useT();
   const { isMobile } = useBreakpoint();
   const submit = useFormSubmit();
   const follow = useLinkPress(href ?? '', false, undefined);
@@ -150,6 +152,7 @@ export function Button({
         ];
       }}
       {...rest}
+      {...translatedProps(rest, t)}
     >
       {loading ? (
         <ActivityIndicator size="small" color={filled ? ink : colors.muted} />

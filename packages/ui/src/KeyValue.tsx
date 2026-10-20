@@ -43,7 +43,8 @@ export function KeyValueList({
                       : 'default'
               }
               align={inline ? 'right' : 'left'}
-              style={{ flexShrink: 1 }}
+              // minWidth 0 lets a long unbroken value (a URL, a tracking code) wrap instead of pushing past the edge.
+              style={{ flexShrink: 1, minWidth: 0 }}
             >
               {item.value}
             </Text>
