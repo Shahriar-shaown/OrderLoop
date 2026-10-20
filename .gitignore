@@ -49,3 +49,4 @@ bun.lockb
 *.sqlite
 infra/data
 packages/db/src/generated
+node_modules
