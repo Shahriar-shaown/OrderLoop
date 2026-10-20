@@ -523,6 +523,39 @@ const safe = (n: number) => {
 };
 
 /**
+ * THE definition of revenue, used by the dashboard, the finance summary and analytics: goods (item prices less every
+ * discount, line and order level) plus the delivery charge billed, on orders that are delivered.
+ */
+export const revenueMinor = (goodsMinor: number, deliveryBilledMinor: number): number =>
+  safe(goodsMinor + deliveryBilledMinor);
+
+/**
+ * THE definition of gross profit: revenue less the cost of goods. Courier charges and recorded costs come off later (see
+ * `calculateProfit`). Null when the cost of goods is unknown.
+ */
+export const grossProfitMinor = (revenue: number, cogsMinor: number | null): number | null =>
+  cogsMinor === null ? null : safe(revenue - cogsMinor);
+
+/**
+ * Courier charges are summed from imported statements, so a cost entered by hand under a courier-charge kind (only old
+ * rows can have one) counts only while no statement charge covers the period: the same charge is never counted twice.
+ */
+export const MANUAL_COURIER_COST_KINDS: readonly string[] = [
+  'delivery_charge',
+  'return_charge',
+  'courier_deduction',
+];
+export const countedManualCostsMinor = (
+  byKind: readonly { kind: string; amountMinor: number }[],
+  statementCourierChargesMinor: number,
+): number =>
+  byKind
+    .filter(
+      (c) => statementCourierChargesMinor === 0 || !MANUAL_COURIER_COST_KINDS.includes(c.kind),
+    )
+    .reduce((n, c) => safe(n + c.amountMinor), 0);
+
+/**
  * Estimated profit = (goods revenue + delivery charges billed to customers) − cost of goods − courier charges − other
  * recorded costs − COD shortfalls written off. It is an estimate: cash is not involved, only what the records say.
  */

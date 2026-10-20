@@ -150,6 +150,7 @@ export const AnalyticsChannel = z.object({
   orders: z.number().int(),
   revenueMinor: Minor,
 });
+/** A product's revenue is its lines' totals, before order-level discounts and delivery charges, which belong to no product. */
 export const AnalyticsProduct = z.object({
   productName: z.string(),
   variantName: z.string(),
@@ -168,8 +169,12 @@ export const Analytics = z.object({
   topProducts: z.array(AnalyticsProduct),
   /** All delivered lines, so the table can show "other products" and a total. */
   totalUnits: z.number().int(),
+  /** Revenue of the period: the same figure as the sum of `daily`, the finance summary and the dashboard. */
   totalRevenueMinor: Minor,
+  /** Cost of goods of those orders. Null when a delivered line has no cost price. */
   totalCostMinor: Minor.nullable(),
+  /** Σ of the product lines' own revenue (before order-level discounts and delivery): the base for `topProducts`' shares. */
+  itemRevenueMinor: Minor,
   deliveredOrders: z.number().int(),
   /** Orders created in the period, not cancelled: how many and their value. */
   placedOrders: z.number().int(),

@@ -49,8 +49,16 @@ export const COST_KIND_VALUES = [
   'courier_deduction',
   'other',
 ] as const;
+/** Every kind a stored cost can have, including old rows of the courier-charge kinds. */
 export const CostKind = z.enum(COST_KIND_VALUES);
 export type CostKind = z.infer<typeof CostKind>;
+/**
+ * The kinds a person can enter now. Courier delivery, return and deduction charges come from imported statements, so
+ * entering them by hand would count them twice. Old rows of those kinds still display and can be voided.
+ */
+export const MANUAL_COST_KIND_VALUES = ['packaging', 'advertising', 'other'] as const;
+export const ManualCostKind = z.enum(MANUAL_COST_KIND_VALUES);
+export type ManualCostKind = z.infer<typeof ManualCostKind>;
 
 export const CashState = z.enum([
   'paid',
@@ -293,7 +301,7 @@ export const FinanceSummary = z.object({
   to: Day,
   timezone: z.string(),
   figures: z.array(FinanceFigure),
-  /** The recorded costs of the period, by kind (their total is the `manual_costs` figure). */
+  /** The recorded costs of the period, by kind. Old courier-charge kinds are listed but counted in the `manual_costs` figure only when no statement charge covers the period. */
   manualCostsByKind: z.array(ManualCostBreakdown),
   estimatedProfitMinor: Minor.nullable(),
   profitWithheldReason: z.string().nullable(),
@@ -305,7 +313,7 @@ export type FinanceSummary = z.infer<typeof FinanceSummary>;
 // ---- manual costs -----------------------------------------------------------------------------------------------------
 
 export const CreateCostBody = z.object({
-  kind: CostKind,
+  kind: ManualCostKind,
   amountMinor: z.number().int().min(1).max(2_000_000_000),
   incurredOn: Day,
   orderId: Uuid.optional(),

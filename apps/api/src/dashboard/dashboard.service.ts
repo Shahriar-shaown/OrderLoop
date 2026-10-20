@@ -2,8 +2,9 @@ import { Injectable } from '@nestjs/common';
 import type { Dashboard, DashboardPeriod, OrderStatus } from '@orderloop/contracts';
 import { ORDER_STATUS_VALUES } from '@orderloop/contracts';
 import { Database } from '@orderloop/db';
-import { can } from '@orderloop/domain';
+import { can, grossProfitMinor } from '@orderloop/domain';
 import type { AuthContext } from '../common/endpoint.js';
+import { deliveredTotals, type DeliveredTotals } from '../finance/revenue.js';
 
 const DAYS: Record<DashboardPeriod, number> = { today: 1, '7d': 7, '30d': 30 };
 
@@ -17,38 +18,29 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-type ProfitLines = {
-  lines: number;
-  with_cost: number;
-  revenue: bigint;
-  cost: bigint;
-  orders: number;
-};
-
 /** Cost and profit are finance data: the caller only gets them with `finance:read` (see `get`). */
-function profitOf(l: ProfitLines): NonNullable<Dashboard['profit']> {
-  const revenue = Number(l.revenue);
-  const cost = Number(l.cost);
-  return l.lines > 0 && l.with_cost === l.lines
+function profitOf(d: DeliveredTotals): NonNullable<Dashboard['profit']> {
+  const gross = grossProfitMinor(d.revenueMinor, d.cogsMinor);
+  return d.lines > 0 && d.cogsMinor !== null && gross !== null
     ? {
         available: true as const,
         kind: 'estimate' as const,
         basis:
-          'Item revenue minus the cost price recorded on each line, for delivered orders in this period. Leaves out order discounts, delivery charges, courier fees, returns and taxes.',
-        revenueMinor: revenue,
-        costMinor: cost,
-        grossProfitMinor: revenue - cost,
-        deliveredOrders: l.orders,
-        lines: l.lines,
+          'Revenue (items less all discounts, plus delivery charges billed) minus the cost price recorded on each line, for orders delivered in this period. Leaves out courier fees, recorded costs, returns and taxes.',
+        revenueMinor: d.revenueMinor,
+        costMinor: d.cogsMinor,
+        grossProfitMinor: gross,
+        deliveredOrders: d.orders,
+        lines: d.lines,
       }
     : {
         available: false as const,
         reason:
-          l.lines === 0
+          d.lines === 0
             ? 'No delivered orders in this period yet.'
-            : `${l.lines - l.with_cost} of ${l.lines} delivered order lines have no cost price, so profit cannot be worked out. Add cost prices to your products.`,
-        linesWithCost: l.with_cost,
-        lines: l.lines,
+            : `${d.lines - d.costedLines} of ${d.lines} delivered order lines have no cost price, so profit cannot be worked out. Add cost prices to your products.`,
+        linesWithCost: d.costedLines,
+        lines: d.lines,
       };
 }
 
@@ -149,17 +141,7 @@ export class DashboardService {
         ORDER BY COALESCE(SUM(l.on_hand), 0) - COALESCE(SUM(l.reserved), 0), v.sku
         LIMIT 500`;
 
-      const [lines] = await tx.$queryRaw<ProfitLines[]>`
-        SELECT count(i.id)::int AS lines,
-               (count(i.id) FILTER (WHERE i.cost_minor IS NOT NULL))::int AS with_cost,
-               COALESCE(sum(i.line_total_minor) FILTER (WHERE i.cost_minor IS NOT NULL), 0) AS revenue,
-               COALESCE(sum(i.quantity::bigint * i.cost_minor) FILTER (WHERE i.cost_minor IS NOT NULL), 0) AS cost,
-               count(DISTINCT o.id)::int AS orders
-        FROM orders o
-        JOIN order_items i ON i.tenant_id = o.tenant_id AND i.order_id = o.id
-        WHERE o.tenant_id = ${t}::uuid AND o.status = 'delivered'
-          AND o.created_at >= (${from}::date)::timestamp AT TIME ZONE ${timezone}
-          AND o.created_at <  ((${to}::date) + 1)::timestamp AT TIME ZONE ${timezone}`;
+      const deliveredNow = await deliveredTotals(tx, t, timezone, from, to);
 
       const history = await tx.orderStatusHistory.findMany({
         where: { tenantId: t },
@@ -178,7 +160,6 @@ export class DashboardService {
         : [];
       const names = new Map(users.map((u) => [u.id, u.name]));
 
-      const l = lines ?? { lines: 0, with_cost: 0, revenue: 0n, cost: 0n, orders: 0 };
       return {
         period,
         from,
@@ -223,7 +204,7 @@ export class DashboardService {
             reorderPoint: r.reorder_point,
           })),
         },
-        profit: can(auth.role, 'finance:read') ? profitOf(l) : null,
+        profit: can(auth.role, 'finance:read') ? profitOf(deliveredNow) : null,
         recentActivity: history.map((h) => ({
           id: h.id,
           at: h.createdAt.toISOString(),

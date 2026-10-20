@@ -3,10 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateProfit,
   cashPosition,
+  countedManualCostsMinor,
   decideMatch,
+  grossProfitMinor,
   parseSettlementAmount,
   parseSettlementCsv,
   parseSettlementDate,
+  revenueMinor,
   settlementItemKeyMaterial,
   settlementNet,
   type MatchCandidate,
@@ -422,5 +425,28 @@ describe('profit', () => {
         },
       ),
     );
+  });
+});
+
+describe('one definition of revenue and gross profit', () => {
+  it('revenue is goods plus delivery billed; gross profit is revenue less cost of goods, unknown without costs', () => {
+    expect(revenueMinor(160_000, 6_000)).toBe(166_000);
+    expect(grossProfitMinor(166_000, 80_000)).toBe(86_000);
+    expect(grossProfitMinor(166_000, null)).toBeNull();
+  });
+});
+
+describe('hand-entered courier charges are never counted beside statement charges', () => {
+  const costs = [
+    { kind: 'packaging', amountMinor: 5_000 },
+    { kind: 'delivery_charge', amountMinor: 6_000 },
+    { kind: 'return_charge', amountMinor: 1_000 },
+    { kind: 'courier_deduction', amountMinor: 500 },
+  ];
+  it('counts them while statements report no courier charge', () => {
+    expect(countedManualCostsMinor(costs, 0)).toBe(12_500);
+  });
+  it('leaves them out once statements report courier charges, and keeps the other costs', () => {
+    expect(countedManualCostsMinor(costs, 1)).toBe(5_000);
   });
 });

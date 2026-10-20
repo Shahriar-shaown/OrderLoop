@@ -40,6 +40,16 @@ estimated profit = goods revenue
                  − COD shortfalls written off
 ```
 
+- **One definition, everywhere.** Revenue is goods (item prices less every discount, line and order level) plus delivery billed,
+  on orders delivered in the period (`revenueMinor` in `packages/domain`, selected by `deliveredOrdersSql` in
+  `apps/api/src/finance/revenue.ts`). Gross profit is that revenue less cost of goods (`grossProfitMinor`). The dashboard's
+  profit card, the finance summary, and analytics (`daily`, `totalRevenueMinor`, `channels`) all use them, so the figures for
+  one period agree. Only `topProducts` differ on purpose: a product's revenue is its lines' totals, before order-level
+  discounts and delivery, which belong to no product (`itemRevenueMinor` is their sum).
+- **A courier charge is counted once.** Delivery, return and deduction charges come from imported statements, so they can no
+  longer be entered as costs by hand (the API accepts `packaging`, `advertising`, `other`). Old rows of those three kinds
+  still display, can be voided, and are counted only while no statement reports courier charges for the period; as soon as
+  one does, they are left out (and the summary says so) instead of being added a second time.
 - **Revenue is by delivery date; courier charges and recorded costs are by the date printed on the statement or entered.** At
   the edges of a period these can fall on different sides. Courier charges are included even for parcels that were not
   delivered (a return charge is a real cost).
@@ -99,7 +109,7 @@ matched only against that courier's own **real** parcels (never simulated ones; 
   kept but marked **duplicate** and **never counted**. A database index makes a second counted copy impossible.
   _Limitation:_ if a courier really prints two identical lines with no transaction id, the second is treated as a repeat.
   Ask the courier for a transaction id, or tell the lines apart with the `transaction_id` column.
-- Manual costs take an idempotency key: the same key records a cost once, and the same key for a different cost is refused.
+- Manual costs (packaging, advertising, other) take an idempotency key: the same key records a cost once, and the same key for a different cost is refused.
 - Financial records are **never deleted** (the application role cannot): lines are set aside, costs voided, discrepancies
   resolved. A line's history cannot be rewritten.
 
@@ -151,7 +161,7 @@ and is written to the audit trail. Staff cannot see finance at all.
 - `packages/domain/src/settlements.test.ts`: reading amounts and dates (including a property test that every paisa value
   survives a round trip through text), the file format, line keys, every matching rule, cash position (including a property
   test that outstanding is never negative), and profit (property test: income − costs = profit).
-- `apps/api/test/finance.e2e.test.ts` (14 tests, real database): **the fictional statement** (paid, partial, missing,
+- `apps/api/test/dashboard.e2e.test.ts` (one fixture with a discount and delivery charge: dashboard, summary and analytics agree; courier cost kinds refused; old rows counted only without statements) and `apps/api/test/finance.e2e.test.ts` (real database): **the fictional statement** (paid, partial, missing,
   duplicate, cash-before-delivery, returned-order, wrong-arithmetic, bare-number, not-ours, conflicting and unallocated lines,
   with exact totals), idempotent imports (same file five times at once, resaved file, overlapping files, transaction ids),
   refusal of bad files, exact paisa, manual matching with history and audit, permissions, waiving, reconciliation refusal and

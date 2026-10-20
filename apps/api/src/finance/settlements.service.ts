@@ -138,17 +138,28 @@ export class SettlementsService {
   }
 
   private async batchSummary(tx: Tx, tenantId: string, batchId: string): Promise<BatchDto> {
-    const b = await tx.settlementBatch.findFirst({ where: { id: batchId, tenantId } });
-    if (!b) throw ApiError.notFound('Settlement not found');
+    const [summary] = await this.batchSummaries(tx, tenantId, [batchId]);
+    if (!summary) throw ApiError.notFound('Settlement not found');
+    return summary;
+  }
+
+  /** Summaries of many batches in a fixed number of grouped queries (not several per batch), in the order of `ids`. */
+  private async batchSummaries(tx: Tx, tenantId: string, ids: string[]): Promise<BatchDto[]> {
+    if (!ids.length) return [];
+    const batches = new Map(
+      (await tx.settlementBatch.findMany({ where: { tenantId, id: { in: ids } } })).map((b) => [
+        b.id,
+        b,
+      ]),
+    );
     const grouped = await tx.settlementItem.groupBy({
-      by: ['matchStatus'],
-      where: { tenantId, batchId },
+      by: ['batchId', 'matchStatus'],
+      where: { tenantId, batchId: { in: ids } },
       _count: { _all: true },
     });
-    const counts = { ...EMPTY_COUNTS };
-    for (const g of grouped) counts[g.matchStatus] = g._count._all;
-    const sums = await tx.settlementItem.aggregate({
-      where: { tenantId, batchId, matchStatus: { notIn: ['duplicate', 'ignored'] } },
+    const sums = await tx.settlementItem.groupBy({
+      by: ['batchId'],
+      where: { tenantId, batchId: { in: ids }, matchStatus: { notIn: ['duplicate', 'ignored'] } },
       _sum: {
         collectedMinor: true,
         deliveryChargeMinor: true,
@@ -158,61 +169,78 @@ export class SettlementsService {
         netMinor: true,
       },
     });
-    const orderIds = (
-      await tx.settlementItem.findMany({
-        where: { tenantId, batchId, orderId: { not: null } },
-        select: { orderId: true },
-        distinct: ['orderId'],
-      })
-    ).map((i) => i.orderId as string);
-    const openDiscrepancies = await tx.discrepancy.count({
-      where: {
-        tenantId,
-        status: 'open',
-        OR: [{ item: { batchId } }, ...(orderIds.length ? [{ orderId: { in: orderIds } }] : [])],
-      },
-    });
-    // What the orders this statement covers were owed, against the cash it reports for them.
-    const covered = orderIds.length
-      ? await tx.order.aggregate({
-          where: { tenantId, id: { in: orderIds } },
-          _sum: { codAmountMinor: true },
-        })
-      : null;
-    const reported = await tx.settlementItem.aggregate({
-      where: { tenantId, batchId, matchStatus: 'matched', kind: 'cod' },
+    const reported = await tx.settlementItem.groupBy({
+      by: ['batchId'],
+      where: { tenantId, batchId: { in: ids }, matchStatus: 'matched', kind: 'cod' },
       _sum: { collectedMinor: true },
     });
-    const expectedMinor = covered?._sum.codAmountMinor ?? 0;
-    const creator = b.createdById
-      ? await tx.user.findFirst({ where: { id: b.createdById }, select: { name: true } })
-      : null;
-    const s = sums._sum;
-    const needs = counts.unmatched + counts.ambiguous + openDiscrepancies > 0;
-    return {
-      id: b.id,
-      provider: b.provider,
-      fileName: b.fileName,
-      statementRef: b.statementRef,
-      rowCount: b.rowCount,
-      createdAt: b.createdAt.toISOString(),
-      createdByName: creator?.name ?? null,
-      reconciledAt: b.reconciledAt?.toISOString() ?? null,
-      status: needs ? 'needs_attention' : b.reconciledAt ? 'reconciled' : 'ready',
-      counts,
-      openDiscrepancies,
-      totals: {
-        collectedMinor: s.collectedMinor ?? 0,
-        chargesMinor:
-          (s.deliveryChargeMinor ?? 0) +
-          (s.codFeeMinor ?? 0) +
-          (s.returnChargeMinor ?? 0) +
-          (s.otherDeductionMinor ?? 0),
-        netMinor: s.netMinor ?? 0,
-      },
-      expectedMinor,
-      differenceMinor: (reported._sum.collectedMinor ?? 0) - expectedMinor,
-    };
+    // What the orders each statement covers were owed, and the problems open for those orders or the statement's lines.
+    const covered = await tx.$queryRaw<{ batch_id: string; expected: bigint }[]>`
+      SELECT bo.batch_id, COALESCE(sum(o.cod_amount_minor), 0) AS expected
+      FROM (SELECT DISTINCT batch_id, order_id FROM settlement_items
+            WHERE tenant_id = ${tenantId}::uuid AND batch_id = ANY(${ids}::uuid[]) AND order_id IS NOT NULL) bo
+      JOIN orders o ON o.tenant_id = ${tenantId}::uuid AND o.id = bo.order_id
+      GROUP BY bo.batch_id`;
+    const open = await tx.$queryRaw<{ batch_id: string; n: number }[]>`
+      SELECT x.batch_id, count(*)::int AS n FROM (
+        SELECT i.batch_id, d.id FROM discrepancies d
+        JOIN settlement_items i ON i.tenant_id = d.tenant_id AND i.id = d.item_id
+        WHERE d.tenant_id = ${tenantId}::uuid AND d.status = 'open' AND i.batch_id = ANY(${ids}::uuid[])
+        UNION
+        SELECT bo.batch_id, d.id FROM discrepancies d
+        JOIN (SELECT DISTINCT batch_id, order_id FROM settlement_items
+              WHERE tenant_id = ${tenantId}::uuid AND batch_id = ANY(${ids}::uuid[]) AND order_id IS NOT NULL) bo
+          ON bo.order_id = d.order_id
+        WHERE d.tenant_id = ${tenantId}::uuid AND d.status = 'open') x
+      GROUP BY x.batch_id`;
+    const creatorIds = [
+      ...new Set([...batches.values()].map((b) => b.createdById).filter((x): x is string => !!x)),
+    ];
+    const users = creatorIds.length
+      ? await tx.user.findMany({
+          where: { id: { in: creatorIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const names = new Map(users.map((u) => [u.id, u.name]));
+
+    return ids.flatMap((id): BatchDto[] => {
+      const b = batches.get(id);
+      if (!b) return [];
+      const counts = { ...EMPTY_COUNTS };
+      for (const g of grouped) if (g.batchId === id) counts[g.matchStatus] = g._count._all;
+      const s = sums.find((x) => x.batchId === id)?._sum;
+      const expectedMinor = Number(covered.find((c) => c.batch_id === id)?.expected ?? 0);
+      const openDiscrepancies = open.find((d) => d.batch_id === id)?.n ?? 0;
+      const needs = counts.unmatched + counts.ambiguous + openDiscrepancies > 0;
+      return [
+        {
+          id: b.id,
+          provider: b.provider,
+          fileName: b.fileName,
+          statementRef: b.statementRef,
+          rowCount: b.rowCount,
+          createdAt: b.createdAt.toISOString(),
+          createdByName: (b.createdById && names.get(b.createdById)) || null,
+          reconciledAt: b.reconciledAt?.toISOString() ?? null,
+          status: needs ? 'needs_attention' : b.reconciledAt ? 'reconciled' : 'ready',
+          counts,
+          openDiscrepancies,
+          totals: {
+            collectedMinor: s?.collectedMinor ?? 0,
+            chargesMinor:
+              (s?.deliveryChargeMinor ?? 0) +
+              (s?.codFeeMinor ?? 0) +
+              (s?.returnChargeMinor ?? 0) +
+              (s?.otherDeductionMinor ?? 0),
+            netMinor: s?.netMinor ?? 0,
+          },
+          expectedMinor,
+          differenceMinor:
+            (reported.find((r) => r.batchId === id)?._sum.collectedMinor ?? 0) - expectedMinor,
+        },
+      ];
+    });
   }
 
   private async batchDetail(
@@ -253,9 +281,11 @@ export class SettlementsService {
           take: 200,
           select: { id: true },
         });
-        const out: BatchDto[] = [];
-        for (const b of batches) out.push(await this.batchSummary(tx, auth.tenantId, b.id));
-        return out;
+        return this.batchSummaries(
+          tx,
+          auth.tenantId,
+          batches.map((b) => b.id),
+        );
       },
       LONG_TX,
     );

@@ -86,9 +86,10 @@ export const Dashboard = z.object({
     ),
   }),
   /**
-   * An ESTIMATE of gross profit on the period's delivered orders: item revenue minus the cost price recorded on each line
-   * when it was sold. It is shown only when every delivered line has a cost price; otherwise `available` is false and the
-   * reason says what is missing. It leaves out order-level discounts, delivery charges, courier fees, returns and taxes.
+   * An ESTIMATE of gross profit on orders delivered in the period (dated by delivery): revenue (items less all discounts,
+   * plus delivery charges billed) minus the cost price recorded on each line when it was sold. Same definition as the
+   * finance summary and analytics. It is shown only when every delivered line has a cost price; otherwise `available` is
+   * false and the reason says what is missing. It leaves out courier fees, recorded costs, returns and taxes.
    * `null` for roles without `finance:read`: cost and profit are finance data.
    */
   profit: z
