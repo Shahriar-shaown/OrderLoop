@@ -7,7 +7,7 @@ export {
   type ThemePreference,
 } from './theme/theme';
 export { THEME_STORAGE_KEY, themeInitScript } from './theme/themeScript';
-export { ThemeToggle } from './theme/ThemeToggle';
+export { ThemeSelect, ThemeToggle } from './theme/ThemeToggle';
 export { SegmentedControl, type Segment as SegmentOption } from './inputs/SegmentedControl';
 export { NavigationContext, useNavigation, type Navigation } from './navigation/navigation';
 export {
@@ -56,7 +56,7 @@ export { SkipLink } from './navigation/SkipLink';
 export { isRealDay } from './data/day';
 export { useKeyboardInset } from './layout/useKeyboardInset';
 export { ScreenChromeProvider, useScreenChrome } from './layout/screenChrome';
-export { LanguageToggle } from './theme/LanguageToggle';
+export { LanguageSelect, LanguageToggle } from './theme/LanguageToggle';
 export {
   I18nProvider,
   LOCALES,

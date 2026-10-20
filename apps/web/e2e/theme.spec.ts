@@ -6,6 +6,14 @@ const background = (page: import('@playwright/test').Page) =>
 const DARK = 'rgb(11, 17, 32)';
 const LIGHT = 'rgb(248, 250, 252)';
 
+/** The sign-in screen's theme selector is a dropdown: the button names the current choice, the list offers the three. */
+const themeSelector = (page: import('@playwright/test').Page) =>
+  page.getByRole('combobox', { name: /^Colour theme/ });
+const chooseTheme = async (page: import('@playwright/test').Page, name: string) => {
+  await themeSelector(page).click();
+  await page.getByRole('option', { name, exact: true }).click();
+};
+
 test.describe('colour theme', () => {
   test.describe('on a light device', () => {
     test.use({ colorScheme: 'light' });
@@ -15,9 +23,9 @@ test.describe('colour theme', () => {
     }) => {
       await page.goto('/login');
       expect(await background(page)).toBe(LIGHT);
-      await expect(page.getByRole('radio', { name: 'Auto' })).toBeChecked();
+      await expect(themeSelector(page)).toHaveAccessibleName('Colour theme: Auto');
 
-      await page.getByRole('radio', { name: 'Dark' }).click();
+      await chooseTheme(page, 'Dark');
       await expect.poll(() => background(page)).toBe(DARK);
       await expect(page.locator('html')).toHaveAttribute('data-scheme', 'dark');
 
@@ -35,9 +43,9 @@ test.describe('colour theme', () => {
           () => (window as unknown as { firstBackground: string }).firstBackground,
         ),
       ).toBe(DARK);
-      await expect(page.getByRole('radio', { name: 'Dark' })).toBeChecked();
+      await expect(themeSelector(page)).toHaveAccessibleName('Colour theme: Dark');
 
-      await page.getByRole('radio', { name: 'Auto' }).click();
+      await chooseTheme(page, 'Auto');
       await expect.poll(() => background(page)).toBe(LIGHT);
     });
   });

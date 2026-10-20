@@ -315,6 +315,8 @@ test.describe('accessibility and small screens of the signed-in screens', () => 
     const { email } = await createAccount(request);
     await page.goto('/login');
     await page.keyboard.press('Tab'); // skip link
+    await page.keyboard.press('Tab'); // theme selector
+    await page.keyboard.press('Tab'); // language selector
     await page.keyboard.press('Tab'); // brand link
     await page.keyboard.press('Tab'); // email
     await page.keyboard.type(email);
