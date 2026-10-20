@@ -16,7 +16,7 @@ apps/
   api/        NestJS 12 REST API (ESM). GET /health/live, GET /health/ready
   worker/     BullMQ worker process (connects to Redis; no jobs yet)
   web/        Next.js 16. Thin routes over the shared screens: sign-in, sign-up, password reset, catalog, stock
-  mobile/     Expo SDK 57 + React Native + Expo Router. Sign-in and business screens from `packages/features` (refresh token in secure storage); `/status` is a development screen
+  mobile/     Expo SDK 57 + React Native + Expo Router: the iOS and Android app (native tabs and stack, Bangla, offline-safe). See [docs/mobile.md](docs/mobile.md)
 packages/
   contracts/  Zod schemas and types shared by every app (health, env validation)
   api-client/ Typed fetch client built on the contracts (used by web and mobile)
