@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useState,
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
@@ -16,6 +17,11 @@ import type { SessionStatus } from './session';
 interface AuthValue {
   status: SessionStatus;
   session: AuthResult | null;
+  /** `expired` when the server ended the session (see `Snapshot.endedBy`), so sign-in can explain. */
+  endedBy: 'expired' | undefined;
+  /** Restoring the saved session failed for lack of a connection (not because it is invalid): show a retry, not a spinner. */
+  restoreFailed: boolean;
+  retryRestore(): void;
   signIn(
     body: Parameters<ReturnType<typeof useRuntime>['api']['auth']['login']>[0],
   ): Promise<AuthResult>;
@@ -40,10 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Set while rendering, not in an effect: the screens below read it in the same pass. Setting it again is harmless.
   setBusinessTimezone(snap.session?.tenant.timezone);
 
-  useEffect(() => {
-    // Restore the session from the refresh token. init() shares one request, so StrictMode's double effect is harmless.
-    manager.init().catch(() => undefined);
+  const [restoreFailed, setRestoreFailed] = useState(false);
+  const restore = useCallback(() => {
+    setRestoreFailed(false);
+    // init() shares one request, so StrictMode's double effect is harmless. A refusal becomes "anonymous"; anything else
+    // (no connection, server down) leaves the state alone, so it has to be shown.
+    manager.init().catch(() => setRestoreFailed(true));
   }, [manager]);
+  useEffect(restore, [restore]);
 
   const signIn = useCallback<AuthValue['signIn']>(
     async (body) => {
@@ -75,12 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       status: snap.status,
       session: snap.session,
+      endedBy: snap.endedBy,
+      restoreFailed: restoreFailed && snap.status === 'loading',
+      retryRestore: restore,
       signIn,
       signUp,
       acceptInvitation,
       signOut,
     }),
-    [snap, signIn, signUp, acceptInvitation, signOut],
+    [snap, restoreFailed, restore, signIn, signUp, acceptInvitation, signOut],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

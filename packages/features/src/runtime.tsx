@@ -1,6 +1,7 @@
 import type { AuthResult } from '@orderloop/contracts';
 import { createApiClient, type ApiClient, type ApiClientOptions } from '@orderloop/api-client';
 import { createContext, useContext, type ReactNode } from 'react';
+import { browserConnectivity, withOfflineGuard, type ConnectivityStore } from './connectivity';
 import { SessionManager, withTokenRetry } from './session';
 
 /** The two long-lived objects of a running app: the API client and the signed-in session. One pair per app instance. */
@@ -9,6 +10,8 @@ export interface Runtime {
   session: SessionManager;
   /** Where a signed-in person lands: the first screen of the app. */
   home: string;
+  /** Whether the device is online; writes are refused while it is not (see `withOfflineGuard`). */
+  connectivity: ConnectivityStore;
 }
 
 /** Device storage for the refresh token, for apps that cannot use an HttpOnly cookie (the native apps). */
@@ -27,9 +30,12 @@ export function createRuntime(
     /** Native apps: keep the refresh token here and send it in the request body. Omit on the web (cookie). */
     refreshTokenStore?: RefreshTokenStore;
     home?: string;
+    /** The platform's network state. The web app defaults to the browser's; the mobile app passes its own. */
+    connectivity?: ConnectivityStore;
   },
 ): Runtime {
   const store = options.refreshTokenStore;
+  const connectivity = options.connectivity ?? browserConnectivity();
   const shared = {
     baseUrl: options.baseUrl,
     ...(options.headers ? { headers: options.headers } : {}),
@@ -58,9 +64,12 @@ export function createRuntime(
   const api: ApiClient = createApiClient({
     ...shared,
     getAccessToken: session.getAccessToken,
-    fetch: withTokenRetry((...args) => fetch(...args), session),
+    fetch: withOfflineGuard(
+      withTokenRetry((...args) => fetch(...args), session),
+      connectivity,
+    ),
   });
-  return { api, session, home: options.home ?? '/dashboard' };
+  return { api, session, home: options.home ?? '/dashboard', connectivity };
 }
 
 const RuntimeContext = createContext<Runtime | null>(null);

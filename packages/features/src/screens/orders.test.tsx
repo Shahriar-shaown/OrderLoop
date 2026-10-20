@@ -764,7 +764,7 @@ describe('new order form', () => {
     });
     for (const forbidden of ['totalMinor', 'subtotalMinor', 'codAmountMinor', 'lineTotalMinor'])
       expect(JSON.stringify(sent)).not.toContain(forbidden);
-    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith('/orders/new1'));
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith('/orders/new1'));
   });
 
   it('“Confirm order” asks the server to reserve stock in the same step', async () => {

@@ -50,7 +50,10 @@ export function VerifyEmailScreen({ token }: { token?: string | undefined }) {
       ) : state.kind === 'failed' ? (
         <>
           <Alert tone="error">{state.message}</Alert>
-          <Text tone="muted">Sign in and use “Resend verification email” to get a fresh link.</Text>
+          <Text tone="muted">
+            A confirmation link works once. If you already used it, your email is confirmed: just
+            sign in. Otherwise sign in and use “Resend verification email” to get a fresh link.
+          </Text>
           <Button href="/login" size="lg" fullWidth>
             Go to sign in
           </Button>

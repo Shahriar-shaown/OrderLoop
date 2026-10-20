@@ -96,6 +96,8 @@ export function createApiClient(options: ApiClientOptions) {
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (cause) {
+      // A wrapper around fetch may refuse a request on purpose (the offline guard): that error is already the right one.
+      if (cause instanceof ApiError) throw cause;
       throw new ApiError(
         `API unreachable at ${baseUrl}: ${cause instanceof Error ? cause.message : String(cause)}`,
         undefined,

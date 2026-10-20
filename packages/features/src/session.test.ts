@@ -211,3 +211,42 @@ describe('persisting the session (native apps)', () => {
     manager.dispose();
   });
 });
+
+describe('SessionManager: why a session ended', () => {
+  it('says "expired" when the server stops accepting a session that was running', async () => {
+    const refresh = vi
+      .fn()
+      .mockResolvedValueOnce(session('first'))
+      .mockRejectedValueOnce(reject(401));
+    const { manager } = setup(refresh);
+    await manager.init();
+    expect(manager.getSnapshot().endedBy).toBeUndefined();
+    await manager.refresh();
+    expect(manager.getSnapshot()).toMatchObject({
+      status: 'anonymous',
+      session: null,
+      endedBy: 'expired',
+    });
+  });
+
+  it('says nothing special when there was no session to restore, or the person signed out', async () => {
+    const none = setup(vi.fn(async () => Promise.reject(reject(401))));
+    await none.manager.init();
+    expect(none.manager.getSnapshot()).toEqual({ status: 'anonymous', session: null });
+    const out = setup();
+    await out.manager.init();
+    await out.manager.logout();
+    expect(out.manager.getSnapshot().endedBy).toBeUndefined();
+  });
+
+  it('keeps the session when the refresh fails for lack of a connection (nobody is signed out by a bad signal)', async () => {
+    const refresh = vi
+      .fn()
+      .mockResolvedValueOnce(session('first'))
+      .mockRejectedValueOnce(new TypeError('offline'));
+    const { manager } = setup(refresh);
+    await manager.init();
+    await expect(manager.refresh()).rejects.toThrow('offline');
+    expect(manager.getSnapshot().status).toBe('authenticated');
+  });
+});

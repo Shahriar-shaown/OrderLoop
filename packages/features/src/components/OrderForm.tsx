@@ -319,7 +319,7 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
       });
       if (ok) {
         toast.success('Order saved');
-        navigation.push(`/orders/${order.id}`);
+        navigation.replace(`/orders/${order.id}`);
       }
       return;
     }
@@ -357,7 +357,7 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
       await invalidateOrders(queryClient);
       toast.success(`Order #${created.orderNumber} created`);
     });
-    if (ok) navigation.push(`/orders/${createdId}`);
+    if (ok) navigation.replace(`/orders/${createdId}`);
   }
 
   const e = form.errors;

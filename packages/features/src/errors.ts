@@ -9,6 +9,8 @@ export function messageFor(error: unknown): string {
         return 'Incorrect email or password.';
       case 'rate_limited':
         return error.message || 'Too many attempts. Wait a little and try again.';
+      case 'offline':
+        return error.message;
       case 'network_error':
         return 'Cannot reach the server. Check your connection and try again.';
       case 'token_invalid':

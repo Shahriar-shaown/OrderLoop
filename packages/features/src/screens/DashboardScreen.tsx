@@ -27,6 +27,7 @@ import {
   KeyValueList,
   type Column,
   type IconName,
+  useBreakpoint,
 } from '@orderloop/ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -55,6 +56,7 @@ import {
 } from '../format';
 import { formatPrice, formatPriceShort } from '../money';
 import { STATUS_LABEL } from '../orders';
+import { QuickActions } from '../components/QuickActions';
 import { useCan } from '../permissions';
 import { useApi } from '../runtime';
 
@@ -597,6 +599,7 @@ function LowStock({ d }: { d: Dashboard }) {
 export function DashboardScreen() {
   const api = useApi();
   const can = useCan();
+  const { isMobile } = useBreakpoint();
   const { session } = useAuth();
   const [period, setPeriod] = useState<DashboardPeriod>('7d');
   const canFinance = can('finance:read');
@@ -646,6 +649,7 @@ export function DashboardScreen() {
           </>
         }
       />
+      {isMobile && <QuickActions />}
       {query.isPending ? (
         <DashboardSkeleton />
       ) : (

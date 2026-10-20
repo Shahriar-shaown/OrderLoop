@@ -1,7 +1,26 @@
+import './i18n/index';
 export { createRuntime, useApi, useRuntime, type RefreshTokenStore, type Runtime } from './runtime';
 export { useRequireAuth } from './auth';
 export { AppProviders } from './components/AppProviders';
-export { AppShell, type ShellNavItem } from './components/AppShell';
+export { AppShell, usePendingOrders, VerifyBanner, type ShellNavItem } from './components/AppShell';
+export { OfflineBanner } from './components/OfflineBanner';
+export { RestoreFailed } from './components/RestoreFailed';
+export { useOnline } from './online';
+export { useRefreshAll } from './refresh';
+export {
+  alwaysOnline,
+  browserConnectivity,
+  createConnectivityStore,
+  OFFLINE_MESSAGE,
+  withOfflineGuard,
+  type ConnectivityStore,
+  type WritableConnectivity,
+} from './connectivity';
+export { GlobalSearch } from './shell/GlobalSearch';
+export { WorkspaceMenu } from './shell/WorkspaceMenu';
+export { AccountMenu } from './shell/AccountMenu';
+export { useCan } from './permissions';
+export { setBusinessTimezone } from './format';
 export { useAuth } from './auth';
 export { safeNext } from './errors';
 

@@ -1,5 +1,5 @@
 import { LoginBody } from '@orderloop/contracts';
-import { Button, Form, Link, Row, Text, useNavigation } from '@orderloop/ui';
+import { Alert, Button, Form, Link, Row, Text, useNavigation } from '@orderloop/ui';
 import { useEffect } from 'react';
 import { useAuth } from '../auth';
 import { AuthLayout } from '../components/AuthLayout';
@@ -11,7 +11,7 @@ import { useRuntime } from '../runtime';
 import { useZodForm } from '../zodForm';
 
 export function LoginScreen({ next }: { next?: string | undefined }) {
-  const { status, signIn } = useAuth();
+  const { status, signIn, endedBy } = useAuth();
   const navigation = useNavigation();
   const { home } = useRuntime();
   const target = safeNext(next, home);
@@ -37,6 +37,9 @@ export function LoginScreen({ next }: { next?: string | undefined }) {
       }
     >
       <Form onSubmit={submit}>
+        {endedBy === 'expired' && (
+          <Alert tone="warning">Your session has expired. Sign in again to continue.</Alert>
+        )}
         <FormError message={form.formError} />
         <FormTextField control={form.control} name="email" label="Email" kind="email" required />
         <FormPasswordField

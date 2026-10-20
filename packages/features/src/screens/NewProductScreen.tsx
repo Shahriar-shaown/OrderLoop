@@ -74,7 +74,7 @@ export function NewProductScreen() {
       await queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success(`Created ${product.name}`);
     });
-    if (ok) navigation.push(`/products/${createdId}`);
+    if (ok) navigation.replace(`/products/${createdId}`);
   }
 
   const prices = variants.map((v) => parsePrice(v.price)).filter((n): n is number => n !== null);

@@ -34,7 +34,11 @@ export function mount(
   const runtime = { api, session: manager, home: '/products' } as unknown as Runtime;
   const navigation = { pathname: '/orders', push: vi.fn(), replace: vi.fn(), back: vi.fn() };
   const view = render(
-    <AppProviders runtime={runtime} navigation={navigation}>
+    <AppProviders
+      runtime={runtime}
+      navigation={navigation}
+      {...(process.env.TEST_LOCALE === 'bn' ? { language: { initial: 'bn' as const } } : {})}
+    >
       {ui}
     </AppProviders>,
   );

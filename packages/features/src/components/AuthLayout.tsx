@@ -13,6 +13,7 @@ import {
   useBreakpoint,
   useTheme,
   type IconName,
+  LanguageToggle,
 } from '@orderloop/ui';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
@@ -133,7 +134,10 @@ export function AuthLayout({
             </View>
             {isWide ? <BrandPanel /> : null}
           </Card>
-          <ThemeToggle />
+          <Stack direction="row" gap={3} wrap align="center" justify="center">
+            <ThemeToggle />
+            <LanguageToggle />
+          </Stack>
         </Stack>
       </Screen>
     </>

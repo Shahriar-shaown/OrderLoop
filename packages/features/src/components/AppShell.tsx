@@ -20,6 +20,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, View, type ViewStyle } from 'react-native';
 import { useAuth, useRequireAuth } from '../auth';
+import { OfflineBanner } from './OfflineBanner';
+import { RestoreFailed } from './RestoreFailed';
 import { messageFor } from '../errors';
 import { useCan } from '../permissions';
 import { useApi, useRuntime } from '../runtime';
@@ -30,7 +32,7 @@ import { WorkspaceMenu } from '../shell/WorkspaceMenu';
 
 export type { ShellNavItem } from '../shell/nav';
 
-function VerifyBanner() {
+export function VerifyBanner() {
   const { session: current } = useAuth();
   const { api, session } = useRuntime();
   const toast = useToast();
@@ -74,15 +76,14 @@ function VerifyBanner() {
       }
     >
       <Text>
-        Please verify your email address (<Text weight="bold">{current.user.email}</Text>). Some
-        actions, like inviting people, need it.
+        {`Please verify your email address (${current.user.email}). Some actions, like inviting people, need it.`}
       </Text>
     </Alert>
   );
 }
 
 /** Orders waiting to be confirmed: the one count the menu shows, because it is work a person has to do. */
-function usePendingOrders(enabled: boolean) {
+export function usePendingOrders(enabled: boolean) {
   const api = useApi();
   return useQuery({
     queryKey: ['orders', 'pending-count'],
@@ -140,7 +141,7 @@ export function AppShell({
   /** The menu. The web app shows the whole catalogue; the mobile app shows what it has built so far. */
   nav?: ShellNavItem[];
 }) {
-  const { status, session: current, signOut } = useAuth();
+  const { status, session: current, signOut, restoreFailed } = useAuth();
   useRequireAuth();
   const navigation = useNavigation();
   const can = useCan();
@@ -157,6 +158,12 @@ export function AppShell({
 
   // While restoring the session (or being sent to sign in) show nothing from the app: no flash of private screens.
   if (status !== 'authenticated' || !current) {
+    if (restoreFailed)
+      return (
+        <Screen width="sm">
+          <RestoreFailed />
+        </Screen>
+      );
     return (
       <Screen width="sm">
         <Stack align="center" gap={3} style={{ paddingTop: 80 }}>
@@ -408,6 +415,7 @@ export function AppShell({
         {header}
         <Screen>
           <Stack gap={5} style={isMobile ? { paddingBottom: layout.bottomBar + 8 } : undefined}>
+            <OfflineBanner />
             <VerifyBanner />
             {children}
           </Stack>

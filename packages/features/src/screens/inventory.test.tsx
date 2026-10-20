@@ -393,7 +393,7 @@ describe('new product', () => {
         variants: [expect.objectContaining({ sku: 'MUG-1', priceMinor: 25000 })],
       }),
     );
-    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith('/products/new1'));
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith('/products/new1'));
   });
 
   it('shows what is missing instead of calling the API', async () => {

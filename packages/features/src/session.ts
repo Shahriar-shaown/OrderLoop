@@ -27,6 +27,8 @@ export interface SessionApi {
 export interface Snapshot {
   status: SessionStatus;
   session: AuthResult | null;
+  /** Why there is no session: the server stopped accepting it (`expired`), as opposed to the person signing out. */
+  endedBy?: 'expired';
 }
 
 type Message = { type: 'session'; session: AuthResult } | { type: 'logout' };
@@ -119,7 +121,8 @@ export class SessionManager {
         return session;
       } catch (error) {
         if (isAuthRejection(error)) {
-          this.clear();
+          // A session that was running and is now refused has expired or been revoked: the sign-in screen says so.
+          this.clear(this.snapshot.status === 'authenticated' ? 'expired' : undefined);
           return null;
         }
         throw error;
@@ -148,11 +151,11 @@ export class SessionManager {
     this.schedule(session.expiresIn);
   }
 
-  private clear(): void {
+  private clear(endedBy?: 'expired'): void {
     if (this.timer) clearTimeout(this.timer);
     this.timer = undefined;
     this.persist(null);
-    this.set({ status: 'anonymous', session: null });
+    this.set({ status: 'anonymous', session: null, ...(endedBy ? { endedBy } : {}) });
   }
 
   private schedule(expiresInSeconds: number): void {

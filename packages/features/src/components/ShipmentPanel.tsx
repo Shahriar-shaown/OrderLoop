@@ -22,7 +22,7 @@ import {
   useToast,
 } from '@orderloop/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   COURIER_NAME,
   ENVIRONMENT_LABEL,
@@ -364,6 +364,14 @@ function BookForm({ order, couriers }: { order: OrderDetail; couriers: CourierEn
     zoneId: '',
     areaId: '',
   });
+  // The couriers can arrive after the form first renders (or change while it is open): never leave the choice empty or on a
+  // courier that is no longer usable.
+  const chosen = form.values.provider;
+  const firstUsable = options[0]?.provider;
+  useEffect(() => {
+    if (firstUsable && !options.some((c) => c.provider === chosen))
+      form.set('provider', firstUsable);
+  }, [chosen, firstUsable]);
   // One key per intended booking. It is reused when a request fails without an answer (so a retry cannot book twice) and
   // replaced once the server has answered, so the next booking is a new one.
   const [key, setKey] = useState(newIdempotencyKey);
