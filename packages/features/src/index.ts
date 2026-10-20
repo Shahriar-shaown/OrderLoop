@@ -1,12 +1,18 @@
 import './i18n/index';
-export { createRuntime, useApi, useRuntime, type RefreshTokenStore, type Runtime } from './runtime';
-export { useRequireAuth } from './auth';
-export { AppProviders } from './components/AppProviders';
-export { AppShell, usePendingOrders, VerifyBanner, type ShellNavItem } from './components/AppShell';
-export { OfflineBanner } from './components/OfflineBanner';
-export { RestoreFailed } from './components/RestoreFailed';
-export { useOnline } from './online';
-export { useRefreshAll } from './refresh';
+export {
+  createRuntime,
+  useApi,
+  useRuntime,
+  type RefreshTokenStore,
+  type Runtime,
+} from './core/runtime';
+export { useRequireAuth } from './core/auth';
+export { AppProviders } from './shell/AppProviders';
+export { AppShell, usePendingOrders, VerifyBanner, type ShellNavItem } from './shell/AppShell';
+export { OfflineBanner } from './shell/OfflineBanner';
+export { RestoreFailed } from './shell/RestoreFailed';
+export { useOnline } from './core/online';
+export { useRefreshAll } from './core/refresh';
 export {
   alwaysOnline,
   browserConnectivity,
@@ -15,48 +21,48 @@ export {
   withOfflineGuard,
   type ConnectivityStore,
   type WritableConnectivity,
-} from './connectivity';
+} from './core/connectivity';
 export { GlobalSearch } from './shell/GlobalSearch';
 export { WorkspaceMenu } from './shell/WorkspaceMenu';
 export { AccountMenu } from './shell/AccountMenu';
-export { useCan } from './permissions';
-export { setBusinessTimezone } from './format';
-export { useAuth } from './auth';
-export { safeNext } from './errors';
+export { useCan } from './core/permissions';
+export { setBusinessTimezone } from './lib/format';
+export { useAuth } from './core/auth';
+export { safeNext } from './forms/errors';
 
-export { LoginScreen } from './screens/LoginScreen';
-export { SignupScreen } from './screens/SignupScreen';
-export { ForgotPasswordScreen } from './screens/ForgotPasswordScreen';
-export { ResetPasswordScreen } from './screens/ResetPasswordScreen';
-export { VerifyEmailScreen } from './screens/VerifyEmailScreen';
-export { AcceptInvitationScreen } from './screens/AcceptInvitationScreen';
-export { ProductsScreen } from './screens/ProductsScreen';
-export { NewProductScreen } from './screens/NewProductScreen';
-export { ProductDetailScreen } from './screens/ProductDetailScreen';
-export { InventoryScreen } from './screens/InventoryScreen';
-export { CategoriesScreen } from './screens/CategoriesScreen';
-export { SuppliersScreen } from './screens/SuppliersScreen';
-export { LocationsScreen } from './screens/LocationsScreen';
-export { ImportsScreen } from './screens/ImportsScreen';
-export { HomeScreen } from './screens/HomeScreen';
-export { WorkspaceSettingsScreen } from './screens/WorkspaceSettingsScreen';
-export { WorkspacesScreen } from './screens/WorkspacesScreen';
-export { WorkspaceCreateScreen } from './screens/WorkspaceCreateScreen';
-export { useSwitchWorkspace, useWorkspaces } from './workspaces';
-export { OrdersScreen } from './screens/OrdersScreen';
-export { NewOrderScreen } from './screens/NewOrderScreen';
-export { EditOrderScreen } from './screens/EditOrderScreen';
-export { OrderDetailScreen } from './screens/OrderDetailScreen';
-export { OrdersImportScreen } from './screens/OrdersImportScreen';
-export { CustomersScreen } from './screens/CustomersScreen';
-export { CustomerDetailScreen } from './screens/CustomerDetailScreen';
-export { DashboardScreen } from './screens/DashboardScreen';
-export { TeamScreen } from './screens/TeamScreen';
-export { CouriersScreen } from './screens/CouriersScreen';
-export { SettlementDetailScreen } from './screens/SettlementDetailScreen';
-export { AnalyticsScreen } from './screens/AnalyticsScreen';
-export { ShipmentsScreen } from './screens/ShipmentsScreen';
-export { CodReconciliationScreen } from './screens/CodReconciliationScreen';
-export { PaymentBadge, PAYMENT_LABEL, PAYMENT_TONE } from './components/PaymentBadge';
-export { ShipmentStatusBadge } from './components/ShipmentStatusBadge';
-export { OrderStatusBadge } from './components/OrderStatusBadge';
+export { LoginScreen } from './screens/auth/LoginScreen';
+export { SignupScreen } from './screens/auth/SignupScreen';
+export { ForgotPasswordScreen } from './screens/auth/ForgotPasswordScreen';
+export { ResetPasswordScreen } from './screens/auth/ResetPasswordScreen';
+export { VerifyEmailScreen } from './screens/auth/VerifyEmailScreen';
+export { AcceptInvitationScreen } from './screens/auth/AcceptInvitationScreen';
+export { ProductsScreen } from './screens/catalog/ProductsScreen';
+export { NewProductScreen } from './screens/catalog/NewProductScreen';
+export { ProductDetailScreen } from './screens/catalog/ProductDetailScreen';
+export { InventoryScreen } from './screens/catalog/InventoryScreen';
+export { CategoriesScreen } from './screens/catalog/CategoriesScreen';
+export { SuppliersScreen } from './screens/catalog/SuppliersScreen';
+export { LocationsScreen } from './screens/catalog/LocationsScreen';
+export { ImportsScreen } from './screens/catalog/ImportsScreen';
+export { HomeScreen } from './screens/auth/HomeScreen';
+export { WorkspaceSettingsScreen } from './screens/workspace/WorkspaceSettingsScreen';
+export { WorkspacesScreen } from './screens/workspace/WorkspacesScreen';
+export { WorkspaceCreateScreen } from './screens/workspace/WorkspaceCreateScreen';
+export { useSwitchWorkspace, useWorkspaces } from './lib/workspaces';
+export { OrdersScreen } from './screens/orders/OrdersScreen';
+export { NewOrderScreen } from './screens/orders/NewOrderScreen';
+export { EditOrderScreen } from './screens/orders/EditOrderScreen';
+export { OrderDetailScreen } from './screens/orders/OrderDetailScreen';
+export { OrdersImportScreen } from './screens/orders/OrdersImportScreen';
+export { CustomersScreen } from './screens/orders/CustomersScreen';
+export { CustomerDetailScreen } from './screens/orders/CustomerDetailScreen';
+export { DashboardScreen } from './screens/insights/DashboardScreen';
+export { TeamScreen } from './screens/workspace/TeamScreen';
+export { CouriersScreen } from './screens/logistics/CouriersScreen';
+export { SettlementDetailScreen } from './screens/logistics/SettlementDetailScreen';
+export { AnalyticsScreen } from './screens/insights/AnalyticsScreen';
+export { ShipmentsScreen } from './screens/logistics/ShipmentsScreen';
+export { CodReconciliationScreen } from './screens/logistics/CodReconciliationScreen';
+export { PaymentBadge, PAYMENT_LABEL, PAYMENT_TONE } from './components/orders/PaymentBadge';
+export { ShipmentStatusBadge } from './components/logistics/ShipmentStatusBadge';
+export { OrderStatusBadge } from './components/orders/OrderStatusBadge';

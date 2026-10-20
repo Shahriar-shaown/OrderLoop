@@ -1,4 +1,4 @@
-import { catalogFor, recordMissing, type CompiledCatalog } from './catalog';
+import { catalogFor, catalogVersion, recordMissing, type CompiledCatalog } from './catalog';
 import { localizeDateText, localizeDigits } from './dateText';
 import type { Locale } from './locales';
 
@@ -53,6 +53,25 @@ const isNumeric = (text: string) => !/[A-Za-z]/.test(text.replace(/(?<=[\d.])[kK
 export function translate(locale: Locale, text: string, params?: Params): string {
   const source = fillIn(text, params);
   if (locale === 'en') return source;
+  // The same strings render again and again (list rows, every re-render): remember the answers, including "no translation".
+  const key = `${locale}\u0000${source}`;
+  if (memoVersion !== catalogVersion()) {
+    memo.clear();
+    memoVersion = catalogVersion();
+  }
+  const known = memo.get(key);
+  if (known !== undefined) return known;
+  const result = translateUncached(locale, source);
+  if (memo.size >= MEMO_LIMIT) memo.clear(); // names, SKUs and amounts are endless: keep it bounded
+  memo.set(key, result);
+  return result;
+}
+
+const memo = new Map<string, string>();
+let memoVersion = -1;
+const MEMO_LIMIT = 2000;
+
+function translateUncached(locale: Locale, source: string): string {
   const trimmed = source.trim();
   if (!trimmed) return source;
 

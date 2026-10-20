@@ -51,7 +51,12 @@ export function registerCatalog(locale: Locale, entries: Catalog): void {
     else catalog.exact.set(source, target);
   }
   catalogs.set(locale, catalog);
+  version += 1;
 }
+
+let version = 0;
+/** Changes whenever a catalogue is added to, so anything remembered about translations knows to forget it. */
+export const catalogVersion = (): number => version;
 
 export const catalogFor = (locale: Locale): CompiledCatalog | undefined => catalogs.get(locale);
 

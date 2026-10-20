@@ -1,9 +1,9 @@
 import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { vi } from 'vitest';
-import { NavigationContext, type Navigation } from '../src/navigation';
-import { ThemeProvider } from '../src/theme';
-import { ToastProvider } from '../src/Toast';
+import { NavigationContext, type Navigation } from '../src/navigation/navigation';
+import { ThemeProvider } from '../src/theme/theme';
+import { ToastProvider } from '../src/overlays/Toast';
 
 export function makeNavigation(
   pathname = '/',

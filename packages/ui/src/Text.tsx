@@ -1,8 +1,8 @@
 import { Platform, Text as RNText, type TextProps as RNTextProps } from 'react-native';
-import { fontFamily, fontSize, lineHeight, type } from './tokens';
+import { fontFamily, fontSize, lineHeight, type } from './theme/tokens';
 import { localizeChildren, useLocale } from './i18n';
-import { useTheme } from './theme';
-import { createTextVariants } from './variants';
+import { useTheme } from './theme/theme';
+import { createTextVariants } from './theme/variants';
 
 /** The type scale of the design. Use `variant` for meaning (a heading, a label), `tone` for emphasis; never raw font sizes. */
 const useTextStyle = createTextVariants((t) => ({

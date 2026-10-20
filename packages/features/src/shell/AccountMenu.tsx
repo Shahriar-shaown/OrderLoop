@@ -9,7 +9,7 @@ import {
   useTheme,
 } from '@orderloop/ui';
 import { Pressable, View } from 'react-native';
-import { useAuth } from '../auth';
+import { useAuth } from '../core/auth';
 
 /** The person's avatar, opening their account: name, email, the colour theme, settings and sign out. */
 export function AccountMenu({ onSignOut, leaving }: { onSignOut: () => void; leaving: boolean }) {

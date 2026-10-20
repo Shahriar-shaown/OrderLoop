@@ -1,10 +1,19 @@
-import { Dialog, Icon, SearchField, Stack, Text, useNavigation, useTheme } from '@orderloop/ui';
+import {
+  Alert,
+  Dialog,
+  Icon,
+  SearchField,
+  Stack,
+  Text,
+  useNavigation,
+  useTheme,
+} from '@orderloop/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
-import { useDebounced } from '../hooks';
-import { useCan } from '../permissions';
-import { useApi } from '../runtime';
+import { useDebounced } from '../lib/hooks';
+import { useCan } from '../core/permissions';
+import { useApi } from '../core/runtime';
 
 interface Hit {
   key: string;
@@ -33,12 +42,23 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
     enabled: open && q.length >= 2,
     queryFn: async (): Promise<Hit[]> => {
       const hits: Hit[] = [];
-      const [orders, customers, products, shipments] = await Promise.all([
+      // One source failing (no permission for shipments, a timeout) must not blank the others.
+      const settled = await Promise.allSettled([
         can('orders:read') ? api.orders.list({ q, limit: 5 } as never) : null,
         can('orders:read') ? api.customers.list({ q, limit: 5 } as never) : null,
         can('catalog:read') ? api.products.list({ q, limit: 5 } as never) : null,
         can('couriers:read') ? api.shipments.list({ q, limit: 5 } as never) : null,
       ]);
+      const [orders, customers, products, shipments] = settled.map((r) =>
+        r.status === 'fulfilled' ? r.value : null,
+      ) as [
+        Awaited<ReturnType<typeof api.orders.list>> | null,
+        Awaited<ReturnType<typeof api.customers.list>> | null,
+        Awaited<ReturnType<typeof api.products.list>> | null,
+        Awaited<ReturnType<typeof api.shipments.list>> | null,
+      ];
+      if (settled.every((r) => r.status === 'rejected'))
+        throw (settled[0] as PromiseRejectedResult).reason;
       for (const o of orders?.items ?? [])
         hits.push({
           key: `o${o.id}`,
@@ -95,12 +115,16 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
           <Text tone="muted">Type at least two characters.</Text>
         ) : query.isLoading ? (
           <Text tone="muted">Searching…</Text>
+        ) : query.isError ? (
+          <Alert tone="error">
+            Search is not available right now. Check your connection and try again.
+          </Alert>
         ) : query.data && query.data.length > 0 ? (
-          <View role="list">
+          <View>
             {query.data.map((h) => (
               <Pressable
                 key={h.key}
-                role="listitem"
+                role="link"
                 onPress={() => go(h.href)}
                 style={(s) => [
                   {

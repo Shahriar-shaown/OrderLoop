@@ -1,9 +1,9 @@
 import type { AuthResult } from '@orderloop/contracts';
 import { render } from '@testing-library/react';
 import { vi } from 'vitest';
-import { AppProviders } from '../src/components/AppProviders';
-import type { Runtime } from '../src/runtime';
-import { SessionManager } from '../src/session';
+import { AppProviders } from '../src/shell/AppProviders';
+import type { Runtime } from '../src/core/runtime';
+import { SessionManager } from '../src/core/session';
 
 export const session = (role: AuthResult['role'] = 'OWNER'): AuthResult => ({
   accessToken: 'token',

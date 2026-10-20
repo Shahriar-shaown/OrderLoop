@@ -10,10 +10,10 @@ import {
   MenuRow,
 } from '@orderloop/ui';
 import { Pressable, View } from 'react-native';
-import { useAuth } from '../auth';
-import { messageFor } from '../errors';
-import { useRuntime } from '../runtime';
-import { useSwitchWorkspace, useWorkspaces } from '../workspaces';
+import { useAuth } from '../core/auth';
+import { messageFor } from '../forms/errors';
+import { useRuntime } from '../core/runtime';
+import { useSwitchWorkspace, useWorkspaces } from '../lib/workspaces';
 
 /** The business you are working in, as a button that opens the list of your businesses. */
 export function WorkspaceMenu({ compact = false }: { compact?: boolean }) {

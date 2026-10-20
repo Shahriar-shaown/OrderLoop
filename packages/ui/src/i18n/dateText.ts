@@ -2,6 +2,10 @@
 
 const BENGALI_DIGITS = '০১২৩৪৫৬৭৮৯';
 
+/** Bengali numerals typed on a Bangla keyboard to the ASCII digits every parser expects. */
+export const toAsciiDigits = (text: string): string =>
+  text.replace(/[০-৯]/g, (digit) => String(BENGALI_DIGITS.indexOf(digit)));
+
 export const localizeDigits = (text: string): string =>
   text.replace(/[0-9]/g, (digit) => BENGALI_DIGITS[Number(digit)]!);
 

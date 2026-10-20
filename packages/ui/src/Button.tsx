@@ -6,16 +6,16 @@ import {
   type GestureResponderEvent,
   type PressableProps,
 } from 'react-native';
-import { useFormSubmit } from './formContext';
+import { useFormSubmit } from './inputs/formContext';
 import { translatedProps, useT } from './i18n';
-import { Icon } from './Icon';
-import type { IconName } from './icons';
-import { useLinkPress, webLinkProps } from './Link';
+import { Icon } from './feedback/Icon';
+import type { IconName } from './feedback/icons';
+import { useLinkPress, webLinkProps } from './navigation/Link';
 import { Text } from './Text';
-import { useTheme } from './theme';
-import { radius, space, touchTarget } from './tokens';
-import { useBreakpoint } from './useBreakpoint';
-import { createVariants } from './variants';
+import { useTheme } from './theme/theme';
+import { radius, space, touchTarget } from './theme/tokens';
+import { useBreakpoint } from './layout/useBreakpoint';
+import { createVariants } from './theme/variants';
 
 const useButtonStyle = createVariants((t) => ({
   base: {
@@ -95,7 +95,7 @@ export function Button({
 }: ButtonProps) {
   const { colors } = useTheme();
   const t = useT();
-  const { isMobile } = useBreakpoint();
+  const { isTouch } = useBreakpoint();
   const submit = useFormSubmit();
   const follow = useLinkPress(href ?? '', false, undefined);
   const inactive = Boolean(disabled || loading);
@@ -131,7 +131,7 @@ export function Button({
         const hovered = (state as { hovered?: boolean }).hovered && !inactive;
         return [
           style,
-          isMobile && variant !== 'link' ? { minHeight: touchTarget } : null,
+          isTouch && variant !== 'link' ? { minHeight: touchTarget } : null,
           iconOnly ? { paddingHorizontal: 0, aspectRatio: 1 } : null,
           hovered && variant === 'primary' ? { backgroundColor: colors.primaryHover } : null,
           hovered && variant === 'danger' ? { backgroundColor: colors.dangerHover } : null,

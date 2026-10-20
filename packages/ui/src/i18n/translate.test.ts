@@ -63,3 +63,11 @@ describe('patterns do not swallow unrelated text', () => {
   it('gives Bengali digits to compact amounts like ৳10k', () =>
     expect(translate('bn', '৳10k')).toBe('৳১০k'));
 });
+
+describe('the translation memory', () => {
+  it('forgets what it knew when a catalogue grows', () => {
+    expect(translate('bn', 'A brand new sentence')).toBe('A brand new sentence');
+    registerCatalog('bn', { 'A brand new sentence': 'একটি নতুন বাক্য' });
+    expect(translate('bn', 'A brand new sentence')).toBe('একটি নতুন বাক্য');
+  });
+});
