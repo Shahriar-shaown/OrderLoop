@@ -235,7 +235,8 @@ export const routes = {
     id: 'switchTenant',
     method: 'POST',
     path: '/v1/auth/switch-tenant',
-    summary: 'Re-scope the session to another tenant the user belongs to',
+    summary:
+      'Start a session in another tenant the user belongs to (the current session keeps its tenant)',
     auth: 'access',
     body: SwitchTenantBody,
     response: AuthResult,

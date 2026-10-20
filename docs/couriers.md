@@ -178,8 +178,19 @@ The courier's **original status text is always kept** (`providerStatus` on the s
 status. An update that arrives late or out of order is recorded as _not applied_ with the reason, never silently dropped. A
 repeated delivery of the same event (same key) is recognised and changes nothing.
 
+While a live shipment exists the order's address and phone cannot be changed (`409 shipment_conflict`: the courier keeps the
+copy it was booked with); cancel the shipment, change the address, book again. Saving an unchanged address, or notes, is fine.
+
 An order cannot be cancelled while a live shipment exists. Cancel the shipment first (Simulated courier: the Cancel button;
 Pathao and Steadfast: cancel in their panel, then **Mark cancelled at the courier**), then cancel the order.
+
+Moving the order for a courier's news is all-or-nothing: if a later step is refused, the earlier ones (stock leaving the
+shelf, history) are rolled back to a savepoint and the shipment's event says "The order was not changed: <why>". Cancelling
+through the courier's API keeps the shipment row locked from the check to the update, so two cancels, or a webhook arriving
+meanwhile, take turns (the webhook waits for the courier's answer, which has its own timeout). A booking's weight is checked
+against the courier's range before a shipment row exists (`400`, naming the range: Pathao 0.5 to 10 kg; Steadfast and the
+simulated courier 0.1 to 50 kg), using `capabilities.weightKg` from the courier package. Every order status change also
+re-checks the cash discrepancies of that order's settlement lines.
 
 ## Webhooks and how they are verified
 
@@ -226,11 +237,11 @@ returns `201` with the shipment and its `status` and `failureReason`.
 
 ## Tests
 
-- `packages/courier-sdk` (100 tests): HTTP behaviour (timeouts, retries, `Retry-After`, never repeating a booking), status
+- `packages/courier-sdk` (106 tests): HTTP behaviour (timeouts, retries, `Retry-After`, never repeating a booking), status
   mapping and transition rules (property-style), webhook verification and parsing, and each adapter against **mocked HTTP**
   (`fakeNetwork`): login flows, token reuse and re-login, exact request bodies, refusal of whole-taka violations, errors never
   containing secrets.
-- `apps/api/test/couriers.e2e.test.ts` (30 tests, real database, no real network): the checkpoint (book with the simulated
+- `apps/api/test/couriers.e2e.test.ts` (35 tests, real database, no real network): the checkpoint (book with the simulated
   courier, follow it to delivery, retry safely), concurrent duplicate bookings, uncertain bookings, cancel rules, secret
   handling (encrypted at rest, never returned or logged), roles, tenant isolation, and both couriers' booking, refresh and
   webhook flows (wrong secrets, replays, out-of-order, unknown statuses).
@@ -253,5 +264,4 @@ Do these once, in this order, and fix the code against what the courier actually
 
 COD settlement and courier fee reconciliation (next phase); bulk booking; Steadfast return requests and balance display;
 Pathao on-demand pricing options beyond delivery type; label printing; a background poller for providers without webhooks
-(use **Check status now**); courier selection rules. Editing an order's contact details after booking does **not** change
-the courier's copy: cancel and rebook.
+(use **Check status now**); courier selection rules. Editing an order's address after booking is refused for the same reason: cancel the shipment and rebook.

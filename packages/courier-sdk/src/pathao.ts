@@ -116,6 +116,7 @@ export class PathaoAdapter implements CourierAdapter {
     locations: true,
     // Pathao documents no lookup by our reference, so a booking that timed out cannot be checked. It must be settled by a person.
     duplicateProtection: 'none',
+    weightKg: { min: 0.5, max: 10 },
   };
 
   private readonly http: Http;
@@ -311,8 +312,9 @@ export class PathaoAdapter implements CourierAdapter {
   async book(request: BookingRequest): Promise<BookingResult> {
     const o = request.options;
     const weight = request.weightKg ?? this.options.settings.defaultWeightKg ?? 0.5;
-    if (!Number.isFinite(weight) || weight < 0.5 || weight > 10)
-      throw new CourierError('unsupported', 'Pathao takes parcels of 0.5 to 10 kg.');
+    const { min, max } = this.capabilities.weightKg;
+    if (!Number.isFinite(weight) || weight < min || weight > max)
+      throw new CourierError('unsupported', `Pathao takes parcels of ${min} to ${max} kg.`);
     if (request.recipient.address.trim().length < 10)
       throw new CourierError(
         'unsupported',

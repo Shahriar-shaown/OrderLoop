@@ -38,13 +38,13 @@ export class SessionService {
   /** Create a session plus its first refresh token inside the caller's transaction. */
   async create(
     tx: Tx,
-    input: { userId: string; tenantId: string } & ClientMeta,
+    input: { userId: string; tenantId: string; expiresAt?: Date } & ClientMeta,
   ): Promise<{ sessionId: string; refreshToken: string }> {
     const session = await tx.session.create({
       data: {
         userId: input.userId,
         activeTenantId: input.tenantId,
-        expiresAt: new Date(Date.now() + SESSION_MAX_DAYS * DAY_MS),
+        expiresAt: input.expiresAt ?? new Date(Date.now() + SESSION_MAX_DAYS * DAY_MS),
         ip: input.ip ?? null,
         userAgent: input.userAgent?.slice(0, 300) ?? null,
       },
@@ -80,9 +80,27 @@ export class SessionService {
     });
   }
 
+  /** Was this already-exchanged token presented again within the grace window, with its successor still unused? */
+  private async isRetry(
+    tx: Tx,
+    row: { usedAt: Date | null; replacedById: string | null },
+    now: Date,
+  ): Promise<boolean> {
+    const graceMs = this.config.REFRESH_REUSE_GRACE_SECONDS * 1000;
+    if (!row.usedAt || !row.replacedById || now.getTime() - row.usedAt.getTime() >= graceMs)
+      return false;
+    const successor = await tx.refreshToken.findUnique({
+      where: { id: row.replacedById },
+      select: { usedAt: true },
+    });
+    return successor !== null && successor.usedAt === null;
+  }
+
   /**
    * Exchange a refresh token for a new one (rotation). Each token works exactly once; presenting a
-   * token that was already exchanged is treated as theft and revokes the whole session.
+   * token that was already exchanged is treated as theft and revokes the whole session, except for a
+   * short grace window: a client whose response was lost retries with the token it still holds, and
+   * gets a fresh token as long as the token issued the first time has not been used yet.
    */
   async rotate(rawToken: string, meta: ClientMeta): Promise<Rotated> {
     const tokenHash = this.tokens.hashToken(rawToken);
@@ -113,7 +131,8 @@ export class SessionService {
         return { kind: 'reuse' };
       };
 
-      if (row.usedAt) return reuse();
+      const retry = row.usedAt !== null && (await this.isRetry(tx, row, now));
+      if (row.usedAt && !retry) return reuse();
       if (row.expiresAt <= now || session.expiresAt <= now) return { kind: 'ended' };
 
       await applyContext(tx, { tenantId: session.activeTenantId, userId: session.userId });
@@ -128,12 +147,14 @@ export class SessionService {
         return { kind: 'ended' };
       }
 
-      // Compare-and-set: of two concurrent exchanges only one can flip usedAt from null.
-      const claimed = await tx.refreshToken.updateMany({
-        where: { id: row.id, usedAt: null },
-        data: { usedAt: now },
-      });
-      if (claimed.count === 0) return reuse();
+      if (!retry) {
+        // Compare-and-set: of two concurrent exchanges only one can flip usedAt from null.
+        const claimed = await tx.refreshToken.updateMany({
+          where: { id: row.id, usedAt: null },
+          data: { usedAt: now },
+        });
+        if (claimed.count === 0) return reuse();
+      }
 
       const next = await this.issueRefreshToken(tx, session.id, session.expiresAt);
       await tx.refreshToken.update({ where: { id: row.id }, data: { replacedById: next.id } });

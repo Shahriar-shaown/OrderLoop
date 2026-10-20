@@ -132,8 +132,13 @@ export class AuthController {
     @Auth() auth: AuthContext,
     @Input() input: ParsedInput<typeof routes.switchTenant>,
     @Req() req: AppRequest,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResult> {
-    return this.auth.switchTenant(auth, input.body.tenantId, this.meta(req));
+    return this.deliver(
+      req,
+      res,
+      await this.auth.switchTenant(auth, input.body.tenantId, this.meta(req)),
+    );
   }
 
   @Endpoint(routes.acceptInvitation)

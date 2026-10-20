@@ -462,6 +462,13 @@ describe('Pathao: estimate and tracking', () => {
     expect(adapter({}).a.capabilities.cancel).toBe(false);
   });
 
+  it('declares the weights it takes, which are the ones its booking enforces', async () => {
+    const { a } = adapter({});
+    expect(a.capabilities.weightKg).toEqual({ min: 0.5, max: 10 });
+    for (const weightKg of [0.4, 10.1])
+      expect((await fail(a.book({ ...booking(), weightKg }))).message).toMatch(/0\.5 to 10 kg/);
+  });
+
   it('never exposes the secrets in any result or error', async () => {
     const { a } = adapter({
       'POST /aladdin/api/v1/orders': created,

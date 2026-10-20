@@ -1,5 +1,7 @@
 import { fakeNetwork, timeoutError } from '@orderloop/courier-sdk';
 import { Writable } from 'node:stream';
+import { ApiError } from '../src/common/api-error.js';
+import { OrdersService } from '../src/orders/orders.service.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   addMember,
@@ -417,6 +419,159 @@ describe('the simulated courier: book, track, retry (the milestone checkpoint)',
     const r = await api.post(`/v1/shipments/${b.body.id}/refresh`).expect(200);
     expect(r.body.status).toBe('booked');
     expect(r.body.events).toHaveLength(2); // an unchanged status is not news
+  });
+});
+
+describe('safety around live shipments', () => {
+  it('refuses a weight the courier takes only after a shipment row exists: 400 with the courier’s range, nothing created', async () => {
+    net = fakeNetwork({
+      'POST /aladdin/api/v1/external/login': {
+        body: { access_token: 'tok', refresh_token: 'r', expires_in: 432000 },
+      },
+    });
+    const { owner, api } = await shop();
+    await api
+      .patch('/v1/couriers/pathao', {
+        environment: 'sandbox',
+        credentials: { clientId: 'cid', clientSecret: 'csecret' },
+        settings: { storeId: 777 },
+      })
+      .expect(200);
+    const order = await readyOrder(owner, api);
+    for (const weightKg of [0.2, 12]) {
+      const res = await book(api, order.id, 'pathao', { weightKg });
+      expect(res.status).toBe(400);
+      expect(res.body.detail).toMatch(/0\.5 to 10 kg/);
+      expect(res.body.errors[0].path).toBe('body.weightKg');
+    }
+    expect(await shipmentsOf(api, order.id)).toEqual([]);
+    expect(net.requests.filter((r) => r.path === '/aladdin/api/v1/orders')).toHaveLength(0);
+    // the simulated courier takes the wider range
+    await connectMock(api).expect(200);
+    await book(api, order.id, 'mock', { weightKg: 12 }).expect(201);
+  });
+
+  it('two cancels at once cancel the parcel once; the other is told it is already cancelled', async () => {
+    const { owner, api } = await shop();
+    await connectMock(api).expect(200);
+    const order = await readyOrder(owner, api);
+    const b = await book(api, order.id).expect(201);
+    const results = await Promise.all(
+      [1, 2, 3].map(() =>
+        api.post(`/v1/shipments/${b.body.id}/cancel`, { reason: 'Customer changed mind' }),
+      ),
+    );
+    expect(results.map((r) => r.status).sort()).toEqual([200, 409, 409]);
+    const detail = (await api.get(`/v1/shipments/${b.body.id}`)).body;
+    expect(detail.status).toBe('cancelled');
+    expect(
+      detail.events.filter((e: { note: string | null }) => e.note?.startsWith('Cancelled')),
+    ).toHaveLength(1);
+  });
+
+  it('a courier update that arrives while a cancel is under way waits for it, then is recorded as out of order', async () => {
+    const { owner, api } = await shop();
+    await connectMock(api).expect(200);
+    const order = await readyOrder(owner, api);
+    const b = await book(api, order.id).expect(201);
+    const [cancel, news] = await Promise.all([
+      api.post(`/v1/shipments/${b.body.id}/cancel`, { reason: 'Customer changed mind' }),
+      api.post(`/v1/shipments/${b.body.id}/simulate`, { event: 'picked_up' }),
+    ]);
+    const final = (await api.get(`/v1/shipments/${b.body.id}`)).body;
+    // Whichever took the row first, the result is one consistent story: cancelled and the order not shipped, or picked up and not cancellable.
+    if (final.status === 'cancelled') {
+      expect(cancel.status).toBe(200);
+      expect((await orderOf(api, order.id)).status).toBe('ready_to_ship');
+    } else {
+      expect(final.status).toBe('picked_up');
+      expect(cancel.status).toBe(409);
+      expect(news.status).toBe(200);
+      expect((await orderOf(api, order.id)).status).toBe('shipped');
+    }
+  });
+
+  it('refuses to change the address or phone of an order with a live shipment, but not notes or an unchanged address', async () => {
+    const { owner, api } = await shop();
+    await connectMock(api).expect(200);
+    const order = await readyOrder(owner, api);
+    const address = {
+      recipientName: 'Rina Akter',
+      phone: '01712345678',
+      line1: 'House 5, Road 3, Dhanmondi',
+      area: 'Dhanmondi',
+      district: 'Dhaka',
+      division: 'Dhaka',
+    };
+    // no shipment yet: allowed
+    await api
+      .patch(`/v1/orders/${order.id}`, {
+        address: { ...address, line1: 'House 6, Road 3, Dhanmondi' },
+      })
+      .expect(200);
+    const b = await book(api, order.id).expect(201);
+    const moved = await api.patch(`/v1/orders/${order.id}`, {
+      address: { ...address, phone: '01812345678' },
+    });
+    expect(moved.status).toBe(409);
+    expect(moved.body.code).toBe('shipment_conflict');
+    expect(moved.body.detail).toMatch(/Cancel the shipment first/);
+    expect(
+      (await api.patch(`/v1/orders/${order.id}`, { address: { ...address, line1: 'Elsewhere 9' } }))
+        .status,
+    ).toBe(409);
+    // the edit form sends the address with every save: unchanged is fine, and so are notes
+    await api
+      .patch(`/v1/orders/${order.id}`, {
+        address: { ...address, line1: 'House 6, Road 3, Dhanmondi' },
+        notes: 'Call first',
+      })
+      .expect(200);
+    // after cancelling the shipment the address can change again
+    await api.post(`/v1/shipments/${b.body.id}/cancel`, { reason: 'Wrong address' }).expect(200);
+    await api
+      .patch(`/v1/orders/${order.id}`, { address: { ...address, phone: '01812345678' } })
+      .expect(200);
+    expect((await orderOf(api, order.id)).shipping.phone).toBe('+8801812345678');
+  });
+
+  it('a courier update that cannot carry the order all the way leaves nothing half done', async () => {
+    const { owner, api } = await shop();
+    await connectMock(api).expect(200);
+    const order = await readyOrder(owner, api);
+    const b = await book(api, order.id).expect(201);
+    expect(await onHand(api, order.variant.id)).toMatchObject({ onHand: 20, reserved: 1 });
+
+    // "Delivered" while the order is still ready to ship is two moves: shipped (stock leaves), then delivered.
+    // Make the second one fail after the first has really been applied.
+    const orders = t.app.get(OrdersService);
+    const real = orders.moveInTx.bind(orders);
+    let calls = 0;
+    orders.moveInTx = async (...args: Parameters<typeof real>) => {
+      if (++calls === 2) throw new ApiError(409, 'invalid_transition', 'forced failure');
+      return real(...args);
+    };
+    let delivered;
+    try {
+      delivered = await api
+        .post(`/v1/shipments/${b.body.id}/simulate`, { event: 'delivered' })
+        .expect(200);
+    } finally {
+      orders.moveInTx = real;
+    }
+    expect(calls).toBe(2);
+    // the shipment took the news and says the order was not changed
+    expect(delivered.body.status).toBe('delivered');
+    expect(delivered.body.events.at(-1).note).toMatch(/The order was not changed: forced failure/);
+    // the first step was undone with it: the unit is still reserved, no history row, order unchanged
+    expect(await onHand(api, order.variant.id)).toMatchObject({ onHand: 20, reserved: 1 });
+    const o = await orderOf(api, order.id);
+    expect(o.status).toBe('ready_to_ship');
+    expect(o.history.map((h: { toStatus: string }) => h.toStatus)).not.toContain('shipped');
+    const ship = await t.db.withContext({ tenantId: owner.tenant.id }, (tx) =>
+      tx.stockMovement.count({ where: { referenceId: order.id, type: 'SHIP' } }),
+    );
+    expect(ship).toBe(0);
   });
 });
 

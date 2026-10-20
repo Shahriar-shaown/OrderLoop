@@ -49,6 +49,8 @@ export interface Capabilities {
    *  - `none`: no. After an unknown outcome the booking must be settled by a person, never retried blindly.
    */
   duplicateProtection: 'reference' | 'none';
+  /** Parcel weights the provider accepts, in kg. A booking outside this range is refused by the provider, so callers check first. */
+  weightKg: { min: number; max: number };
 }
 
 export interface Recipient {

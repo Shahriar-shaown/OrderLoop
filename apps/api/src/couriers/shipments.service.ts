@@ -23,6 +23,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
 import { stable } from '../common/stable.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { liveShipmentOf } from '../orders/live-shipment.js';
 import { OrdersService } from '../orders/orders.service.js';
 import { CouriersService, courierProblem } from './couriers.service.js';
 import { planOrderMoves } from './order-sync.js';
@@ -33,9 +34,10 @@ type EventRow = NonNullable<Awaited<ReturnType<Tx['shipmentEvent']['findFirst']>
 
 /** A booking claimed but never settled for this long is treated as unconfirmed (the process died mid-booking). */
 const STALE_BOOKING_MS = 120_000;
+/** A cancel keeps its transaction open while the courier answers, so it may outlast the default 5 seconds. */
+const CANCEL_TX_MS = 30_000;
 /** Statuses that never change again, or that leave room for a fresh booking. */
 const ENDED: ShipmentStatus[] = ['booking_failed', 'cancelled', 'returned'];
-const NOT_LIVE: ShipmentStatus[] = ['booking_failed', 'cancelled'];
 
 export interface IncomingEvent {
   source: 'webhook' | 'poll' | 'manual' | 'simulation';
@@ -189,6 +191,23 @@ export class ShipmentsService {
 
   // ---- booking -------------------------------------------------------------------------------------------------------
 
+  /** Refuse a weight the courier would refuse, before a shipment exists (the contract allows more than any one courier does). */
+  private assertWeight(provider: CourierProvider, weightKg: number | undefined): void {
+    const { min, max } = capabilitiesOf(provider).weightKg;
+    if (weightKg !== undefined && (weightKg < min || weightKg > max))
+      throw new ApiError(
+        400,
+        'validation_failed',
+        `${PROVIDERS[provider].name} takes parcels of ${min} to ${max} kg.`,
+        [
+          {
+            path: 'body.weightKg',
+            message: `Must be between ${min} and ${max} kg for ${PROVIDERS[provider].name}`,
+          },
+        ],
+      );
+  }
+
   async book(
     auth: AuthContext,
     orderId: string,
@@ -233,9 +252,7 @@ export class ShipmentsService {
           );
         return { replay: replay.id, order, connection, shipmentId: replay.id };
       }
-      const live = await tx.shipment.findFirst({
-        where: { tenantId: auth.tenantId, orderId, status: { notIn: NOT_LIVE } },
-      });
+      const live = await liveShipmentOf(tx, auth.tenantId, orderId);
       if (live)
         throw new ApiError(
           409,
@@ -250,6 +267,12 @@ export class ShipmentsService {
           'shipment_conflict',
           'Mark the order Ready to ship before booking a courier.',
         );
+
+      this.assertWeight(
+        body.provider,
+        body.weightKg ??
+          (connection.settings as { defaultWeightKg?: number } | null)?.defaultWeightKg,
+      );
 
       const attempt =
         ((
@@ -618,7 +641,11 @@ export class ShipmentsService {
     });
     if (!order) return null;
     const plan = planOrderMoves(order.status as OrderStatus, event.status);
+    if (!plan.steps.length) return plan.note;
     const label = shipment.simulated ? 'Simulated courier update' : 'Courier update';
+    // All the steps are one unit: if any is refused, the ones before it (stock moves, history) are undone with it, so the
+    // order is either carried forward as planned or left exactly as it was.
+    await tx.$executeRaw`SAVEPOINT order_sync`;
     for (const step of plan.steps) {
       try {
         await this.orders.moveInTx(
@@ -629,11 +656,12 @@ export class ShipmentsService {
           ip,
         );
       } catch (error) {
-        if (error instanceof ApiError)
-          return `The order was not changed: ${error.detail ?? error.message}`;
-        throw error;
+        if (!(error instanceof ApiError)) throw error;
+        await tx.$executeRaw`ROLLBACK TO SAVEPOINT order_sync`;
+        return `The order was not changed: ${error.detail ?? error.message}`;
       }
     }
+    await tx.$executeRaw`RELEASE SAVEPOINT order_sync`;
     return plan.note;
   }
 
@@ -788,19 +816,25 @@ export class ShipmentsService {
 
   // ---- cancelling, settling, simulating --------------------------------------------------------------------------------
 
+  /**
+   * Cancel a booked parcel through the courier's API. The shipment row stays locked from the check to the update, so two
+   * people cancelling, or a webhook arriving meanwhile, take turns instead of interleaving (a webhook waits for the courier's
+   * answer; the courier call has its own timeout). The courier is only asked once the row is ours and still booked.
+   */
   async cancel(
     auth: AuthContext,
     id: string,
     reason: string,
     ip: string | null,
   ): Promise<ShipmentDetail> {
-    const row = await this.load(auth, id);
-    if (row.status !== 'booked')
-      throw new ApiError(
+    const notCancellable = () =>
+      new ApiError(
         409,
         'shipment_conflict',
         'Only a booked parcel that has not been picked up can be cancelled.',
       );
+    const row = await this.load(auth, id);
+    if (row.status !== 'booked') throw notCancellable();
     const adapter = await this.adapterOf(auth.tenantId, row);
     if (!adapter.cancel)
       throw new ApiError(
@@ -808,28 +842,30 @@ export class ShipmentsService {
         'courier_unsupported',
         `${PROVIDERS[row.provider].name} has no documented way to cancel a booking through its API. Cancel it in the courier's own panel or by phone, then choose “Mark cancelled at the courier”.`,
       );
-    let outcome: { cancelled: boolean; message?: string | undefined };
-    try {
-      outcome = await adapter.cancel({
-        consignmentId: row.providerConsignmentId,
-        reference: row.providerReference,
-        last: row.providerStatus
-          ? { providerStatus: row.providerStatus, status: row.status as never }
-          : undefined,
-      });
-    } catch (error) {
-      if (error instanceof CourierError) throw courierProblem(error);
-      throw error;
-    }
-    if (!outcome.cancelled)
-      throw new ApiError(
-        409,
-        'courier_rejected',
-        outcome.message ?? 'The courier would not cancel this parcel.',
-      );
-    return this.db.withContext({ tenantId: auth.tenantId, userId: auth.userId }, async (tx) => {
-      const locked = await this.lock(tx, auth.tenantId, id);
-      if (locked.status === 'booked') {
+    return this.db.withContext(
+      { tenantId: auth.tenantId, userId: auth.userId },
+      async (tx) => {
+        const locked = await this.lock(tx, auth.tenantId, id);
+        if (locked.status !== 'booked') throw notCancellable();
+        let outcome: { cancelled: boolean; message?: string | undefined };
+        try {
+          outcome = await adapter.cancel!({
+            consignmentId: locked.providerConsignmentId,
+            reference: locked.providerReference,
+            last: locked.providerStatus
+              ? { providerStatus: locked.providerStatus, status: locked.status as never }
+              : undefined,
+          });
+        } catch (error) {
+          if (error instanceof CourierError) throw courierProblem(error);
+          throw error;
+        }
+        if (!outcome.cancelled)
+          throw new ApiError(
+            409,
+            'courier_rejected',
+            outcome.message ?? 'The courier would not cancel this parcel.',
+          );
         await tx.shipment.update({
           where: { id },
           data: { status: 'cancelled', lastEventAt: new Date() },
@@ -854,9 +890,10 @@ export class ShipmentsService {
           metadata: { provider: row.provider, simulated: row.simulated },
           ip,
         });
-      }
-      return this.detail(tx, auth.tenantId, id);
-    });
+        return this.detail(tx, auth.tenantId, id);
+      },
+      { timeout: CANCEL_TX_MS },
+    );
   }
 
   async resolve(

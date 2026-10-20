@@ -72,6 +72,8 @@ export const CourierCapabilities = z.object({
   locations: z.boolean(),
   /** `reference`: a booking that timed out can be looked up. `none`: it cannot, so a person must settle it. */
   duplicateProtection: z.enum(['reference', 'none']),
+  /** Parcel weights the courier accepts, in kg. Booking outside it is refused with 400 before anything is created. */
+  weightKg: z.object({ min: z.number(), max: z.number() }).optional(),
 });
 export type CourierCapabilities = z.infer<typeof CourierCapabilities>;
 

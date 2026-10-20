@@ -30,8 +30,10 @@ import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
 import { stable } from '../common/stable.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { evaluate as evaluateDiscrepancies } from '../finance/discrepancies.js';
 import { StockRunner } from '../inventory/inventory.service.js';
 import { CustomersService } from './customers.service.js';
+import { liveShipmentOf } from './live-shipment.js';
 import { toDetail, toSummary, type OrderRow, type SummaryRow } from './order.mapper.js';
 import {
   afterCursor,
@@ -460,10 +462,7 @@ export class OrdersService {
       );
     if (to === 'cancelled') {
       // An order cannot be cancelled while a parcel for it exists (or may exist) at a courier: that parcel would still be delivered and collected on.
-      const live = await tx.shipment.findFirst({
-        where: { tenantId, orderId: id, status: { notIn: ['booking_failed', 'cancelled'] } },
-        select: { provider: true, status: true },
-      });
+      const live = await liveShipmentOf(tx, tenantId, id);
       if (live)
         throw new ApiError(
           409,
@@ -534,6 +533,11 @@ export class OrdersService {
       metadata: { orderNumber: order.orderNumber, from, to },
       ip,
     });
+    // Whether cash the courier reported is early, short or fine depends on the order's status, so look again now that it changed.
+    if (
+      await tx.settlementItem.findFirst({ where: { tenantId, orderId: id }, select: { id: true } })
+    )
+      await evaluateDiscrepancies(tx, this.audit, tenantId, { orderIds: [id] });
   }
 
   /** Several orders, each in its own transaction, so one that cannot move does not stop the rest. */
@@ -634,11 +638,10 @@ export class OrdersService {
         );
       if (touchesContact && scope === 'notes')
         throw ApiError.conflict('Once shipped, only the notes can be changed');
-
       const data: Prisma.OrderUncheckedUpdateInput = {};
       const changed: string[] = [];
       if (body.address) {
-        Object.assign(data, {
+        const next = {
           shipName: body.address.recipientName,
           shipPhone: body.address.phone,
           shipLine1: body.address.line1,
@@ -646,7 +649,19 @@ export class OrdersService {
           shipDistrict: body.address.district,
           shipDivision: body.address.division,
           shipPostalCode: body.address.postalCode ?? null,
-        });
+        };
+        // The courier keeps the address and phone it was booked with, so a real change would never reach the parcel.
+        // (The edit form sends the address with every save, so only a difference counts.)
+        if (
+          Object.entries(next).some(([key, value]) => order[key as keyof typeof next] !== value) &&
+          (await liveShipmentOf(tx, tenantId, id))
+        )
+          throw new ApiError(
+            409,
+            'shipment_conflict',
+            'This order has a courier shipment, and the courier keeps the address it was booked with. Cancel the shipment first, then change the address and book again.',
+          );
+        Object.assign(data, next);
         changed.push('address');
       }
       if (body.source !== undefined) {

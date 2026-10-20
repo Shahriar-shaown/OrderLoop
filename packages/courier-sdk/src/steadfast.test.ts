@@ -294,6 +294,7 @@ describe('Steadfast: finding a booking again, and tracking', () => {
     expect(a.quote).toBeUndefined();
     expect(a.cancel).toBeUndefined();
     expect(a.capabilities).toMatchObject({ quote: false, cancel: false, webhooks: true });
+    expect(a.capabilities.weightKg).toEqual({ min: 0.1, max: 50 });
   });
 
   it('never exposes the key or secret in a result or an error', async () => {

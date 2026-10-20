@@ -961,7 +961,7 @@
     "/v1/auth/switch-tenant": {
       "post": {
         "operationId": "switchTenant",
-        "summary": "Re-scope the session to another tenant the user belongs to",
+        "summary": "Start a session in another tenant the user belongs to (the current session keeps its tenant)",
         "requestBody": {
           "required": true,
           "content": {
@@ -15191,6 +15191,19 @@
                           "duplicateProtection": {
                             "type": "string",
                             "enum": ["reference", "none"]
+                          },
+                          "weightKg": {
+                            "type": "object",
+                            "properties": {
+                              "min": {
+                                "type": "number"
+                              },
+                              "max": {
+                                "type": "number"
+                              }
+                            },
+                            "required": ["min", "max"],
+                            "additionalProperties": false
                           }
                         },
                         "required": [
@@ -15613,6 +15626,19 @@
                         "duplicateProtection": {
                           "type": "string",
                           "enum": ["reference", "none"]
+                        },
+                        "weightKg": {
+                          "type": "object",
+                          "properties": {
+                            "min": {
+                              "type": "number"
+                            },
+                            "max": {
+                              "type": "number"
+                            }
+                          },
+                          "required": ["min", "max"],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -15910,6 +15936,19 @@
                         "duplicateProtection": {
                           "type": "string",
                           "enum": ["reference", "none"]
+                        },
+                        "weightKg": {
+                          "type": "object",
+                          "properties": {
+                            "min": {
+                              "type": "number"
+                            },
+                            "max": {
+                              "type": "number"
+                            }
+                          },
+                          "required": ["min", "max"],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -23916,14 +23955,7 @@
                 "properties": {
                   "kind": {
                     "type": "string",
-                    "enum": [
-                      "packaging",
-                      "advertising",
-                      "delivery_charge",
-                      "return_charge",
-                      "courier_deduction",
-                      "other"
-                    ]
+                    "enum": ["packaging", "advertising", "other"]
                   },
                   "amountMinor": {
                     "type": "integer",
@@ -25229,6 +25261,11 @@
                         }
                       ]
                     },
+                    "itemRevenueMinor": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "deliveredOrders": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -25291,6 +25328,7 @@
                     "totalUnits",
                     "totalRevenueMinor",
                     "totalCostMinor",
+                    "itemRevenueMinor",
                     "deliveredOrders",
                     "placedOrders",
                     "placedMinor",

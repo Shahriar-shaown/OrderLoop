@@ -72,6 +72,7 @@ export class MockAdapter implements CourierAdapter {
       returns: true,
       locations: true,
       duplicateProtection: settings.referenceLookup ? 'reference' : 'none',
+      weightKg: { min: 0.1, max: 50 },
     };
   }
 

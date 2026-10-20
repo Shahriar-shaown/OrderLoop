@@ -60,6 +60,7 @@ describe('the simulated courier', () => {
     expect(MOCK_BOOKINGS.get([...MOCK_BOOKINGS.keys()][0]!)).toHaveLength(2);
     expect(await a.findByReference('OL-1001')).toBeNull();
     expect(a.capabilities.duplicateProtection).toBe('none');
+    expect(a.capabilities.weightKg).toEqual({ min: 0.1, max: 50 });
   });
 
   it('with a reference lookup it finds an existing booking and returns the same parcel', async () => {

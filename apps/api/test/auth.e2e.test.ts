@@ -1,5 +1,6 @@
 import type { AuthResult } from '@orderloop/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { AuthService } from '../src/auth/auth.service.js';
 import {
   addMember,
   bearer,
@@ -53,6 +54,31 @@ describe('register', () => {
     });
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('conflict');
+  });
+
+  it('tells the owner of an address that someone tried to register it again, at most three times an hour', async () => {
+    const owner = await registerTenant(t);
+    const again = () =>
+      t.http.post('/v1/auth/register').send({
+        email: owner.email,
+        password: PASSWORD,
+        name: 'Xavier',
+        tenantName: 'Yellow Shop',
+      });
+    expect((await again()).status).toBe(409);
+    await t.app.get(AuthService).idle();
+    const notices = () => t.mail.to(owner.email, 'account_exists');
+    expect(notices()).toHaveLength(1);
+    // Nothing a stranger chose is in the email, and it points at sign-in, not at a link that creates anything.
+    expect(notices()[0]!.text).not.toMatch(/Xavier|Yellow Shop/);
+    for (let i = 0; i < 4; i++) await again();
+    await t.app.get(AuthService).idle();
+    expect(notices()).toHaveLength(3);
+    // The existing account is untouched: one tenant, signing in works.
+    expect(
+      (await t.http.post('/v1/auth/login').send({ email: owner.email, password: PASSWORD })).body
+        .memberships,
+    ).toHaveLength(1);
   });
 
   it('rejects weak input with RFC 9457 problem details and field paths', async () => {
@@ -277,8 +303,67 @@ describe('web client (cookie transport)', () => {
   });
 });
 
+describe('refresh token grace window', () => {
+  let graceApp: TestApp;
+  beforeAll(async () => {
+    graceApp = await createTestApp({ REFRESH_REUSE_GRACE_SECONDS: '10' });
+  });
+  afterAll(() => graceApp.close());
+  const refresh = (token: string) =>
+    graceApp.http.post('/v1/auth/refresh').send({ refreshToken: token });
+
+  it('a retry with the token whose response was lost gets a working session instead of ending it', async () => {
+    const owner = await registerTenant(graceApp);
+    const first = await refresh(owner.refreshToken); // the response to this one never reached the client
+    expect(first.status).toBe(200);
+    const retry = await refresh(owner.refreshToken);
+    expect(retry.status).toBe(200);
+    expect(retry.body.refreshToken).not.toBe(first.body.refreshToken);
+    expect((await graceApp.http.get('/v1/me').set(bearer(retry.body.accessToken))).status).toBe(
+      200,
+    );
+    // The session carries on from the retry's token.
+    expect((await refresh(retry.body.refreshToken)).status).toBe(200);
+  });
+
+  it('once the newer token has been used, the older one is theft again, even inside the window', async () => {
+    const owner = await registerTenant(graceApp);
+    const first = await refresh(owner.refreshToken);
+    expect((await refresh(first.body.refreshToken)).status).toBe(200); // the client moved on
+    const replay = await refresh(owner.refreshToken);
+    expect(replay.status).toBe(401);
+    expect(replay.body.code).toBe('token_reuse_detected');
+    const session = await graceApp.db.global.session.findFirstOrThrow({
+      where: { user: { email: owner.email } },
+    });
+    expect(session.revokedReason).toBe('refresh_token_reuse');
+  });
+
+  it('after the window a replay still ends the whole session', async () => {
+    const owner = await registerTenant(graceApp);
+    const first = await refresh(owner.refreshToken);
+    const user = await graceApp.db.global.user.findUniqueOrThrow({ where: { email: owner.email } });
+    // Age the exchange past the window.
+    await graceApp.db.global.refreshToken.updateMany({
+      where: { session: { userId: user.id }, usedAt: { not: null } },
+      data: { usedAt: new Date(Date.now() - 11_000) },
+    });
+    const replay = await refresh(owner.refreshToken);
+    expect(replay.status).toBe(401);
+    expect(replay.body.code).toBe('token_reuse_detected');
+    expect((await refresh(first.body.refreshToken)).status).toBe(401);
+  });
+
+  it('does not extend the window to a session that has been signed out', async () => {
+    const owner = await registerTenant(graceApp);
+    const first = await refresh(owner.refreshToken);
+    await graceApp.http.post('/v1/auth/logout').set(bearer(first.body.accessToken)).expect(200);
+    expect((await refresh(owner.refreshToken)).status).toBe(401);
+  });
+});
+
 describe('switch tenant', () => {
-  it('re-scopes the session to another tenant the user belongs to and invalidates the old access token', async () => {
+  it('starts a session in the other tenant and leaves the one it came from on its own tenant', async () => {
     const a = await registerTenant(t, { tenantName: 'Shop A' });
     const b = await registerTenant(t, { tenantName: 'Shop B' });
     const joined = await addMember(t, b, 'STAFF', { email: a.email, password: PASSWORD });
@@ -291,11 +376,42 @@ describe('switch tenant', () => {
     expect(switched.status).toBe(200);
     expect(switched.body.tenant.id).toBe(b.tenant.id);
     expect(switched.body.role).toBe('STAFF');
+    expect(switched.body.refreshToken).toBeTruthy();
 
     const me = await t.http.get('/v1/me').set(bearer(switched.body.accessToken));
     expect(me.body.tenant.id).toBe(b.tenant.id);
-    // The pre-switch token named tenant A, but the session now points at B.
-    expect((await t.http.get('/v1/me').set(bearer(a.accessToken))).status).toBe(401);
+    // Another tab holding the pre-switch token and refresh token is not moved: it still works, in tenant A.
+    const stay = await t.http.get('/v1/me').set(bearer(a.accessToken));
+    expect(stay.status).toBe(200);
+    expect(stay.body.tenant.id).toBe(a.tenant.id);
+    const refreshed = await t.http.post('/v1/auth/refresh').send({ refreshToken: a.refreshToken });
+    expect(refreshed.body.tenant.id).toBe(a.tenant.id);
+    // The new session refreshes in tenant B, and signing out of one does not end the other.
+    const other = await t.http
+      .post('/v1/auth/refresh')
+      .send({ refreshToken: switched.body.refreshToken });
+    expect(other.body.tenant.id).toBe(b.tenant.id);
+    await t.http.post('/v1/auth/logout').set(bearer(other.body.accessToken)).expect(200);
+    expect((await t.http.get('/v1/me').set(bearer(refreshed.body.accessToken))).status).toBe(200);
+  });
+
+  it('a switched session cannot outlive the session it came from', async () => {
+    const a = await registerTenant(t, { tenantName: 'Shop A' });
+    const b = await registerTenant(t, { tenantName: 'Shop B' });
+    await addMember(t, b, 'STAFF', { email: a.email, password: PASSWORD });
+    const soon = new Date(Date.now() + 3_600_000);
+    await t.db.global.session.updateMany({
+      where: { user: { email: a.email } },
+      data: { expiresAt: soon },
+    });
+    await t.http
+      .post('/v1/auth/switch-tenant')
+      .set(bearer(a.accessToken))
+      .send({ tenantId: b.tenant.id })
+      .expect(200);
+    const sessions = await t.db.global.session.findMany({ where: { user: { email: a.email } } });
+    expect(sessions).toHaveLength(3); // sign-up, accepting the invitation, and the switch
+    expect(sessions.every((x) => x.expiresAt.getTime() === soon.getTime())).toBe(true);
   });
 
   it('refuses a tenant the user does not belong to, and does not reveal whether it exists', async () => {

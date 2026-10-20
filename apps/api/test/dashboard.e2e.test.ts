@@ -310,13 +310,13 @@ describe('profit is shown only when it can be worked out', () => {
     expect(d.profit).toMatchObject({
       available: true,
       kind: 'estimate',
-      revenueMinor: 170_000, // item lines only: order discount and delivery are left out
+      revenueMinor: 166_000, // 2 x 850 - 100 order discount + 60 delivery billed: the one definition of revenue
       costMinor: 80_000,
-      grossProfitMinor: 90_000,
+      grossProfitMinor: 86_000,
       deliveredOrders: 1,
       lines: 1,
     });
-    expect(d.profit.basis).toMatch(/Leaves out .*courier fees/);
+    expect(d.profit.basis).toMatch(/Leaves out courier fees/);
   });
 
   it('is withheld, with the reason, when any delivered line has no cost price', async () => {
@@ -334,7 +334,7 @@ describe('profit is shown only when it can be worked out', () => {
     expect(JSON.stringify(d.profit)).not.toMatch(/grossProfit|revenueMinor/);
   });
 
-  it('ignores orders that were not delivered and orders outside the period', async () => {
+  it('ignores orders that were not delivered, and dates the rest by delivery', async () => {
     const { owner, api } = await shop();
     const v = await item(owner, 10, { price: 85_000, cost: 40_000 });
     const pending = await order(api, [{ variantId: v.id, quantity: 1 }]);
@@ -345,9 +345,10 @@ describe('profit is shown only when it can be worked out', () => {
       (tx) =>
         tx.$executeRaw`UPDATE orders SET created_at = now() - interval '20 days' WHERE id = ${old.id}::uuid`,
     );
-    expect((await dash(api, '7d')).profit).toMatchObject({ available: false, lines: 0 });
-    expect((await dash(api, '30d')).profit).toMatchObject({
+    // the period is dated by delivery (the same as the finance summary), so an old order delivered now counts today
+    expect((await dash(api, 'today')).profit).toMatchObject({
       available: true,
+      deliveredOrders: 1,
       grossProfitMinor: 45_000,
     });
     void pending;
@@ -470,5 +471,107 @@ describe('who can see it, and whose it is', () => {
     const { api } = await shop();
     expect((await api.get('/v1/dashboard?period=year')).status).toBe(400);
     expect((await api.get('/v1/dashboard').expect(200)).body.period).toBe('7d');
+  });
+});
+
+describe('revenue and profit have one definition everywhere', () => {
+  const analytics = async (api: Api, d: string) =>
+    (await api.get(`/v1/finance/analytics?from=${d}&to=${d}`).expect(200)).body;
+  const summary = async (api: Api, d: string) =>
+    (await api.get(`/v1/finance/summary?from=${d}&to=${d}`).expect(200)).body;
+  const figure = (s: { figures: { key: string; amountMinor: number }[] }, k: string) =>
+    s.figures.find((f) => f.key === k)?.amountMinor ?? 0;
+  const cost = (api: Api, kind: string) =>
+    api.post('/v1/finance/costs', {
+      kind,
+      amountMinor: 7_000,
+      incurredOn: dayIn('Asia/Dhaka'),
+      note: 'test cost',
+      idempotencyKey: key(),
+    });
+
+  it('the dashboard, finance summary and analytics agree on an order with a discount and a delivery charge', async () => {
+    const { owner, api } = await shop();
+    const v = await item(owner, 10, { price: 85_000, cost: 40_000 });
+    const o = await order(api, [{ variantId: v.id, quantity: 2 }], {
+      discountMinor: 10_000,
+      deliveryChargeMinor: 6_000,
+    });
+    await deliver(api, o.id);
+    const d = dayIn('Asia/Dhaka');
+    const dashboardProfit = (await dash(api)).profit;
+    const a = await analytics(api, d);
+    const s = await summary(api, d);
+
+    // 2 x 850 - 100 + 60 = 1660 revenue; cost of goods 800; gross profit 860
+    expect(dashboardProfit).toMatchObject({
+      revenueMinor: 166_000,
+      costMinor: 80_000,
+      grossProfitMinor: 86_000,
+    });
+    expect(a.daily[0]).toMatchObject({ revenueMinor: 166_000, grossProfitMinor: 86_000 });
+    expect(a.totalRevenueMinor).toBe(166_000);
+    expect(a.totalCostMinor).toBe(80_000);
+    expect(a.channels).toEqual([{ source: 'other', orders: 1, revenueMinor: 166_000 }]);
+    expect(figure(s, 'revenue_goods') + figure(s, 'revenue_delivery')).toBe(166_000);
+    expect(figure(s, 'cogs')).toBe(80_000);
+    expect(s.estimatedProfitMinor).toBe(86_000); // no courier charges or costs recorded: net profit = gross profit
+    // product lines are before order-level discount and delivery, which belong to no product
+    expect(a.topProducts[0]).toMatchObject({ revenueMinor: 170_000, grossProfitMinor: 90_000 });
+    expect(a.itemRevenueMinor).toBe(170_000);
+  });
+
+  it('a courier charge cannot be entered by hand, because statements already carry it', async () => {
+    const { api } = await shop();
+    for (const kind of ['delivery_charge', 'return_charge', 'courier_deduction'])
+      expect((await cost(api, kind)).status).toBe(400);
+    await cost(api, 'packaging').then((r) => expect(r.status).toBe(201));
+  });
+
+  it('an old hand-entered courier charge counts only while no statement covers the period, and can be voided', async () => {
+    const { owner, api } = await shop();
+    const v = await item(owner, 10, { price: 85_000, cost: 40_000 });
+    await deliver(api, (await order(api, [{ variantId: v.id, quantity: 1 }])).id);
+    const d = dayIn('Asia/Dhaka');
+    const legacy = await t.db.withContext({ tenantId: owner.tenant.id }, (tx) =>
+      tx.manualCost.create({
+        data: {
+          tenantId: owner.tenant.id,
+          kind: 'delivery_charge',
+          amountMinor: 6_000,
+          incurredOn: new Date(`${d}T00:00:00Z`),
+          note: 'old entry',
+          idempotencyKey: key(),
+          requestHash: 'legacy',
+        },
+      }),
+    );
+    expect((await api.get(`/v1/finance/costs?from=${d}&to=${d}`).expect(200)).body).toHaveLength(1);
+    let s = await summary(api, d);
+    expect(figure(s, 'manual_costs')).toBe(6_000);
+    expect(s.estimatedProfitMinor).toBe(85_000 - 40_000 - 6_000);
+
+    // a statement now reports courier charges for the period (a 25 fee): the old entry stops counting, so no charge counts twice
+    const head =
+      'transaction_id,consignment_id,tracking_code,reference,phone,date,type,collected,delivery_charge,cod_fee,return_charge,other_deduction,net,note';
+    await api
+      .post('/v1/settlements/import', {
+        provider: 'steadfast',
+        csv: `${head}\n,,,,,${d},adjustment,0,0,0,0,25,,Monthly fee`,
+        fileName: 'statement.csv',
+      })
+      .expect(200);
+    s = await summary(api, d);
+    expect(figure(s, 'manual_costs')).toBe(0);
+    expect(figure(s, 'courier_other')).toBe(2_500);
+    expect(s.estimatedProfitMinor).toBe(85_000 - 40_000 - 2_500);
+    expect(s.manualCostsByKind).toEqual([{ kind: 'delivery_charge', amountMinor: 6_000 }]);
+    expect(s.caveats.join(' ')).toMatch(/recorded by hand before statements/);
+
+    // the old row still shows and can be voided
+    const voided = await api
+      .post(`/v1/finance/costs/${legacy.id}/void`, { reason: 'Counted by the statement' })
+      .expect(200);
+    expect(voided.body.voidedAt).not.toBeNull();
   });
 });

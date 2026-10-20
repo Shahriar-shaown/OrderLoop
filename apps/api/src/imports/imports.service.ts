@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { ImportBody, ImportJob, ImportPreview } from '@orderloop/contracts';
-import { previewImportRows } from '@orderloop/catalog';
+import { IMPORT_JOB_OPTIONS, previewImportRows } from '@orderloop/catalog';
 import { IMPORT_LIMITS, parseCatalogCsv } from '@orderloop/domain';
 import { Database } from '@orderloop/db';
 import type { Queue } from 'bullmq';
@@ -126,13 +126,7 @@ export class ImportsService {
       await this.queue.add(
         'products',
         { tenantId: auth.tenantId, importId: job.id },
-        {
-          jobId: job.id,
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 5000 },
-          removeOnComplete: { age: 3600 },
-          removeOnFail: { age: 86_400 },
-        },
+        { jobId: job.id, ...IMPORT_JOB_OPTIONS },
       );
     } catch (error) {
       this.logger.error(

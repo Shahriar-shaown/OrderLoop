@@ -81,6 +81,8 @@ export class SteadfastAdapter implements CourierAdapter {
     locations: false,
     // `invoice` is the merchant's own unique reference, and the status can be looked up by it: a booking that timed out can be checked.
     duplicateProtection: 'reference',
+    // Steadfast documents no weight limit; this is the widest range the API accepts.
+    weightKg: { min: 0.1, max: 50 },
   };
 
   private readonly http: Http;

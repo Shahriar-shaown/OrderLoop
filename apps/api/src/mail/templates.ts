@@ -85,6 +85,19 @@ export const templates = {
     );
   },
 
+  accountExists(to: string, base: string): MailMessage {
+    return render(
+      'account_exists',
+      to,
+      'You already have an OrderLoop account',
+      [
+        'Someone tried to create an OrderLoop account with this email address, but it already has one. If that was you, sign in instead; if you have forgotten your password, you can reset it from the sign-in page.',
+        'If it was not you, ignore this email. Nothing about your account has changed.',
+      ],
+      { label: 'Sign in', url: `${base}/login` },
+    );
+  },
+
   passwordChanged(to: string): MailMessage {
     return render('password_changed', to, 'Your OrderLoop password was changed', [
       'The password for your OrderLoop account was just changed, and you were signed out everywhere. If you did not do this, reset your password straight away and contact your workspace owner.',

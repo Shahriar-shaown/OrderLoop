@@ -1,12 +1,14 @@
-import { failImportJob, processImportJob } from '@orderloop/catalog';
+import { failImportJob, findStalePendingImports, processImportJob } from '@orderloop/catalog';
 import { loadDotEnv, loadServerEnv } from '@orderloop/contracts/server';
 import { Database } from '@orderloop/db';
-import { Worker } from 'bullmq';
+import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { z } from 'zod';
+import { SWEEP_EVERY_MS, sweepPendingImports } from './sweep-imports.js';
 
 /** What the API puts on the queue: ids only. Re-validated here, because the worker must not trust what comes out of Redis. */
 const ImportJobData = z.object({ tenantId: z.string().uuid(), importId: z.string().uuid() });
+type ImportJobData = z.infer<typeof ImportJobData>;
 
 /** Connection failures surface as AggregateError with an empty message; fall back to the code or the errors inside. */
 function describe(err: Error & { code?: string; errors?: Error[] }): string {
@@ -58,8 +60,20 @@ function main(): void {
     }
   });
 
+  // The API saves an import and then queues it; if it dies in between, the row sits PENDING with nothing to run it.
+  const queue = new Queue<ImportJobData>('imports', { connection });
+  const sweep = setInterval(() => {
+    sweepPendingImports({
+      find: (olderThanMs) => findStalePendingImports(db, olderThanMs),
+      queue,
+      log: (message) => console.log(`[worker] ${message}`),
+    }).catch((e: Error) => console.error(`[worker] sweep failed: ${describe(e)}`));
+  }, SWEEP_EVERY_MS);
+
   const shutdown = async (signal: string) => {
     console.log(`[worker] ${signal} received, finishing the current job and shutting down`);
+    clearInterval(sweep);
+    await queue.close();
     await imports.close(); // waits for the job in flight
     await db.disconnect();
     connection.disconnect();

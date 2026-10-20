@@ -205,8 +205,14 @@ export class AuthService {
       await this.mail.send(templates.verifyEmail(body.email, this.webBase, verificationToken));
       return this.toResult(grant);
     } catch (error) {
-      if (isUniqueViolation(error, 'email'))
+      if (isUniqueViolation(error, 'email')) {
+        // The address owner is told, so a stranger probing their address is visible to them (capped, like reset emails).
+        if (await this.throttle.allowResetRequest(body.email, 'exists-notice'))
+          this.defer('account exists notice', async () => {
+            await this.mail.send(templates.accountExists(body.email, this.webBase));
+          });
         throw ApiError.conflict('An account with this email already exists');
+      }
       throw error;
     }
   }
@@ -317,23 +323,33 @@ export class AuthService {
       });
       // Same answer whether the tenant does not exist or the user is not in it.
       if (!membership) throw ApiError.forbidden('You are not a member of that tenant');
-      await tx.session.updateMany({
+      // A switch starts a session of its own for the other business. The session it came from keeps its business, so a
+      // second tab or device is never moved by someone else's switch. The new one cannot outlive the old one.
+      const current = await tx.session.findFirst({
         where: { id: auth.sessionId, userId: auth.userId, revokedAt: null },
-        data: { activeTenantId: tenantId },
+        select: { expiresAt: true },
+      });
+      if (!current) throw ApiError.unauthorized('Session is no longer valid');
+      const session = await this.sessions.create(tx, {
+        userId: auth.userId,
+        tenantId,
+        expiresAt: current.expiresAt,
+        ...meta,
       });
       await this.audit.record(tx, {
         tenantId,
         actorUserId: auth.userId,
         action: 'auth.switch_tenant',
         targetType: 'session',
-        targetId: auth.sessionId,
+        targetId: session.sessionId,
         ip: meta.ip ?? null,
       });
       return this.loadGrant(tx, {
         userId: auth.userId,
         tenantId,
         role: membership.role,
-        sessionId: auth.sessionId,
+        sessionId: session.sessionId,
+        refreshToken: session.refreshToken,
       });
     });
     return this.toResult(grant);

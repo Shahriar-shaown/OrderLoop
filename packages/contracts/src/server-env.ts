@@ -15,6 +15,8 @@ export const ServerEnv = z
     JWT_PUBLIC_KEY: z.string().min(1).optional(),
     ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+    /** After a refresh token is exchanged, presenting it again this long is a retry (lost response), not theft. 0 turns the grace off. */
+    REFRESH_REUSE_GRACE_SECONDS: z.coerce.number().int().min(0).max(60).default(10),
     /** `console` prints emails to the log (development only); `smtp` sends through SMTP_* (Mailpit locally, any provider in production). */
     MAIL_PROVIDER: z.enum(['console', 'smtp']).default('console'),
     MAIL_FROM: z.string().min(3).default('OrderLoop <no-reply@orderloop.invalid>'),

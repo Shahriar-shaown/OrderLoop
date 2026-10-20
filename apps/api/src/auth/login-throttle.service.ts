@@ -74,9 +74,15 @@ export class LoginThrottleService {
     }
   }
 
-  /** At most 3 reset emails per address per hour, so the endpoint cannot be used to flood someone's inbox. Fails open. */
-  async allowResetRequest(email: string): Promise<boolean> {
-    const key = `reset-req:${digest(email)}`;
+  /**
+   * At most 3 emails of one kind per address per hour, so an endpoint cannot be used to flood someone's inbox. Each kind has
+   * its own count, so spam of one cannot use up the other. Fails open.
+   */
+  async allowResetRequest(
+    email: string,
+    kind: 'reset-req' | 'exists-notice' = 'reset-req',
+  ): Promise<boolean> {
+    const key = `${kind}:${digest(email)}`;
     try {
       const count = await this.redis.incr(key);
       if (count === 1) await this.redis.expire(key, 3600);

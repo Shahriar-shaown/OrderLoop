@@ -1,5 +1,6 @@
 /** The kinds of email the API sends. Providers ignore this; tests and logs use it. */
-export type MailKind = 'verify_email' | 'password_reset' | 'password_changed' | 'invitation';
+export type MailKind =
+  'verify_email' | 'password_reset' | 'password_changed' | 'invitation' | 'account_exists';
 
 export interface MailMessage {
   kind: MailKind;

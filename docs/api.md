@@ -88,6 +88,10 @@ Creates a user and a new tenant they own, signs them in, and emails a verificati
 Body: `email`, `password` (10 to 128 characters, no composition rules), `name`, `tenantName`.
 Returns `AuthResult`: `accessToken`, `expiresIn`, `refreshToken` (native only), `user` (including `emailVerified: false`),
 `tenant`, `role` (`OWNER`), `memberships`. Errors: `validation_failed`, `conflict` (email taken).
+**Known limitation:** the `conflict` answer tells a caller that an address has an account, which forgot-password never does. It cannot be
+made uniform while a new sign-up returns a session. To soften it, the address's owner is emailed "you already have an account"
+(nothing a stranger typed is in it; at most three an hour per address), and the work before answering is the same for both.
+See [known-issues.md](known-issues.md).
 The user can sign in and use the API before verifying, with one restriction: inviting people needs a verified email.
 
 ### `POST /v1/auth/login` (public)
@@ -98,7 +102,10 @@ Errors: `invalid_credentials`, `rate_limited` (see lockout below), `forbidden` (
 ### `POST /v1/auth/refresh` (public)
 
 Body: `{ "refreshToken": "..." }` for native clients; browsers send `x-client: web` and an empty body (the cookie is used).
-Returns a new `AuthResult` with a **new** refresh token; the old one is now dead. Errors: `unauthorized`, `token_expired`,
+Returns a new `AuthResult` with a **new** refresh token; the old one is now dead, except for a **10-second grace window**
+(`REFRESH_REUSE_GRACE_SECONDS`): presenting the token again within it, because the response was lost, returns a fresh
+token as long as the token issued the first time has not been used. Outside the window, or once that token was used, a
+replay is treated as theft and revokes the session. Errors: `unauthorized`, `token_expired`,
 `token_reuse_detected`, `forbidden` (cookie transport from a disallowed origin).
 
 ### `POST /v1/auth/logout` (access token)
@@ -134,8 +141,10 @@ signs in again; no session is created. A too-weak password is rejected without u
 
 ### `POST /v1/auth/switch-tenant` (access token)
 
-Body: `{ "tenantId": "..." }`. Re-scopes the session to another tenant the user belongs to and returns a new `AuthResult`
-(no new refresh token). The previous access token stops working. Error: `forbidden` (also returned for tenants that do not
+Body: `{ "tenantId": "..." }`. Starts a **new session** in another tenant the user belongs to and returns its `AuthResult`, with
+that session's own refresh token (a cookie for browsers; replace the stored one). The session the call came from is left as it
+was, on its own tenant, until it expires or signs out, so a switch in one tab or device never moves another's access token.
+The session it starts cannot outlive the one it came from. Error: `forbidden` (also returned for tenants that do not
 exist, so ids cannot be probed).
 
 ### `POST /v1/auth/accept-invitation` (public, 201)

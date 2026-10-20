@@ -39,4 +39,6 @@ export const testEnv = {
   // A fixed key for tests only (not a secret: it protects nothing outside the throwaway test database).
   COURIER_CREDENTIALS_KEY: Buffer.from('orderloop-test-courier-key-00000').toString('base64'),
   COURIER_MOCK_ENABLED: 'true',
+  // Tests replay used tokens to check theft detection; the grace-window tests turn the window on.
+  REFRESH_REUSE_GRACE_SECONDS: '0',
 } as const;

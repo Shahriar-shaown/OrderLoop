@@ -442,3 +442,33 @@ export async function failImportJob(
     }
   });
 }
+
+/** How an import is queued. Shared by the API (first attempt) and the worker's sweeper (a missed one), so both queue it alike. */
+export const IMPORT_JOB_OPTIONS = {
+  attempts: 3,
+  backoff: { type: 'exponential' as const, delay: 5000 },
+  removeOnComplete: { age: 3600 },
+  removeOnFail: { age: 86_400 },
+};
+
+/**
+ * Imports saved as PENDING for longer than `olderThanMs`: normally they are picked up within seconds, so these were never
+ * queued (the API died between saving and queueing) or were lost from the queue. Looks across tenants, which row-level
+ * security allows only for this one read (see the import_sweep migration); it returns ids and never the CSV.
+ */
+export async function findStalePendingImports(
+  db: Database,
+  olderThanMs: number,
+  limit = 100,
+): Promise<ImportInput[]> {
+  return db.withContext({}, async (tx) => {
+    await tx.$executeRaw`SELECT set_config('app.sweep', 'import_jobs', true)`;
+    const rows = await tx.importJob.findMany({
+      where: { status: 'PENDING', createdAt: { lt: new Date(Date.now() - olderThanMs) } },
+      select: { id: true, tenantId: true },
+      orderBy: { createdAt: 'asc' },
+      take: limit,
+    });
+    return rows.map((r) => ({ tenantId: r.tenantId, importId: r.id }));
+  });
+}
