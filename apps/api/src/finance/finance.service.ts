@@ -16,6 +16,7 @@ import { calculateProfit, cashPosition, type OrderStatusName } from '@orderloop/
 import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { LONG_TX } from '../common/long-tx.js';
 import { evaluate } from './discrepancies.js';
 import { discrepancyDto } from './settlements.service.js';
 
@@ -134,30 +135,34 @@ export class FinanceService {
 
   /** Re-evaluate every order and line a statement has touched against the orders as they are now. */
   recheck(auth: AuthContext) {
-    return this.db.withContext({ tenantId: auth.tenantId, userId: auth.userId }, async (tx) => {
-      const orders = await tx.settlementItem.findMany({
-        where: { tenantId: auth.tenantId, orderId: { not: null } },
-        select: { orderId: true },
-        distinct: ['orderId'],
-      });
-      const items = await tx.settlementItem.findMany({
-        where: { tenantId: auth.tenantId, matchStatus: { notIn: ['duplicate'] } },
-        select: { id: true },
-      });
-      // Discrepancies that mention an order with no matched cash left are included so they can close.
-      const open = await tx.discrepancy.findMany({
-        where: { tenantId: auth.tenantId, status: 'open', orderId: { not: null } },
-        select: { orderId: true },
-      });
-      const r = await evaluate(tx, this.audit, auth.tenantId, {
-        orderIds: [
-          ...orders.map((o) => o.orderId as string),
-          ...open.map((o) => o.orderId as string),
-        ],
-        itemIds: items.map((i) => i.id),
-      });
-      return { checked: r.checked, opened: r.opened, closed: r.closed };
-    });
+    return this.db.withContext(
+      { tenantId: auth.tenantId, userId: auth.userId },
+      async (tx) => {
+        const orders = await tx.settlementItem.findMany({
+          where: { tenantId: auth.tenantId, orderId: { not: null } },
+          select: { orderId: true },
+          distinct: ['orderId'],
+        });
+        const items = await tx.settlementItem.findMany({
+          where: { tenantId: auth.tenantId, matchStatus: { notIn: ['duplicate'] } },
+          select: { id: true },
+        });
+        // Discrepancies that mention an order with no matched cash left are included so they can close.
+        const open = await tx.discrepancy.findMany({
+          where: { tenantId: auth.tenantId, status: 'open', orderId: { not: null } },
+          select: { orderId: true },
+        });
+        const r = await evaluate(tx, this.audit, auth.tenantId, {
+          orderIds: [
+            ...orders.map((o) => o.orderId as string),
+            ...open.map((o) => o.orderId as string),
+          ],
+          itemIds: items.map((i) => i.id),
+        });
+        return { checked: r.checked, opened: r.opened, closed: r.closed };
+      },
+      LONG_TX,
+    );
   }
 
   // ---- outstanding COD -----------------------------------------------------------------------------------------------

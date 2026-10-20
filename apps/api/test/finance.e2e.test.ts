@@ -857,6 +857,14 @@ describe('profit and the figures behind it', () => {
     );
   });
 
+  it('refuses a date that is not on the calendar with 400, in finance and order filters', async () => {
+    const { api } = await shop();
+    for (const bad of ['2026-13-45', '2026-02-30', '2026-00-10'])
+      for (const path of ['/v1/finance/summary', '/v1/finance/costs', '/v1/orders'])
+        expect((await api.get(`${path}?from=${bad}`)).status).toBe(400);
+    expect((await api.get('/v1/finance/summary?from=2028-02-29&to=2028-03-01')).status).toBe(200);
+  });
+
   it('records a cost once however often the request is repeated, and refuses a reused key for a different cost', async () => {
     const { api } = await shop();
     const k = key('cost');

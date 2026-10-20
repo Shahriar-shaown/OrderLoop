@@ -12,6 +12,7 @@ import {
 } from '@orderloop/courier-sdk';
 import { Database, type Prisma } from '@orderloop/db';
 import { AuditService } from '../audit/audit.service.js';
+import { UUID_RE } from '../common/uuid.js';
 import { CouriersService } from './couriers.service.js';
 import { ShipmentsService } from './shipments.service.js';
 
@@ -20,8 +21,6 @@ export interface WebhookReply {
   body: { status: string };
   headers: Record<string, string>;
 }
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Courier webhooks. These arrive from the open internet with no user session, so the order of the steps is the defence:
@@ -61,7 +60,8 @@ export class WebhooksService {
     body: unknown,
   ): Promise<WebhookReply> {
     const denied = this.reply(provider, 401, 'unauthorized');
-    if (provider === 'mock' || !UUID.test(tenantId) || !UUID.test(connectionId)) return denied;
+    if (provider === 'mock' || !UUID_RE.test(tenantId) || !UUID_RE.test(connectionId))
+      return denied;
 
     const connection = await this.db.withContext({ tenantId }, (tx) =>
       tx.courierConnection.findFirst({
@@ -108,11 +108,12 @@ export class WebhooksService {
       });
       // News about a parcel we never booked (made in the courier's own panel): acknowledge it so the courier stops resending.
       if (!shipment) return 'unknown' as const;
+      const unconfirmed = shipment.status === 'booking_uncertain' || this.shipments.stale(shipment);
       // Our own booking call has not finished. Ask the courier to send this again shortly.
-      if (shipment.status === 'booking') return 'busy' as const;
+      if (shipment.status === 'booking' && !unconfirmed) return 'busy' as const;
       if (shipment.status === 'booking_failed') return 'unknown' as const;
       let current = shipment;
-      if (shipment.status === 'booking_uncertain') {
+      if (unconfirmed) {
         // The courier knows this parcel: that settles the doubt.
         current = await tx.shipment.update({
           where: { id: shipment.id },

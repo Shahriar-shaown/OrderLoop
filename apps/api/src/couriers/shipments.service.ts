@@ -18,9 +18,10 @@ import {
   type TrackingResult,
 } from '@orderloop/courier-sdk';
 import { Database, isUniqueViolation, type Prisma, type Tx } from '@orderloop/db';
-import type { OrderStatus } from '@orderloop/domain';
+import { can, type OrderStatus } from '@orderloop/domain';
 import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
+import { stable } from '../common/stable.js';
 import type { AuthContext } from '../common/endpoint.js';
 import { OrdersService } from '../orders/orders.service.js';
 import { CouriersService, courierProblem } from './couriers.service.js';
@@ -35,17 +36,6 @@ const STALE_BOOKING_MS = 120_000;
 /** Statuses that never change again, or that leave room for a fresh booking. */
 const ENDED: ShipmentStatus[] = ['booking_failed', 'cancelled', 'returned'];
 const NOT_LIVE: ShipmentStatus[] = ['booking_failed', 'cancelled'];
-
-const stable = (value: unknown): string =>
-  Array.isArray(value)
-    ? `[${value.map(stable).join(',')}]`
-    : value && typeof value === 'object'
-      ? `{${Object.entries(value as Record<string, unknown>)
-          .filter(([, v]) => v !== undefined)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([k, v]) => `${JSON.stringify(k)}:${stable(v)}`)
-          .join(',')}}`
-      : JSON.stringify(value);
 
 export interface IncomingEvent {
   source: 'webhook' | 'poll' | 'manual' | 'simulation';
@@ -74,7 +64,8 @@ export class ShipmentsService {
 
   // ---- presenting ----------------------------------------------------------------------------------------------------
 
-  private stale(row: ShipmentRow): boolean {
+  /** A booking claimed but never settled (the server died mid-call) counts as unconfirmed after a while. */
+  stale(row: ShipmentRow): boolean {
     return row.status === 'booking' && Date.now() - row.updatedAt.getTime() > STALE_BOOKING_MS;
   }
 
@@ -325,12 +316,14 @@ export class ShipmentsService {
 
     // 2. Ask the courier. Nothing is held open in the database while we wait.
     const { order, connection, shipmentId } = claimed;
-    const adapter = this.couriers.adapterFor(connection);
     const settings = (connection.settings ?? {}) as { defaultWeightKg?: number };
     const shipment = await this.load(auth, shipmentId);
+    let adapter: CourierAdapter | null = null;
     let result: BookingResult | null = null;
     let failure: unknown = null;
     try {
+      // Inside the try: unreadable credentials must settle this booking, not leave it claimed forever.
+      adapter = this.couriers.adapterFor(connection);
       result = await adapter.book({
         reference: shipment.providerReference,
         recipient: {
@@ -416,6 +409,7 @@ export class ShipmentsService {
   }
 
   private friendly(error: unknown): string {
+    if (error instanceof ApiError) return error.detail ?? 'The courier connection cannot be used.';
     if (error instanceof CourierError) {
       if (error.kind === 'auth' || error.kind === 'forbidden')
         return 'The courier did not accept the saved credentials.';
@@ -429,24 +423,26 @@ export class ShipmentsService {
   private async settleFailure(
     auth: AuthContext,
     id: string,
-    adapter: CourierAdapter,
+    adapter: CourierAdapter | null,
     error: unknown,
     ip: string | null,
   ): Promise<ShipmentDetail> {
     const known = error instanceof CourierError ? error : null;
-    if (!known)
+    if (!known && adapter)
       this.log.error(
         `Unexpected failure booking shipment ${id}: ${(error as Error)?.message ?? error}`,
       );
-    // Only a courier that said "no" (or never got the request) leaves nothing behind. Anything else may have created a parcel.
-    let outcome: 'failed' | 'uncertain' = known && !known.outcomeUnknown ? 'failed' : 'uncertain';
+    // Only a courier that said "no" (or never got the request, or we had no adapter to send it with) leaves nothing
+    // behind. Anything else may have created a parcel.
+    let outcome: 'failed' | 'uncertain' =
+      !adapter || (known && !known.outcomeUnknown) ? 'failed' : 'uncertain';
     let found: TrackingResult | null = null;
     let reason = this.friendly(error);
     const row = await this.load(auth, id);
 
     if (
       outcome === 'uncertain' &&
-      adapter.findByReference &&
+      adapter?.findByReference &&
       adapter.capabilities.duplicateProtection === 'reference'
     ) {
       try {
@@ -869,6 +865,12 @@ export class ShipmentsService {
     body: ResolveShipmentBody,
     ip: string | null,
   ): Promise<ShipmentDetail> {
+    // "Not booked" and "cancelled" free the order for another booking: if the person is wrong, the courier collects two
+    // parcels. That is a decision for whoever manages the courier. "Booked" only ever blocks a second booking.
+    if (body.resolution !== 'booked' && !can(auth.role, 'couriers:manage'))
+      throw ApiError.forbidden(
+        'Only an owner or admin can settle a booking as not booked or cancelled, because the order could then be booked twice.',
+      );
     return this.db.withContext({ tenantId: auth.tenantId, userId: auth.userId }, async (tx) => {
       const row = await this.lock(tx, auth.tenantId, id);
       const unconfirmed = row.status === 'booking_uncertain' || this.stale(row);

@@ -49,33 +49,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -166,33 +140,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -264,33 +212,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -518,33 +440,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -756,33 +652,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -981,33 +851,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -1077,33 +921,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -1308,33 +1126,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -1549,33 +1341,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -1664,33 +1430,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -1760,33 +1500,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -1882,33 +1596,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -2013,33 +1701,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -2234,33 +1896,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -2476,33 +2112,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -2658,33 +2268,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -2984,33 +2568,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -3143,33 +2701,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -3343,33 +2875,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -3472,33 +2978,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -3616,33 +3096,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -3744,33 +3198,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -3858,33 +3286,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -4015,33 +3417,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -4127,33 +3503,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -4242,33 +3592,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -4371,33 +3695,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -4514,33 +3812,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -4626,33 +3898,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -4959,33 +4205,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -5341,33 +4561,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -5622,33 +4816,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -5971,33 +5139,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -6249,33 +5391,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -6523,33 +5639,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -6665,33 +5755,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -6881,33 +5945,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -7113,33 +6151,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -7234,33 +6246,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -7372,33 +6358,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -7527,33 +6487,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -7754,33 +6688,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -7950,33 +6858,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -8137,33 +7019,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -8411,33 +7267,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -8598,33 +7428,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -8785,33 +7589,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -8985,33 +7763,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -9100,33 +7852,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -9215,33 +7941,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -9371,33 +8071,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -9575,33 +8249,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -9768,33 +8416,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -9930,33 +8552,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -10092,33 +8688,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -10269,33 +8839,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -10470,33 +9014,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -10664,33 +9182,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -10849,33 +9341,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -11024,33 +9490,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -11414,82 +9854,89 @@
                       "additionalProperties": false
                     },
                     "profit": {
-                      "oneOf": [
+                      "anyOf": [
                         {
-                          "type": "object",
-                          "properties": {
-                            "available": {
-                              "type": "boolean",
-                              "const": true
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "available": {
+                                  "type": "boolean",
+                                  "const": true
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "const": "estimate"
+                                },
+                                "basis": {
+                                  "type": "string"
+                                },
+                                "revenueMinor": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "costMinor": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "grossProfitMinor": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deliveredOrders": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "lines": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "available",
+                                "kind",
+                                "basis",
+                                "revenueMinor",
+                                "costMinor",
+                                "grossProfitMinor",
+                                "deliveredOrders",
+                                "lines"
+                              ],
+                              "additionalProperties": false
                             },
-                            "kind": {
-                              "type": "string",
-                              "const": "estimate"
-                            },
-                            "basis": {
-                              "type": "string"
-                            },
-                            "revenueMinor": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "costMinor": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "grossProfitMinor": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "deliveredOrders": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "lines": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
+                            {
+                              "type": "object",
+                              "properties": {
+                                "available": {
+                                  "type": "boolean",
+                                  "const": false
+                                },
+                                "reason": {
+                                  "type": "string"
+                                },
+                                "linesWithCost": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "lines": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": ["available", "reason", "linesWithCost", "lines"],
+                              "additionalProperties": false
                             }
-                          },
-                          "required": [
-                            "available",
-                            "kind",
-                            "basis",
-                            "revenueMinor",
-                            "costMinor",
-                            "grossProfitMinor",
-                            "deliveredOrders",
-                            "lines"
-                          ],
-                          "additionalProperties": false
+                          ]
                         },
                         {
-                          "type": "object",
-                          "properties": {
-                            "available": {
-                              "type": "boolean",
-                              "const": false
-                            },
-                            "reason": {
-                              "type": "string"
-                            },
-                            "linesWithCost": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "lines": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            }
-                          },
-                          "required": ["available", "reason", "linesWithCost", "lines"],
-                          "additionalProperties": false
+                          "type": "null"
                         }
                       ]
                     },
@@ -11614,33 +10061,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -11825,33 +10246,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -12100,33 +10495,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -12340,33 +10709,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -12626,33 +10969,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -12739,17 +11056,7 @@
                     "maxLength": 100
                   },
                   "division": {
-                    "type": "string",
-                    "enum": [
-                      "Barishal",
-                      "Chattogram",
-                      "Dhaka",
-                      "Khulna",
-                      "Mymensingh",
-                      "Rajshahi",
-                      "Rangpur",
-                      "Sylhet"
-                    ]
+                    "type": "string"
                   },
                   "postalCode": {
                     "anyOf": [
@@ -12862,33 +11169,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -12985,17 +11266,7 @@
                     "maxLength": 100
                   },
                   "division": {
-                    "type": "string",
-                    "enum": [
-                      "Barishal",
-                      "Chattogram",
-                      "Dhaka",
-                      "Khulna",
-                      "Mymensingh",
-                      "Rajshahi",
-                      "Rangpur",
-                      "Sylhet"
-                    ]
+                    "type": "string"
                   },
                   "postalCode": {
                     "anyOf": [
@@ -13107,33 +11378,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -13229,33 +11474,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -13535,33 +11754,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -13925,33 +12118,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -14066,17 +12233,7 @@
                         "maxLength": 100
                       },
                       "division": {
-                        "type": "string",
-                        "enum": [
-                          "Barishal",
-                          "Chattogram",
-                          "Dhaka",
-                          "Khulna",
-                          "Mymensingh",
-                          "Rajshahi",
-                          "Rangpur",
-                          "Sylhet"
-                        ]
+                        "type": "string"
                       },
                       "postalCode": {
                         "anyOf": [
@@ -14550,33 +12707,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -14736,33 +12867,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -14966,33 +13071,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -15403,33 +13482,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -15517,17 +13570,7 @@
                         "maxLength": 100
                       },
                       "division": {
-                        "type": "string",
-                        "enum": [
-                          "Barishal",
-                          "Chattogram",
-                          "Dhaka",
-                          "Khulna",
-                          "Mymensingh",
-                          "Rajshahi",
-                          "Rangpur",
-                          "Sylhet"
-                        ]
+                        "type": "string"
                       },
                       "postalCode": {
                         "anyOf": [
@@ -15993,33 +14036,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -16488,33 +14505,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -16653,33 +14644,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -16836,33 +14801,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -17000,33 +14939,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -17191,33 +15104,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -17508,33 +15395,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -17955,33 +15816,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -18278,33 +16113,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -18408,33 +16217,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -18557,33 +16340,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -18759,33 +16516,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -19142,33 +16873,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -19407,33 +17112,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -19742,33 +17421,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -20077,33 +17730,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -20431,33 +18058,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -20794,33 +18395,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -21156,33 +18731,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -21304,33 +18853,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -21562,33 +19085,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -21809,33 +19306,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -22406,33 +19877,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -23003,33 +20448,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -23440,33 +20859,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -23914,33 +21307,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -24412,33 +21779,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -24905,33 +22246,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -25398,33 +22713,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -25634,33 +22923,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -25891,33 +23154,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -26010,33 +23247,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -26272,33 +23483,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -26508,33 +23693,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -26707,33 +23866,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -26931,33 +24064,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -27138,33 +24245,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -27457,33 +24538,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -27663,33 +24718,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -27834,33 +24863,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -27981,33 +24984,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"
@@ -28348,33 +25325,7 @@
                       "maximum": 9007199254740991
                     },
                     "code": {
-                      "type": "string",
-                      "enum": [
-                        "validation_failed",
-                        "unauthorized",
-                        "invalid_credentials",
-                        "token_expired",
-                        "token_reuse_detected",
-                        "forbidden",
-                        "not_found",
-                        "conflict",
-                        "rate_limited",
-                        "invitation_invalid",
-                        "token_invalid",
-                        "email_not_verified",
-                        "last_owner",
-                        "insufficient_stock",
-                        "invalid_transition",
-                        "version_conflict",
-                        "idempotency_conflict",
-                        "courier_not_configured",
-                        "courier_rejected",
-                        "courier_unavailable",
-                        "courier_unsupported",
-                        "shipment_conflict",
-                        "settlement_has_issues",
-                        "internal_error"
-                      ]
+                      "type": "string"
                     },
                     "detail": {
                       "type": "string"

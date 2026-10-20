@@ -1,5 +1,6 @@
 import type { OrderFilters, OrderQuery } from '@orderloop/contracts';
 import { Prisma } from '@orderloop/db';
+import { UUID_RE } from '../common/uuid.js';
 
 const SORT_COLUMN = {
   createdAt: Prisma.raw('o.created_at'),
@@ -76,7 +77,6 @@ export interface SortCursor {
 export const encodeOrderCursor = (c: SortCursor): string =>
   Buffer.from(JSON.stringify(c)).toString('base64url');
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function decodeOrderCursor(cursor: string): SortCursor | undefined {
   try {
     const c = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as SortCursor;

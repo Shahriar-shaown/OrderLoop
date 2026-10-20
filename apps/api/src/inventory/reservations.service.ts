@@ -42,6 +42,9 @@ const toReservation = (r: Row): Reservation => ({
   resolvedAt: r.resolvedAt?.toISOString() ?? null,
 });
 
+/** Reservations made for an order belong to that order: only the order's own transitions may move them. */
+const ORDER_REFERENCE = 'order';
+
 @Injectable()
 export class ReservationsService {
   constructor(
@@ -49,7 +52,15 @@ export class ReservationsService {
     private readonly runner: StockRunner,
   ) {}
 
-  create(auth: AuthContext, body: ReservationBody): Promise<Reservation> {
+  async create(auth: AuthContext, body: ReservationBody): Promise<Reservation> {
+    if (body.referenceType === ORDER_REFERENCE) {
+      throw new ApiError(400, 'validation_failed', 'Request validation failed', [
+        {
+          path: 'referenceType',
+          message: 'Reservations for orders are created by the order itself',
+        },
+      ]);
+    }
     return this.runner.run(
       auth,
       body.idempotencyKey,
@@ -93,6 +104,15 @@ export class ReservationsService {
       return await this.db.withContext(
         { tenantId: auth.tenantId, userId: auth.userId },
         async (tx) => {
+          const owner = await tx.reservation.findFirst({
+            where: { id, tenantId: auth.tenantId },
+            select: { referenceType: true },
+          });
+          if (owner?.referenceType === ORDER_REFERENCE) {
+            throw ApiError.conflict(
+              'This reservation belongs to an order. Change the order instead of releasing or fulfilling it here.',
+            );
+          }
           const done = await resolveReservation(tx, auth.tenantId, id, outcome, {
             createdById: auth.userId,
           });

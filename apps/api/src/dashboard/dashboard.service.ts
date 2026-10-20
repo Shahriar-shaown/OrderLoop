@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Dashboard, DashboardPeriod, OrderStatus } from '@orderloop/contracts';
 import { ORDER_STATUS_VALUES } from '@orderloop/contracts';
 import { Database } from '@orderloop/db';
+import { can } from '@orderloop/domain';
 import type { AuthContext } from '../common/endpoint.js';
 
 const DAYS: Record<DashboardPeriod, number> = { today: 1, '7d': 7, '30d': 30 };
@@ -14,6 +15,41 @@ function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+type ProfitLines = {
+  lines: number;
+  with_cost: number;
+  revenue: bigint;
+  cost: bigint;
+  orders: number;
+};
+
+/** Cost and profit are finance data: the caller only gets them with `finance:read` (see `get`). */
+function profitOf(l: ProfitLines): NonNullable<Dashboard['profit']> {
+  const revenue = Number(l.revenue);
+  const cost = Number(l.cost);
+  return l.lines > 0 && l.with_cost === l.lines
+    ? {
+        available: true as const,
+        kind: 'estimate' as const,
+        basis:
+          'Item revenue minus the cost price recorded on each line, for delivered orders in this period. Leaves out order discounts, delivery charges, courier fees, returns and taxes.',
+        revenueMinor: revenue,
+        costMinor: cost,
+        grossProfitMinor: revenue - cost,
+        deliveredOrders: l.orders,
+        lines: l.lines,
+      }
+    : {
+        available: false as const,
+        reason:
+          l.lines === 0
+            ? 'No delivered orders in this period yet.'
+            : `${l.lines - l.with_cost} of ${l.lines} delivered order lines have no cost price, so profit cannot be worked out. Add cost prices to your products.`,
+        linesWithCost: l.with_cost,
+        lines: l.lines,
+      };
 }
 
 @Injectable()
@@ -113,9 +149,7 @@ export class DashboardService {
         ORDER BY COALESCE(SUM(l.on_hand), 0) - COALESCE(SUM(l.reserved), 0), v.sku
         LIMIT 500`;
 
-      const [lines] = await tx.$queryRaw<
-        { lines: number; with_cost: number; revenue: bigint; cost: bigint; orders: number }[]
-      >`
+      const [lines] = await tx.$queryRaw<ProfitLines[]>`
         SELECT count(i.id)::int AS lines,
                (count(i.id) FILTER (WHERE i.cost_minor IS NOT NULL))::int AS with_cost,
                COALESCE(sum(i.line_total_minor) FILTER (WHERE i.cost_minor IS NOT NULL), 0) AS revenue,
@@ -145,8 +179,6 @@ export class DashboardService {
       const names = new Map(users.map((u) => [u.id, u.name]));
 
       const l = lines ?? { lines: 0, with_cost: 0, revenue: 0n, cost: 0n, orders: 0 };
-      const revenue = Number(l.revenue);
-      const cost = Number(l.cost);
       return {
         period,
         from,
@@ -191,28 +223,7 @@ export class DashboardService {
             reorderPoint: r.reorder_point,
           })),
         },
-        profit:
-          l.lines > 0 && l.with_cost === l.lines
-            ? {
-                available: true as const,
-                kind: 'estimate' as const,
-                basis:
-                  'Item revenue minus the cost price recorded on each line, for delivered orders in this period. Leaves out order discounts, delivery charges, courier fees, returns and taxes.',
-                revenueMinor: revenue,
-                costMinor: cost,
-                grossProfitMinor: revenue - cost,
-                deliveredOrders: l.orders,
-                lines: l.lines,
-              }
-            : {
-                available: false as const,
-                reason:
-                  l.lines === 0
-                    ? 'No delivered orders in this period yet.'
-                    : `${l.lines - l.with_cost} of ${l.lines} delivered order lines have no cost price, so profit cannot be worked out. Add cost prices to your products.`,
-                linesWithCost: l.with_cost,
-                lines: l.lines,
-              },
+        profit: can(auth.role, 'finance:read') ? profitOf(l) : null,
         recentActivity: history.map((h) => ({
           id: h.id,
           at: h.createdAt.toISOString(),

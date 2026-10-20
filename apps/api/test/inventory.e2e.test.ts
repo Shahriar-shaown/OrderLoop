@@ -254,13 +254,13 @@ describe('reservations', () => {
     const variantId = await newVariant();
     await receive(variantId, 10).expect(201);
 
-    const r1 = await reserve(variantId, 4, { referenceType: 'order', referenceId: 'ORD-1' });
+    const r1 = await reserve(variantId, 4, { referenceType: 'manual', referenceId: 'ORD-1' });
     expect(r1.status).toBe(201);
     expect(r1.body).toMatchObject({
       variantId,
       quantity: 4,
       status: 'ACTIVE',
-      referenceType: 'order',
+      referenceType: 'manual',
       referenceId: 'ORD-1',
       resolvedAt: null,
     });

@@ -189,6 +189,17 @@ export class ProductsService {
       if (!found) throw ApiError.notFound('Product not found');
       if (body.categoryId) await this.requireCategory(tx, auth.tenantId, body.categoryId);
       if (body.supplierId) await this.requireSupplier(tx, auth.tenantId, body.supplierId);
+      if (body.status === 'ARCHIVED' && found.status !== 'ARCHIVED') {
+        const variants = await tx.productVariant.findMany({
+          where: { tenantId: auth.tenantId, productId: id, archivedAt: null },
+          select: { id: true },
+        });
+        await this.assertNoActiveReservations(
+          tx,
+          auth.tenantId,
+          variants.map((v) => v.id),
+        );
+      }
       await tx.product.update({
         where: { id },
         data: {
@@ -243,22 +254,28 @@ export class ProductsService {
     }
   }
 
+  /**
+   * Archiving something that still has promised stock would strand open reservations. Lock the variants exclusively first
+   * (in a fixed order): a stock change holding one FOR SHARE finishes (or waits) before we count.
+   */
+  private async assertNoActiveReservations(tx: Tx, tenantId: string, variantIds: string[]) {
+    if (!variantIds.length) return;
+    await tx.$queryRaw`SELECT id FROM product_variants WHERE tenant_id = ${tenantId}::uuid AND id = ANY(${variantIds}::uuid[]) ORDER BY id FOR UPDATE`;
+    const open = await tx.reservation.count({
+      where: { tenantId, variantId: { in: variantIds }, status: 'ACTIVE' },
+    });
+    if (open > 0)
+      throw ApiError.conflict(
+        'There are active reservations on this item; release or fulfil them first',
+      );
+  }
+
   async updateVariant(auth: AuthContext, id: string, body: VariantUpdate): Promise<Variant> {
     return this.db.withContext({ tenantId: auth.tenantId, userId: auth.userId }, async (tx) => {
       const found = await tx.productVariant.findFirst({ where: { id, tenantId: auth.tenantId } });
       if (!found) throw ApiError.notFound('Variant not found');
-      if (body.archived === true && !found.archivedAt) {
-        // Lock the variant exclusively first: a stock change holding it FOR SHARE finishes (or waits) before we count.
-        await tx.$queryRaw`SELECT id FROM product_variants WHERE tenant_id = ${auth.tenantId}::uuid AND id = ${id}::uuid FOR UPDATE`;
-        // Archiving something that still has promised stock would strand open reservations.
-        const open = await tx.reservation.count({
-          where: { tenantId: auth.tenantId, variantId: id, status: 'ACTIVE' },
-        });
-        if (open > 0)
-          throw ApiError.conflict(
-            'This variant has active reservations; release or fulfil them first',
-          );
-      }
+      if (body.archived === true && !found.archivedAt)
+        await this.assertNoActiveReservations(tx, auth.tenantId, [id]);
       const v = await tx.productVariant.update({
         where: { id },
         data: {

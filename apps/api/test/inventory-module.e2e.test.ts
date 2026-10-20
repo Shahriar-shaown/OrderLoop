@@ -343,13 +343,13 @@ describe('returns and cancellations update stock exactly once', () => {
     expect(res.body).toMatchObject({ onHand: 0, damaged: 3, available: 0 });
   });
 
-  it('cancelling an order releases its reservation once; a second cancel and a late fulfil are refused', async () => {
+  it('releasing a reservation works once; a second cancel and a late fulfil are refused', async () => {
     const { variantId } = await stocked(10);
     const reservation = (
       await post('/v1/reservations', {
         variantId,
         quantity: 4,
-        referenceType: 'order',
+        referenceType: 'manual',
         referenceId: 'ORD-1',
         idempotencyKey: key('res'),
       }).expect(201)
@@ -365,13 +365,24 @@ describe('returns and cancellations update stock exactly once', () => {
     expect(releases).toHaveLength(1);
   });
 
+  it('a product with an active reservation cannot be archived until it is released', async () => {
+    const { variantId, productId } = await stocked(10);
+    const reservation = (await post('/v1/reservations', { variantId, quantity: 2 }).expect(201))
+      .body;
+    const refused = await patch(`/v1/products/${productId}`, { status: 'ARCHIVED' });
+    expect(refused.status).toBe(409);
+    expect((await get(`/v1/products/${productId}`)).body.status).toBe('ACTIVE');
+    await post(`/v1/reservations/${reservation.id}/release`, {}).expect(200);
+    await patch(`/v1/products/${productId}`, { status: 'ARCHIVED' }).expect(200);
+  });
+
   it('reserving with the same key twice holds the stock once', async () => {
     const { variantId } = await stocked(10);
     const body = {
       variantId,
       quantity: 3,
       idempotencyKey: key('order'),
-      referenceType: 'order',
+      referenceType: 'manual',
       referenceId: 'ORD-2',
     };
     const a = await post('/v1/reservations', body).expect(201);

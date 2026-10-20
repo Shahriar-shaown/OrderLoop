@@ -1,4 +1,4 @@
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID_RE } from './uuid.js';
 
 /** Keyset pagination cursor over (createdAt, id): opaque to clients, stable under concurrent inserts. */
 export function encodeCursor(createdAt: Date, id: string): string {

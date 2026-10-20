@@ -218,6 +218,9 @@ arrives while we are still booking is answered `503` so the courier sends it aga
 | `GET /v1/couriers/:provider/locations`, `POST /v1/orders/:id/shipping-quote`, `POST /v1/orders/:id/shipments`, `POST /v1/shipments/:id/refresh`, `/cancel`, `/resolve`, `/simulate` | `orders:write`                   |
 | `POST /v1/webhooks/couriers/:provider/:tenantId/:connectionId`                                                                                                                      | public; courier's own proof      |
 
+`/resolve` as _not booked_ or _cancelled at the courier_ also needs `couriers:manage`: those let the order be booked again, so a
+wrong call can send the courier two parcels. _Booked_ stays with `orders:write`.
+
 `POST /v1/orders/:id/shipments` needs an `idempotencyKey`. Booking attempts are records: a refused or unconfirmed booking
 returns `201` with the shipment and its `status` and `failureReason`.
 

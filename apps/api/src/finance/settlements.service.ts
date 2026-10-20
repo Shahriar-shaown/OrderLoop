@@ -23,6 +23,7 @@ import {
 import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
 import type { AuthContext } from '../common/endpoint.js';
+import { LONG_TX } from '../common/long-tx.js';
 import { evaluate } from './discrepancies.js';
 
 type ItemRow = Prisma.SettlementItemGetPayload<{
@@ -243,17 +244,21 @@ export class SettlementsService {
   }
 
   async listBatches(auth: AuthContext, provider?: string): Promise<BatchDto[]> {
-    return this.db.withContext({ tenantId: auth.tenantId }, async (tx) => {
-      const batches = await tx.settlementBatch.findMany({
-        where: { tenantId: auth.tenantId, ...(provider ? { provider: provider as never } : {}) },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        take: 200,
-        select: { id: true },
-      });
-      const out: BatchDto[] = [];
-      for (const b of batches) out.push(await this.batchSummary(tx, auth.tenantId, b.id));
-      return out;
-    });
+    return this.db.withContext(
+      { tenantId: auth.tenantId },
+      async (tx) => {
+        const batches = await tx.settlementBatch.findMany({
+          where: { tenantId: auth.tenantId, ...(provider ? { provider: provider as never } : {}) },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 200,
+          select: { id: true },
+        });
+        const out: BatchDto[] = [];
+        for (const b of batches) out.push(await this.batchSummary(tx, auth.tenantId, b.id));
+        return out;
+      },
+      LONG_TX,
+    );
   }
 
   getBatch(auth: AuthContext, id: string): Promise<SettlementBatchDetail> {
@@ -348,11 +353,15 @@ export class SettlementsService {
     const fileHash = sha(`${body.provider}\n${normalise(body.csv)}`);
     const ctx = { tenantId: auth.tenantId, userId: auth.userId };
     try {
-      return await this.db.withContext(ctx, async (tx) => {
-        const result = await this.importInTx(tx, auth, body, parsed.rows, fileHash, ip);
-        if (body.dryRun) throw new DryRun(result);
-        return result;
-      });
+      return await this.db.withContext(
+        ctx,
+        async (tx) => {
+          const result = await this.importInTx(tx, auth, body, parsed.rows, fileHash, ip);
+          if (body.dryRun) throw new DryRun(result);
+          return result;
+        },
+        LONG_TX,
+      );
     } catch (error) {
       if (error instanceof DryRun) return error.result;
       // Two identical uploads at once: the database let one in. The other is the same file, already imported.

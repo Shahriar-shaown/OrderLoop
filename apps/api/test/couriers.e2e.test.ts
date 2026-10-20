@@ -319,6 +319,24 @@ describe('the simulated courier: book, track, retry (the milestone checkpoint)',
     expect(await shipmentsOf(api, order.id)).toHaveLength(1);
   });
 
+  it('only a courier manager may settle a booking in a way that allows a second parcel', async () => {
+    const { owner, api } = await shop();
+    const staff = call(await addMember(t, owner, 'STAFF'));
+    const order = await readyOrder(owner, api);
+    await connectMock(api, { outcome: 'unavailable' }).expect(200);
+    const unsure = await book(api, order.id).expect(201);
+    const path = `/v1/shipments/${unsure.body.id}/resolve`;
+    for (const resolution of ['not_booked', 'cancelled_at_courier'])
+      expect((await staff.post(path, { resolution, reason: 'looked at it' })).status).toBe(403);
+    expect((await api.get(`/v1/shipments/${unsure.body.id}`)).body.status).toBe(
+      'booking_uncertain',
+    );
+    // saying the parcel exists only blocks a second booking, so floor staff may
+    const settled = await staff.post(path, { resolution: 'booked', reason: 'It is in the panel' });
+    expect(settled.status).toBe(200);
+    expect(settled.body.status).toBe('booked');
+  });
+
   it('a person can say an unconfirmed booking did exist', async () => {
     const { owner, api } = await shop();
     const order = await readyOrder(owner, api);
@@ -483,6 +501,16 @@ describe('connections: secrets stay on the server', () => {
       400,
     );
     expect((await api.patch('/v1/couriers/pathao', { webhookSecret: 'short' })).status).toBe(400);
+  });
+
+  it('saving other settings keeps a disabled connection disabled', async () => {
+    const { api } = await shop();
+    await api.patch('/v1/couriers/pathao', pathaoBody).expect(200);
+    await api.patch('/v1/couriers/pathao', { enabled: false }).expect(200);
+    const saved = await api.patch('/v1/couriers/pathao', { settings: { storeId: 778 } });
+    expect(saved.body.connection).toMatchObject({ enabled: false });
+    const again = await api.patch('/v1/couriers/pathao', { enabled: true }).expect(200);
+    expect(again.body.connection).toMatchObject({ enabled: true });
   });
 
   it('removing a courier erases its secrets and switches it off', async () => {
@@ -718,6 +746,19 @@ describe('Pathao (mocked HTTP)', () => {
     expect(same.body.events).toHaveLength(r.body.events.length);
   });
 
+  it('settles a booking as failed, not stuck, when the saved credentials can no longer be read', async () => {
+    const { owner, api } = await connected({ 'POST /aladdin/api/v1/orders': created });
+    const order = await readyOrder(owner, api);
+    await t.db.withContext(
+      { tenantId: owner.tenant.id },
+      (tx) => tx.$executeRaw`UPDATE courier_connections SET credentials_enc = 'not-decryptable'`,
+    );
+    const b = await book(api, order.id, 'pathao').expect(201);
+    expect(b.body.status).toBe('booking_failed');
+    expect(b.body.failureReason).toMatch(/can no longer be read/);
+    expect(net.requests.filter((r) => r.path === '/aladdin/api/v1/orders')).toHaveLength(0); // nothing was sent, so nothing can exist at the courier
+  });
+
   describe('webhooks', () => {
     const event = (
       consignment: string,
@@ -827,6 +868,27 @@ describe('Pathao (mocked HTTP)', () => {
           .status,
       ).toBe(200);
       expect((await hook(url, { nothing: 'useful' })).status).toBe(400);
+    });
+
+    it('treats an update for a booking claimed long ago and never settled as proof that it exists', async () => {
+      const { url, owner, api } = await connected({
+        'POST /aladdin/api/v1/orders': { status: 500, body: {} },
+      });
+      const order = await readyOrder(owner, api);
+      const b = await book(api, order.id, 'pathao').expect(201);
+      await t.db.withContext(
+        { tenantId: owner.tenant.id },
+        (tx) =>
+          tx.$executeRaw`UPDATE shipments SET status = 'booking', updated_at = now() - interval '10 minutes' WHERE id = ${b.body.id}::uuid`,
+      );
+      await hook(
+        url,
+        event('DL778', `OL-${order.number}`, 'order.pickup-requested', 'Pickup Requested'),
+      ).expect(200);
+      expect((await api.get(`/v1/shipments/${b.body.id}`)).body).toMatchObject({
+        status: 'booked',
+        consignmentId: 'DL778',
+      });
     });
 
     it('treats an update for an unconfirmed booking as proof that it exists', async () => {

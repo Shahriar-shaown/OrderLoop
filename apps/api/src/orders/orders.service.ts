@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import type {
+  AddressFields,
   BulkResult,
   BulkStatusBody,
   ChangeStatusBody,
@@ -27,6 +28,7 @@ import {
 } from '@orderloop/domain';
 import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
+import { stable } from '../common/stable.js';
 import type { AuthContext } from '../common/endpoint.js';
 import { StockRunner } from '../inventory/inventory.service.js';
 import { CustomersService } from './customers.service.js';
@@ -49,18 +51,6 @@ import {
 
 const validation = (path: string, message: string) =>
   new ApiError(400, 'validation_failed', 'Request validation failed', [{ path, message }]);
-
-/** Sorted-keys JSON, so the same request always hashes the same. */
-function stable(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
-  if (value && typeof value === 'object')
-    return `{${Object.entries(value as Record<string, unknown>)
-      .filter(([, v]) => v !== undefined)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${JSON.stringify(k)}:${stable(v)}`)
-      .join(',')}}`;
-  return JSON.stringify(value);
-}
 
 const orderInclude = {
   items: { orderBy: { position: 'asc' as const } },
@@ -204,8 +194,22 @@ export class OrdersService {
     }
   }
 
-  /** Check each requested variant exists in this business and can be sold; return the snapshot to store on the line. */
-  private async resolveItems(tx: Tx, tenantId: string, items: CreateOrderBody['items']) {
+  /**
+   * Check each requested variant exists in this business and can be sold; return the snapshot to store on the line.
+   * On an edit, `current` holds the order's existing lines: a variant already on the order keeps its price and cost
+   * unless a new price is sent, so editing never re-prices a line from today's catalogue.
+   */
+  private async resolveItems(
+    tx: Tx,
+    tenantId: string,
+    items: CreateOrderBody['items'],
+    current: readonly {
+      variantId: string;
+      unitPriceMinor: number;
+      costMinor: number | null;
+    }[] = [],
+  ) {
+    const existing = new Map(current.map((l) => [l.variantId, l]));
     const seen = new Set<string>();
     items.forEach((item, i) => {
       if (seen.has(item.variantId))
@@ -220,6 +224,7 @@ export class OrdersService {
     return items.map((item, i) => {
       const v = byId.get(item.variantId);
       if (!v) throw validation(`body.items.${i}.variantId`, 'Item not found');
+      const kept = existing.get(v.id);
       if (v.archivedAt || v.product.status === 'ARCHIVED')
         throw validation(`body.items.${i}.variantId`, `${v.sku} is archived and cannot be ordered`);
       return {
@@ -227,9 +232,9 @@ export class OrdersService {
         sku: v.sku,
         productName: v.product.name,
         variantName: v.name,
-        costMinor: v.costMinor,
+        costMinor: kept ? kept.costMinor : v.costMinor,
         quantity: item.quantity,
-        unitPriceMinor: item.unitPriceMinor ?? v.priceMinor,
+        unitPriceMinor: item.unitPriceMinor ?? kept?.unitPriceMinor ?? v.priceMinor,
         discountMinor: item.discountMinor ?? 0,
       };
     });
@@ -306,7 +311,8 @@ export class OrdersService {
         postalCode: saved.postalCode,
       };
     } else if (body.saveAddress !== false) {
-      await this.customers.saveAddressIfNew(tx, tenantId, customerId, ship!);
+      // `body` is typed by what a client may send (any spelling of the division); validation has already normalised it.
+      await this.customers.saveAddressIfNew(tx, tenantId, customerId, ship as AddressFields);
     }
     const shipping = ship!;
 
@@ -659,7 +665,7 @@ export class OrdersService {
       if (touchesMoney) {
         // Recompute everything from the lines and the three adjustments; the client never supplies a total.
         const lines = body.items
-          ? await this.resolveItems(tx, tenantId, body.items)
+          ? await this.resolveItems(tx, tenantId, body.items, order.items)
           : order.items.map((i) => ({
               variantId: i.variantId,
               sku: i.sku,

@@ -229,7 +229,7 @@ export class CouriersService {
           credentialsEnc,
           webhookSecretEnc,
           settings,
-          enabled: body.enabled ?? true,
+          enabled: body.enabled ?? existing?.enabled ?? true,
           ...(reconnect ? { lastCheckedAt: null, lastCheckOk: null, lastCheckMessage: null } : {}),
         };
         const saved = existing

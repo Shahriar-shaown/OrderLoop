@@ -625,6 +625,29 @@ describe('stock reservation', () => {
     for (const r of reservations) expect(r.referenceType).toBe('order');
   });
 
+  it("an order's reservation cannot be released or fulfilled on its own, nor created by hand", async () => {
+    const { owner, api } = await shop();
+    const v = await item(owner, 5);
+    const id = (await api.post('/v1/orders', body([{ variantId: v.id, quantity: 2 }])).expect(201))
+      .body.id as string;
+    await status(api, id, 'confirmed').expect(200);
+    const [reservation] = (await api.get('/v1/reservations?status=ACTIVE')).body.items as {
+      id: string;
+    }[];
+    for (const action of ['release', 'fulfil']) {
+      const res = await api.post(`/v1/reservations/${reservation!.id}/${action}`);
+      expect(res.status).toBe(409);
+      expect(res.body.detail).toMatch(/change the order/i);
+    }
+    expect(await level(api, v.id)).toMatchObject({ reserved: 2 });
+    const made = await api.post('/v1/reservations', {
+      variantId: v.id,
+      quantity: 1,
+      referenceType: 'order',
+    });
+    expect(made.status).toBe(400);
+  });
+
   it('refuses to reserve a variant archived after the order was made', async () => {
     const { owner, api } = await shop();
     const v = await item(owner, 5);
@@ -884,6 +907,41 @@ describe('editing', () => {
     expect(d).toMatchObject({ totalMinor: 230_000, codAmountMinor: 200_000 });
     // an advance bigger than the new total is refused
     expect((await api.patch(`/v1/orders/${o.id}`, { advancePaidMinor: 999_999 })).status).toBe(400);
+  });
+
+  it('keeps the price agreed on a line when the items are edited, and prices only new lines from the catalogue', async () => {
+    const { owner, api } = await shop();
+    const a = await item(owner, 10, { priceMinor: 100_000 });
+    const b = await item(owner, 10, { priceMinor: 50_000 });
+    const o = (
+      await api
+        .post('/v1/orders', body([{ variantId: a.id, quantity: 1, unitPriceMinor: 90_000 }]))
+        .expect(201)
+    ).body;
+    await api.patch(`/v1/variants/${a.id}`, { priceMinor: 150_000 }).expect(200);
+    await api.patch(`/v1/variants/${b.id}`, { priceMinor: 60_000 }).expect(200);
+    const e = (
+      await api
+        .patch(`/v1/orders/${o.id}`, {
+          items: [
+            { variantId: a.id, quantity: 2 },
+            { variantId: b.id, quantity: 1 },
+          ],
+        })
+        .expect(200)
+    ).body;
+    const price = (variantId: string) =>
+      e.items.find((i: { variantId: string }) => i.variantId === variantId).unitPriceMinor;
+    expect(price(a.id)).toBe(90_000); // agreed price kept
+    expect(price(b.id)).toBe(60_000); // new line, today's price
+    const explicit = (
+      await api
+        .patch(`/v1/orders/${o.id}`, {
+          items: [{ variantId: a.id, quantity: 2, unitPriceMinor: 80_000 }],
+        })
+        .expect(200)
+    ).body;
+    expect(explicit.items[0].unitPriceMinor).toBe(80_000);
   });
 
   it('once confirmed, items and money are frozen but the address and notes can change', async () => {

@@ -453,6 +453,19 @@ describe('who can see it, and whose it is', () => {
     expect((await t.http.get('/v1/dashboard')).status).toBe(401);
   });
 
+  it('withholds cost and profit from roles without finance:read', async () => {
+    const { owner, api } = await shop();
+    const v = await item(owner, 10, { price: 85_000, cost: 40_000 });
+    await deliver(api, (await order(api, [{ variantId: v.id, quantity: 1 }])).id);
+    const staff = await addMember(t, owner, 'STAFF');
+    const acct = await addMember(t, owner, 'ACCOUNTANT');
+    const forStaff = await dash(call(staff));
+    expect(forStaff.profit).toBeNull();
+    expect(JSON.stringify(forStaff)).not.toMatch(/grossProfit|costMinor/);
+    expect(forStaff.sales.deliveredMinor).toBe(85_000);
+    expect((await dash(call(acct))).profit).toMatchObject({ available: true });
+  });
+
   it('refuses an unknown period and uses 7 days by default', async () => {
     const { api } = await shop();
     expect((await api.get('/v1/dashboard?period=year')).status).toBe(400);
