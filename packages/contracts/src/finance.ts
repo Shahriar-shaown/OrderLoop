@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Uuid } from './auth.js';
 import { IdempotencyKey } from './catalog.js';
 import { CourierProvider } from './couriers.js';
+import { Day } from './day.js';
 
 // ---- vocabulary -------------------------------------------------------------------------------------------------------
 
@@ -63,7 +64,6 @@ export const CashState = z.enum([
 ]);
 export type CashState = z.infer<typeof CashState>;
 
-const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
 const Minor = z.number().int();
 const Reason = z.string().trim().min(3, 'Say why (at least 3 characters)').max(300);
 

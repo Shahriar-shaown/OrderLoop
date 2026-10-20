@@ -1,6 +1,13 @@
-import { ORDER_SOURCES, normalizeBdPhone, DIVISIONS, type OrderSource } from '@orderloop/contracts';
+import {
+  ORDER_SOURCES,
+  normalizeBdPhone,
+  normalizeDivision,
+  DIVISIONS,
+  type Division,
+  type OrderSource,
+} from '@orderloop/contracts';
 import { parseCount, parseMoney, text, type RowError } from './catalog-import.js';
-import { CsvError, parseCsv } from './csv.js';
+import { CsvError, parseCsvRecords, type CsvRecord } from './csv.js';
 import { ORDER_LIMITS } from './orders.js';
 import { normalizeSku } from './sku.js';
 
@@ -64,7 +71,7 @@ export interface ParsedOrder {
   line1: string;
   area: string;
   district: string;
-  division: (typeof DIVISIONS)[number];
+  division: Division;
   postalCode: string | null;
   items: ParsedOrderLine[];
   discountMinor: number;
@@ -102,14 +109,14 @@ export function parseOrdersCsv(input: string): ParsedOrdersCsv {
   });
   if (new TextEncoder().encode(input).length > ORDER_IMPORT_LIMITS.maxBytes)
     return fail(`The file is larger than ${ORDER_IMPORT_LIMITS.maxBytes / 1_000_000} MB`);
-  let table: string[][];
+  let table: CsvRecord[];
   try {
-    table = parseCsv(input);
+    table = parseCsvRecords(input);
   } catch (error) {
     return fail(error instanceof CsvError ? error.message : 'The file is not valid CSV');
   }
   if (table.length === 0) return fail('The file is empty');
-  const header = table[0]!.map((h) => h.trim().toLowerCase());
+  const header = table[0]!.fields.map((h) => h.trim().toLowerCase());
   const unknown = header.filter(
     (h) => h !== '' && !(ORDER_IMPORT_COLUMNS as readonly string[]).includes(h),
   );
@@ -127,8 +134,7 @@ export function parseOrdersCsv(input: string): ParsedOrdersCsv {
 
   const errors: RowError[] = [];
   const groups = new Map<string, { row: number; lines: { row: number; rec: Rec }[] }>();
-  body.forEach((record, index) => {
-    const row = index + 2;
+  body.forEach(({ fields: record, line: row }) => {
     if (record.length > header.length) {
       errors.push({ row, message: 'The row has more fields than the header (unquoted comma?)' });
       return;
@@ -189,7 +195,7 @@ export function parseOrdersCsv(input: string): ParsedOrdersCsv {
     const area = need('area');
     const district = need('district');
     const divisionRaw = need('division');
-    const division = DIVISIONS.find((d) => d.toLowerCase() === divisionRaw.toLowerCase());
+    const division = normalizeDivision(divisionRaw);
     if (divisionRaw && !division) bad(first.row, `division must be one of ${DIVISIONS.join(', ')}`);
 
     const guard = <T>(row: number, fn: () => T, fallback: T): T => {

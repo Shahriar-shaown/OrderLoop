@@ -70,9 +70,16 @@ export function createApiClient(options: ApiClientOptions) {
     const query = check('query', route.query, input.query) as Record<string, unknown> | undefined;
     const body = check('body', route.body, input.body);
 
-    const path = route.path.replace(/:(\w+)/g, (_, key: string) =>
-      encodeURIComponent(String(params?.[key])),
-    );
+    const path = route.path.replace(/:(\w+)/g, (_, key: string) => {
+      const value = params?.[key];
+      if (value === undefined || value === null || value === '')
+        throw new ApiError(
+          `Missing path parameter "${key}" for ${route.path}`,
+          undefined,
+          'validation_failed',
+        );
+      return encodeURIComponent(String(value));
+    });
     const qs = new URLSearchParams(
       Object.entries(query ?? {})
         .filter(([, v]) => v !== undefined)

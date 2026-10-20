@@ -34,8 +34,21 @@ const REFUSED_BEFORE_SENDING = new Set([
   'ERR_INVALID_URL',
 ]);
 const RETRY_DELAYS_MS = [500, 1500];
+/** A provider asking us to wait longer than this is told to the caller (`rate_limited`), not slept through or retried early. */
+const MAX_RETRY_AFTER_SECONDS = 30;
 
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** `Retry-After` is whole seconds or an HTTP date. Seconds to wait, or undefined when absent, unreadable or already past. */
+export function parseRetryAfter(
+  value: string | null,
+  nowMs: number = Date.now(),
+): number | undefined {
+  const text = value?.trim();
+  if (!text) return undefined;
+  const seconds = /^\d+$/.test(text) ? Number(text) : Math.ceil((Date.parse(text) - nowMs) / 1000);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
+}
 
 /** The most useful short sentence in a provider's error body, with nothing that could be a secret. */
 export function providerMessage(body: unknown): string | undefined {
@@ -87,12 +100,11 @@ export class Http {
             : // A booking may be repeated only when the provider refused it outright or it never left.
               error.kind === 'rate_limited' ||
               (error.kind === 'unavailable' && !error.outcomeUnknown);
+        const asked = error.retryAfterSeconds;
         if (!canRetry || attempt === attempts - 1) throw error;
-        const wait =
-          error.retryAfterSeconds !== undefined
-            ? Math.min(error.retryAfterSeconds, 30) * 1000
-            : (RETRY_DELAYS_MS[attempt] ?? 1500);
-        await this.sleep(wait);
+        // Retrying before the provider asked would only be refused again (and may count against us).
+        if (asked !== undefined && asked > MAX_RETRY_AFTER_SECONDS) throw error;
+        await this.sleep(asked !== undefined ? asked * 1000 : (RETRY_DELAYS_MS[attempt] ?? 1500));
       }
     }
     throw last ?? new CourierError('unexpected', 'The request did not run');
@@ -180,10 +192,9 @@ export class Http {
     if (status === 404)
       throw new CourierError('not_found', message ?? 'The courier has no such record', { status });
     if (status === 429) {
-      const retry = Number(response.headers.get('retry-after'));
       throw new CourierError('rate_limited', message ?? 'The courier is rate limiting requests', {
         status,
-        retryAfterSeconds: Number.isFinite(retry) && retry > 0 ? retry : undefined,
+        retryAfterSeconds: parseRetryAfter(response.headers.get('retry-after')),
         outcomeUnknown: false,
       });
     }
@@ -191,6 +202,8 @@ export class Http {
       throw new CourierError('validation', message ?? 'The courier refused the request', {
         status,
         fields: fieldErrors(body),
+        // A conflict on a booking usually means an earlier attempt went through: the caller must look, not assume it failed.
+        outcomeUnknown: status === 409 && r.kind === 'create',
       });
     if (status >= 500)
       throw new CourierError('unavailable', message ?? 'The courier had a problem', {

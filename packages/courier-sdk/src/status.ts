@@ -161,8 +161,3 @@ export function advanceShipment(from: ShipmentStatus, to: ShipmentStatus | null)
   if (to === from) return { apply: false, reason: 'duplicate' };
   return NEXT[from].includes(to) ? { apply: true } : { apply: false, reason: 'out_of_order' };
 }
-
-export const isFinalShipmentStatus = (s: ShipmentStatus): boolean =>
-  NEXT[s].length === 0 && s !== 'unknown';
-/** Statuses in which the booking can still be cancelled with the courier. */
-export const isCancellable = (s: ShipmentStatus): boolean => s === 'booked';

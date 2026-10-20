@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CourierError } from './errors.js';
-import { Http, RateLimiter } from './http.js';
+import { Http, RateLimiter, parseRetryAfter } from './http.js';
 import { fakeNetwork, refusedError, resetError, timeoutError } from './testing.js';
 
 const sleeps: number[] = [];
@@ -151,12 +151,40 @@ describe('http: reading is retried, booking is not', () => {
     expect(sleeps).toEqual([7000]);
   });
 
-  it('never waits longer than 30 seconds, and surfaces the rate limit if it persists', async () => {
-    const { http } = make({ 'GET /x': { status: 429, headers: { 'retry-after': '600' } } });
+  it('does not retry early when the provider asks for more than 30 seconds: it surfaces the rate limit', async () => {
+    const { http, net } = make({ 'GET /x': { status: 429, headers: { 'retry-after': '600' } } });
     const e = await fail(http.request({ method: 'GET', path: '/x', kind: 'idempotent' }));
     expect(e.kind).toBe('rate_limited');
     expect(e.retryAfterSeconds).toBe(600);
-    expect(Math.max(...sleeps)).toBe(30_000);
+    expect(net.requests).toHaveLength(1);
+    expect(sleeps).toEqual([]);
+  });
+
+  it('waits for a Retry-After of exactly 30 seconds, and reads an HTTP date', async () => {
+    const { http } = make({
+      'GET /x': [{ status: 429, headers: { 'retry-after': '30' } }, { body: { ok: 1 } }],
+    });
+    await http.request({ method: 'GET', path: '/x', kind: 'idempotent' });
+    expect(sleeps).toEqual([30_000]);
+    const now = Date.parse('2026-10-18T10:00:00Z');
+    expect(parseRetryAfter('Sun, 18 Oct 2026 10:00:20 GMT', now)).toBe(20);
+    expect(parseRetryAfter('Sun, 18 Oct 2026 09:00:00 GMT', now)).toBeUndefined(); // already past
+    expect(parseRetryAfter('7', now)).toBe(7);
+    expect(parseRetryAfter('soon', now)).toBeUndefined();
+    expect(parseRetryAfter(null, now)).toBeUndefined();
+  });
+
+  it('a conflict on a booking may mean it already went through; on a read it is just a refusal', async () => {
+    const { http } = make({
+      'POST /x': { status: 409, body: {} },
+      'GET /y': { status: 409, body: {} },
+    });
+    expect(
+      (await fail(http.request({ method: 'POST', path: '/x', kind: 'create' }))).outcomeUnknown,
+    ).toBe(true);
+    expect(
+      (await fail(http.request({ method: 'GET', path: '/y', kind: 'idempotent' }))).outcomeUnknown,
+    ).toBe(false);
   });
 
   it('a timeout on a read is not an unknown outcome', async () => {

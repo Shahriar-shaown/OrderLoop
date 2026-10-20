@@ -1,5 +1,5 @@
 import { bdtToPaisa } from './money.js';
-import { CsvError, parseCsv } from './csv.js';
+import { CsvError, parseCsvRecords, type CsvRecord } from './csv.js';
 import { nameKey, normalizeSku, SKU_RULE } from './sku.js';
 
 export const UNITS = ['pcs', 'kg', 'g', 'l', 'ml', 'm', 'pack', 'dozen'] as const;
@@ -100,16 +100,16 @@ export function parseCatalogCsv(input: string): ParsedImport {
   if (new TextEncoder().encode(input).length > IMPORT_LIMITS.maxBytes) {
     return fail(`The file is larger than ${IMPORT_LIMITS.maxBytes / 1_000_000} MB`);
   }
-  let table: string[][];
+  let table: CsvRecord[];
   try {
-    table = parseCsv(input);
+    table = parseCsvRecords(input);
   } catch (error) {
     return fail(error instanceof CsvError ? error.message : 'The file is not valid CSV');
   }
   if (table.length === 0) return fail('The file is empty');
 
   // American spelling is accepted for the colour column.
-  const header = table[0]!.map((h) => {
+  const header = table[0]!.fields.map((h) => {
     const name = h.trim().toLowerCase();
     return name === 'color' ? 'colour' : name;
   });
@@ -137,8 +137,7 @@ export function parseCatalogCsv(input: string): ParsedImport {
   const seenSku = new Map<string, number>();
   const productShape = new Map<string, { unit: Unit; category: string | null; row: number }>();
 
-  body.forEach((record, index) => {
-    const row = index + 2;
+  body.forEach(({ fields: record, line: row }) => {
     try {
       if (record.length > header.length)
         throw new RangeError('The row has more fields than the header (unquoted comma?)');

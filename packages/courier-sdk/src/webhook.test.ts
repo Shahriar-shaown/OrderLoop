@@ -81,6 +81,12 @@ describe('Pathao webhook', () => {
       kind: 'event',
       event: { status: null },
     });
+    expect(
+      parsePathaoWebhook({ event: 'order.updated', consignment_id: 'C1', order_status: 'Pending' }),
+    ).toMatchObject({ kind: 'event', event: { status: null } }); // informational: a status word beside it must not move the parcel
+    expect(
+      parsePathaoWebhook({ event: 'order.paid', consignment_id: 'C1', order_status: 'Delivered' }),
+    ).toMatchObject({ kind: 'event', event: { status: null } });
     expect(parsePathaoWebhook(null)).toMatchObject({ kind: 'invalid' });
     expect(parsePathaoWebhook({})).toMatchObject({ kind: 'invalid' });
     expect(parsePathaoWebhook({ event: 'order.delivered' })).toMatchObject({ kind: 'invalid' }); // names no parcel

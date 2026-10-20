@@ -75,6 +75,32 @@ const asRecord = (v: unknown): Record<string, unknown> =>
 const str = (v: unknown): string | undefined =>
   typeof v === 'string' && v ? v : typeof v === 'number' ? String(v) : undefined;
 
+/** The largest COD percentage believed sane, in basis points (20%). A bigger number means we misread the unit: no estimate. */
+const MAX_COD_BASIS_POINTS = 2000;
+
+/**
+ * An estimate of Pathao's charge for collecting cash. `cod_percentage` is read as a fraction ("0.01" is 1%, as in the
+ * community SDK's example) and parsed from its decimal text into basis points, so no float touches the money. Its unit is not
+ * confirmed by Pathao, so the caller says so; a value that is not a plain number or is above the cap gives no estimate.
+ */
+export function codFeeEstimate(codAmountMinor: number, percentage: unknown): number | undefined {
+  const m = /^(\d+)(?:\.(\d{1,4}))?$/.exec(String(percentage ?? '').trim());
+  if (!m || !Number.isSafeInteger(codAmountMinor) || codAmountMinor <= 0) return undefined;
+  const basisPoints = Number(m[1]) * 10_000 + Number((m[2] ?? '').padEnd(4, '0'));
+  if (basisPoints <= 0 || basisPoints > MAX_COD_BASIS_POINTS) return undefined;
+  const fee = Math.floor((codAmountMinor * basisPoints + 5_000) / 10_000);
+  return Number.isSafeInteger(fee) ? fee : undefined;
+}
+
+/** A location id the caller gave, or undefined when none was. One that is not a positive whole number is refused, not dropped. */
+function optionalId(value: unknown, label: string): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0)
+    throw new CourierError('unsupported', `The Pathao ${label} id is not valid. Choose it again.`);
+  return id;
+}
+
 /** Pathao wraps answers as `{ type, code, message, data }`. */
 const data = (body: unknown): Record<string, unknown> => asRecord(asRecord(body)['data']);
 
@@ -264,16 +290,19 @@ export class PathaoAdapter implements CourierAdapter {
     });
     const d = data(body);
     const fee = takaToMinor(d['final_price'] ?? d['price']);
-    const pct = Number(d['cod_percentage']);
+    const codFeeMinor = codFeeEstimate(request.codAmountMinor, d['cod_percentage']);
     return {
       serviceable: fee === undefined ? null : true,
       ...(fee !== undefined ? { feeMinor: fee } : {}),
       ...(d['cod_enabled'] !== undefined ? { codEnabled: Boolean(d['cod_enabled']) } : {}),
-      ...(Number.isFinite(pct) && pct > 0
-        ? { codFeeMinor: Math.round(request.codAmountMinor * pct) }
-        : {}),
+      ...(codFeeMinor !== undefined ? { codFeeMinor } : {}),
       notes: [
         'Pathao fee, as quoted now. The final charge is set by Pathao when the parcel is collected.',
+        ...(codFeeMinor !== undefined
+          ? [
+              'The COD charge is only an estimate: Pathao does not document the unit of its cod_percentage, so it is read as a fraction (0.01 is 1%).',
+            ]
+          : []),
       ],
       raw: body,
     };
@@ -282,16 +311,16 @@ export class PathaoAdapter implements CourierAdapter {
   async book(request: BookingRequest): Promise<BookingResult> {
     const o = request.options;
     const weight = request.weightKg ?? this.options.settings.defaultWeightKg ?? 0.5;
-    if (weight < 0.5 || weight > 10)
+    if (!Number.isFinite(weight) || weight < 0.5 || weight > 10)
       throw new CourierError('unsupported', 'Pathao takes parcels of 0.5 to 10 kg.');
     if (request.recipient.address.trim().length < 10)
       throw new CourierError(
         'unsupported',
         'Pathao needs a delivery address of at least 10 characters.',
       );
-    const city = o?.['cityId'] ? Number(o['cityId']) : undefined;
-    const zone = o?.['zoneId'] ? Number(o['zoneId']) : undefined;
-    const area = o?.['areaId'] ? Number(o['areaId']) : undefined;
+    const city = optionalId(o?.['cityId'], 'city');
+    const zone = optionalId(o?.['zoneId'], 'zone');
+    const area = optionalId(o?.['areaId'], 'area');
     const reply = await this.call({
       method: 'POST',
       path: `${API}/orders`,

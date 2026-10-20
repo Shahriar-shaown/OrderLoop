@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  advanceShipment,
-  isFinalShipmentStatus,
-  mapPathaoStatus,
-  mapSteadfastStatus,
-  normalizeSlug,
-} from './status.js';
+import { advanceShipment, mapPathaoStatus, mapSteadfastStatus, normalizeSlug } from './status.js';
 import { SHIPMENT_STATUSES } from './types.js';
 
 describe('Pathao status mapping', () => {
@@ -125,14 +119,12 @@ describe('moving a shipment forward', () => {
 
   it('returned and cancelled are final: nothing follows them', () => {
     for (const final of ['returned', 'cancelled'] as const) {
-      expect(isFinalShipmentStatus(final)).toBe(true);
       for (const s of SHIPMENT_STATUSES.filter((x) => x !== final && x !== 'unknown'))
         expect(advanceShipment(final, s), `${final} -> ${s}`).toEqual({
           apply: false,
           reason: 'out_of_order',
         });
     }
-    expect(isFinalShipmentStatus('delivered')).toBe(false);
   });
 
   it('PROPERTY: any order of events leaves the shipment on a status reachable by legal steps only', () => {

@@ -67,8 +67,12 @@ export function parsePathaoWebhook(body: unknown): ParsedWebhook {
     return { kind: 'invalid', reason: 'The event names no parcel' };
   }
   // The event name is the more reliable signal (order_status is display text), so it wins when it maps.
+  // An informational event (updated, paid) maps to null and must stay null: it never moves a shipment.
   const fromEvent = event ? mapPathaoStatus(event) : undefined;
-  const status = fromEvent && fromEvent !== 'unknown' ? fromEvent : mapPathaoStatus(providerStatus);
+  const status =
+    fromEvent === undefined || fromEvent === 'unknown'
+      ? mapPathaoStatus(providerStatus)
+      : fromEvent;
   const occurredAt = text(b['updated_at']) ?? text(b['timestamp']);
   const fee = takaToMinor(b['delivery_fee']);
   return {

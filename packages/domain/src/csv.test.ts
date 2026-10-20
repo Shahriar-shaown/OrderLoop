@@ -1,6 +1,17 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { CsvError, parseCsv } from './csv.js';
+import { CsvError, parseCsv, parseCsvRecords } from './csv.js';
+
+describe('parseCsvRecords', () => {
+  it('reports the physical line each record starts on, past blank lines and quoted line breaks', () => {
+    const records = parseCsvRecords('a,b\n\n"x\ny",1\r\n\r\nlast,2\n');
+    expect(records.map((r) => r.line)).toEqual([1, 3, 6]);
+    expect(records[1]!.fields).toEqual(['x\ny', '1']);
+  });
+  it('counts a lone CR as a line break and ignores a leading BOM', () => {
+    expect(parseCsvRecords('\ufeffa\rb\r\rc').map((r) => r.line)).toEqual([1, 2, 4]);
+  });
+});
 
 describe('parseCsv', () => {
   it('parses plain rows with LF and CRLF, skipping blank lines', () => {

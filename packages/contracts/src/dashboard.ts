@@ -89,25 +89,28 @@ export const Dashboard = z.object({
    * An ESTIMATE of gross profit on the period's delivered orders: item revenue minus the cost price recorded on each line
    * when it was sold. It is shown only when every delivered line has a cost price; otherwise `available` is false and the
    * reason says what is missing. It leaves out order-level discounts, delivery charges, courier fees, returns and taxes.
+   * `null` for roles without `finance:read`: cost and profit are finance data.
    */
-  profit: z.discriminatedUnion('available', [
-    z.object({
-      available: z.literal(true),
-      kind: z.literal('estimate'),
-      basis: z.string(),
-      revenueMinor: Money,
-      costMinor: Money,
-      grossProfitMinor: Money,
-      deliveredOrders: Count,
-      lines: Count,
-    }),
-    z.object({
-      available: z.literal(false),
-      reason: z.string(),
-      linesWithCost: Count,
-      lines: Count,
-    }),
-  ]),
+  profit: z
+    .discriminatedUnion('available', [
+      z.object({
+        available: z.literal(true),
+        kind: z.literal('estimate'),
+        basis: z.string(),
+        revenueMinor: Money,
+        costMinor: Money,
+        grossProfitMinor: Money,
+        deliveredOrders: Count,
+        lines: Count,
+      }),
+      z.object({
+        available: z.literal(false),
+        reason: z.string(),
+        linesWithCost: Count,
+        lines: Count,
+      }),
+    ])
+    .nullable(),
   /** The latest status changes across all orders (any time), newest first. */
   recentActivity: z.array(
     z.object({

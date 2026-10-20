@@ -110,7 +110,10 @@ describe('reading a settlement file', () => {
     };
     const key = (r: Partial<SettlementRow>) =>
       settlementItemKeyMaterial('pathao', { ...base, ...r });
-    expect(key({ line: 99, note: 'x' })).toBe(key({})); // where it sits in the file is not part of what it says
+    expect(key({ line: 99 })).toBe(key({})); // where it sits in the file is not part of what it says
+    expect(key({ note: 'x' })).not.toBe(key({})); // two identical fees for different reasons are two lines
+    expect(key({ note: ' X ' })).toBe(key({ note: 'x' }));
+    expect(key({ phone: '+8801712345678' })).not.toBe(key({}));
     expect(key({ consignmentId: 'c1' })).toBe(key({})); // case does not matter
     for (const change of [
       { collectedMinor: 101 },
@@ -125,6 +128,42 @@ describe('reading a settlement file', () => {
     expect(key({ transactionId: 'TX-1', collectedMinor: 5 })).toBe(
       key({ transactionId: 'tx-1', collectedMinor: 9 }),
     ); // the courier's own id wins
+  });
+});
+
+describe('settlement file limits and line numbers', () => {
+  it('refuses an amount above what the database holds, as a line error', () => {
+    expect(parseSettlementAmount('20000000')).toBe(2_000_000_000);
+    expect(parseSettlementAmount('20000000.01')).toBeNull();
+    const r = parseSettlementCsv(csv(',,,OL-1,,2026-10-05,cod,99999999999,0,0,0,0,,'));
+    expect(r.errors).toHaveLength(1);
+    expect(r.errors[0]!.message).toMatch(/collected/);
+  });
+  it('refuses a line whose net does not fit the database column', () => {
+    const r = parseSettlementCsv(
+      csv(',,,OL-1,,2026-10-05,adjustment,0,20000000,20000000,20000000,0,,'),
+    );
+    expect(r.rows).toEqual([]);
+    expect(r.errors).toEqual([{ line: 2, message: expect.stringMatching(/net/) }]);
+  });
+  it('requires collected on a cod line, but not on a return or adjustment', () => {
+    const noCollected = parseSettlementCsv(csv(',C1,,,,2026-10-05,cod,,60,0,0,0,,'));
+    expect(noCollected.errors).toEqual([{ line: 2, message: expect.stringMatching(/collected/) }]);
+    const noColumn = parseSettlementCsv('consignment_id,date\nC1,2026-10-05');
+    expect(noColumn.errors).toHaveLength(1);
+    expect(parseSettlementCsv(csv(',C1,,,,2026-10-05,cod,0,60,0,0,0,,')).errors).toEqual([]);
+    expect(parseSettlementCsv(csv(',C1,,,,2026-10-05,return,,0,0,50,0,,')).errors).toEqual([]);
+  });
+  it('reports the physical line, past blank lines and multi-line quoted fields', () => {
+    const r = parseSettlementCsv(
+      [
+        HEAD,
+        ',,,OL-1,,2026-10-05,cod,0,0,0,0,0,,"two\nline note"',
+        '',
+        ',,,OL-2,,not-a-date,cod,0,0,0,0,0,,',
+      ].join('\n'),
+    );
+    expect(r.errors).toEqual([{ line: 5, message: expect.stringMatching(/not a date/) }]);
   });
 });
 
@@ -224,6 +263,28 @@ describe('matching a line to a parcel', () => {
       outcome: 'ambiguous',
     });
     expect(decideMatch(row({ reference: '1003' }), cands)).toMatchObject({ outcome: 'ambiguous' }); // two parcels for that order
+  });
+  it('does not fall back to the order number when a strong id was given but not found', () => {
+    expect(decideMatch(row({ consignmentId: 'NOPE', reference: '1002' }), cands)).toMatchObject({
+      outcome: 'unmatched',
+    });
+    expect(decideMatch(row({ trackingCode: 'NOPE', reference: '#1002' }), cands)).toMatchObject({
+      outcome: 'unmatched',
+    });
+    expect(decideMatch(row({ reference: 'OL-9999' }), cands)).toMatchObject({
+      outcome: 'unmatched',
+    });
+  });
+  it('is ambiguous when a found strong id contradicts the reference', () => {
+    expect(decideMatch(row({ consignmentId: 'C1', reference: '1002' }), cands)).toMatchObject({
+      outcome: 'ambiguous',
+    });
+    expect(decideMatch(row({ consignmentId: 'C1', reference: 'OL-9999' }), cands)).toMatchObject({
+      outcome: 'ambiguous',
+    });
+    expect(decideMatch(row({ consignmentId: 'C1', reference: '#1001' }), cands)).toMatchObject({
+      outcome: 'matched',
+    });
   });
   it('never matches on a phone number alone, or on an amount', () => {
     expect(

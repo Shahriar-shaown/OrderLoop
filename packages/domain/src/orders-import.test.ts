@@ -89,4 +89,23 @@ describe('parseOrdersCsv', () => {
       ).fatal,
     ).toBeTruthy();
   });
+
+  it('reports the physical line of a bad row, past blank lines and multi-line notes', () => {
+    const r = parseOrdersCsv(
+      H +
+        'A1,Rina Akter,01712-345678,House 5,Dhanmondi,Dhaka,Dhaka,tee-red,1,,,,,,,"line one\nline two"\n' +
+        '\n' +
+        'A2,Karim,01712-345679,House 6,Dhanmondi,Dhaka,Dhaka,tee-red,x,,,,,,,\n',
+    );
+    expect(r.orders.map((o) => [o.ref, o.row])).toEqual([['A1', 2]]);
+    expect(r.orders[0]!.notes).toBe('line one\nline two');
+    expect(r.errors).toEqual([{ row: 5, message: 'quantity must be a whole number of 0 or more' }]);
+  });
+  it('accepts common spellings of a division and stores the canonical one', () => {
+    const r = parseOrdersCsv(
+      H + 'A1,Rina Akter,01712-345678,House 5,Pahartali,Chittagong,Chittagong,tee-red,1,,,,,,,\n',
+    );
+    expect(r.errors).toEqual([]);
+    expect(r.orders[0]!.division).toBe('Chattogram');
+  });
 });

@@ -284,6 +284,43 @@ describe('errors', () => {
     });
   });
 
+  it('keeps message, status and code of a problem whose code this build does not know', async () => {
+    const { fetchImpl } = stub(409, {
+      type: 'urn:orderloop:error:brand_new_code',
+      title: 'brand_new_code',
+      status: 409,
+      code: 'brand_new_code',
+      detail: 'Something newer went wrong',
+    });
+    const err = await createApiClient({ baseUrl: 'http://x', fetch: fetchImpl })
+      .auth.login({ email: 'a@b.test', password: 'x' })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({
+      message: 'Something newer went wrong',
+      status: 409,
+      code: 'brand_new_code',
+    });
+  });
+
+  it('refuses to build a path with a missing parameter instead of calling /orders/undefined', async () => {
+    const seen: Seen[] = [];
+    const { fetchImpl } = stub(200, {}, seen);
+    const route = {
+      id: 'x',
+      method: 'GET',
+      path: '/orders/:id',
+      auth: 'none',
+      response: { safeParse: (data: unknown) => ({ success: true, data }) },
+    };
+    const err = await createApiClient({ baseUrl: 'http://x', fetch: fetchImpl })
+      .call(route as never)
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).message).toMatch(/Missing path parameter "id"/);
+    expect(seen).toHaveLength(0);
+  });
+
   it('validates input locally before any request is made', async () => {
     const seen: Seen[] = [];
     const { fetchImpl } = stub(200, {}, seen);

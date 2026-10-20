@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ErrorCode = z.enum([
+export const KNOWN_ERROR_CODES = [
   'validation_failed',
   'unauthorized',
   'invalid_credentials',
@@ -25,15 +25,21 @@ export const ErrorCode = z.enum([
   'shipment_conflict',
   'settlement_has_issues',
   'internal_error',
-]);
-export type ErrorCode = z.infer<typeof ErrorCode>;
+] as const;
+export type ErrorCode = (typeof KNOWN_ERROR_CODES)[number];
+export const ErrorCode = z.enum(KNOWN_ERROR_CODES);
+
+/** True for a code this build knows. A newer API may send others: `Problem.code` accepts any string. */
+export const isKnownErrorCode = (code: string | undefined): code is ErrorCode =>
+  (KNOWN_ERROR_CODES as readonly string[]).includes(code ?? '');
 
 /** RFC 9457 problem details, plus a stable machine-readable `code`. */
 export const Problem = z.object({
   type: z.string(),
   title: z.string(),
   status: z.number().int(),
-  code: ErrorCode,
+  /** One of `ErrorCode`, or a code added after this build (check with `isKnownErrorCode`). */
+  code: z.string(),
   detail: z.string().optional(),
   errors: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
 });

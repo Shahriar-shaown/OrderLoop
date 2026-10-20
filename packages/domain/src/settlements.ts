@@ -1,6 +1,6 @@
 import { normalizeBdPhone } from '@orderloop/contracts';
 import { bdtToPaisa } from './money.js';
-import { CsvError, parseCsv } from './csv.js';
+import { CsvError, parseCsvRecords, type CsvRecord } from './csv.js';
 
 /**
  * Courier settlement rules as pure functions: reading a settlement file, matching its lines to parcels, deciding what is
@@ -8,6 +8,11 @@ import { CsvError, parseCsv } from './csv.js';
  */
 
 export const SETTLEMENT_LIMITS = { maxBytes: 2_000_000, maxRows: 2000, maxErrors: 100 } as const;
+
+/** The database stores amounts as int4 and checks each is at most this (see the finance migration). */
+export const SETTLEMENT_MAX_AMOUNT_MINOR = 2_000_000_000;
+const INT4_MIN = -2_147_483_648;
+const INT4_MAX = 2_147_483_647;
 
 export const SETTLEMENT_COLUMNS = [
   'transaction_id',
@@ -76,7 +81,7 @@ export const settlementNet = (r: {
   r.returnChargeMinor -
   r.otherDeductionMinor;
 
-/** Amounts as people write them: "1,250.50", "৳1250", "Tk 850", "BDT 99.5". Never more than two decimals; never negative. */
+/** Amounts as people write them: "1,250.50", "৳1250", "Tk 850", "BDT 99.5". At most two decimals, never negative, never above the database limit. */
 export function parseSettlementAmount(raw: string): number | null {
   const cleaned = raw
     .replace(/^(?:৳|bdt|tk\.?)\s*/i, '')
@@ -85,7 +90,8 @@ export function parseSettlementAmount(raw: string): number | null {
   if (cleaned === '') return 0;
   if (cleaned.startsWith('-')) return null;
   try {
-    return bdtToPaisa(cleaned);
+    const minor = bdtToPaisa(cleaned);
+    return minor <= SETTLEMENT_MAX_AMOUNT_MINOR ? minor : null;
   } catch {
     return null;
   }
@@ -130,14 +136,14 @@ export function parseSettlementCsv(input: string): ParsedSettlement {
   });
   if (new TextEncoder().encode(input).length > SETTLEMENT_LIMITS.maxBytes)
     return fail(`The file is larger than ${SETTLEMENT_LIMITS.maxBytes / 1_000_000} MB`);
-  let table: string[][];
+  let table: CsvRecord[];
   try {
-    table = parseCsv(input);
+    table = parseCsvRecords(input);
   } catch (error) {
     return fail(error instanceof CsvError ? error.message : 'The file is not valid CSV');
   }
   if (table.length === 0) return fail('The file is empty');
-  const header = table[0]!.map((h) => h.trim().toLowerCase());
+  const header = table[0]!.fields.map((h) => h.trim().toLowerCase());
   const unknown = header.filter(
     (h) => h !== '' && !(SETTLEMENT_COLUMNS as readonly string[]).includes(h),
   );
@@ -156,8 +162,7 @@ export function parseSettlementCsv(input: string): ParsedSettlement {
 
   const errors: SettlementLineError[] = [];
   const rows: SettlementRow[] = [];
-  body.forEach((record, index) => {
-    const line = index + 2;
+  body.forEach(({ fields: record, line }) => {
     const bad = (message: string) => errors.push({ line, message });
     if (record.length > header.length)
       return bad('The row has more fields than the header (unquoted comma?)');
@@ -171,7 +176,9 @@ export function parseSettlementCsv(input: string): ParsedSettlement {
     const amount = (col: string): number | null => {
       const v = parseSettlementAmount(rec[col] ?? '');
       if (v === null)
-        bad(`${col}: "${rec[col]}" is not an amount in taka (no negatives, at most two decimals)`);
+        bad(
+          `${col}: "${rec[col]}" is not an amount in taka (no negatives, at most two decimals, at most ${SETTLEMENT_MAX_AMOUNT_MINOR / 100})`,
+        );
       return v;
     };
     const collected = amount('collected');
@@ -192,6 +199,17 @@ export function parseSettlementCsv(input: string): ParsedSettlement {
     const consignmentId = rec['consignment_id'] || null;
     const trackingCode = rec['tracking_code'] || null;
     const reference = rec['reference'] || null;
+    if (kind === 'cod' && (rec['collected'] ?? '') === '')
+      return bad('collected is required for a cod line (write 0 if nothing was collected)');
+    const net = settlementNet({
+      collectedMinor: collected,
+      deliveryChargeMinor: delivery,
+      codFeeMinor: cod,
+      returnChargeMinor: ret,
+      otherDeductionMinor: other,
+    });
+    if (net < INT4_MIN || net > INT4_MAX)
+      return bad('The amounts on the line add up to too large a net');
     if (kind !== 'adjustment' && !consignmentId && !trackingCode && !reference)
       return bad('The line names no parcel (consignment_id, tracking_code or reference)');
     if (kind === 'return' && collected > 0) return bad('A return line cannot have cash collected');
@@ -223,7 +241,9 @@ export function parseSettlementCsv(input: string): ParsedSettlement {
 
 /**
  * The text that identifies a line, so the same line is never recorded twice. A courier's own transaction id is used when the
- * file has one; otherwise every field that matters is, so two lines are "the same" only when they say exactly the same thing.
+ * file has one; otherwise every field that matters is (including the phone and the note), so two lines are "the same" only
+ * when they say exactly the same thing. Lines with a transaction id that repeat it, and id-less lines that repeat every
+ * field, are flagged duplicate; put the reason in the note to tell two genuine identical fees apart.
  */
 export function settlementItemKeyMaterial(provider: string, r: SettlementRow): string {
   if (r.transactionId) return `tx|${provider}|${r.transactionId.toLowerCase()}`;
@@ -240,6 +260,8 @@ export function settlementItemKeyMaterial(provider: string, r: SettlementRow): s
     r.codFeeMinor,
     r.returnChargeMinor,
     r.otherDeductionMinor,
+    r.phone ?? '',
+    (r.note ?? '').trim().toLowerCase(),
   ].join('|');
 }
 
@@ -312,6 +334,16 @@ export function decideMatch(
       };
     const first = hits[0]!;
     const c = first.found[0]!;
+    // A reference that names another parcel (or an order number that is not this one) contradicts the strong id.
+    const bareNumber = /^#?(\d{1,9})$/.exec(ref);
+    if (
+      (ours && !eq(c.reference, ref)) ||
+      (!ours && bareNumber && Number(bareNumber[1]) !== c.orderNumber)
+    )
+      return {
+        outcome: 'ambiguous',
+        reason: 'The identifiers on the line point at different parcels',
+      };
     return {
       outcome: 'matched',
       method: first.method,
@@ -319,44 +351,45 @@ export function decideMatch(
       orderId: c.orderId,
     };
   }
-  if (strong.length > 0 && !row.reference)
-    return { outcome: 'unmatched', reason: 'No parcel has that consignment id or tracking code' };
+  // A strong id that matches nothing is never papered over with the weaker order number.
+  if (strong.length > 0)
+    return {
+      outcome: 'unmatched',
+      reason: 'No parcel has that consignment id, tracking code or reference',
+    };
 
   const bare = /^#?(\d{1,9})$/.exec(ref);
-  if (strong.length === 0 || (!ours && bare)) {
-    if (!bare)
-      return {
-        outcome: 'unmatched',
-        reason: ref
-          ? `"${ref}" is not one of our references or an order number`
-          : 'The line has no identifier we can use',
-      };
-    const n = Number(bare[1]);
-    const found = candidates.filter((c) => c.orderNumber === n);
-    if (found.length === 0)
-      return {
-        outcome: 'unmatched',
-        reason: `No parcel was booked for order ${n} with this courier`,
-      };
-    const orders = new Set(found.map((f) => f.orderId));
-    if (orders.size > 1)
-      return { outcome: 'ambiguous', reason: `More than one order is numbered ${n}` };
-    if (found.length > 1)
-      return {
-        outcome: 'ambiguous',
-        reason: `Order ${n} has more than one parcel with this courier. Match it by hand`,
-      };
-    const c = found[0]!;
-    if (row.phone && normalizeBdPhone(c.shipPhone) !== row.phone)
-      return { outcome: 'ambiguous', reason: `The phone on the line is not the one on order ${n}` };
+  if (!bare)
     return {
-      outcome: 'matched',
-      method: 'order_number',
-      shipmentId: c.shipmentId,
-      orderId: c.orderId,
+      outcome: 'unmatched',
+      reason: ref
+        ? `"${ref}" is not one of our references or an order number`
+        : 'The line has no identifier we can use',
     };
-  }
-  return { outcome: 'unmatched', reason: 'No parcel matches the identifiers on the line' };
+  const n = Number(bare[1]);
+  const found = candidates.filter((c) => c.orderNumber === n);
+  if (found.length === 0)
+    return {
+      outcome: 'unmatched',
+      reason: `No parcel was booked for order ${n} with this courier`,
+    };
+  const orders = new Set(found.map((f) => f.orderId));
+  if (orders.size > 1)
+    return { outcome: 'ambiguous', reason: `More than one order is numbered ${n}` };
+  if (found.length > 1)
+    return {
+      outcome: 'ambiguous',
+      reason: `Order ${n} has more than one parcel with this courier. Match it by hand`,
+    };
+  const c = found[0]!;
+  if (row.phone && normalizeBdPhone(c.shipPhone) !== row.phone)
+    return { outcome: 'ambiguous', reason: `The phone on the line is not the one on order ${n}` };
+  return {
+    outcome: 'matched',
+    method: 'order_number',
+    shipmentId: c.shipmentId,
+    orderId: c.orderId,
+  };
 }
 
 // ---- what is owed -----------------------------------------------------------------------------------------------------

@@ -52,6 +52,22 @@ const str = (v: unknown): string | undefined =>
   typeof v === 'string' && v ? v : typeof v === 'number' ? String(v) : undefined;
 
 const REFERENCE_RE = /^[A-Za-z0-9_-]{1,100}$/;
+const DUPLICATE_RE = /already|duplicate|taken|exists/i;
+
+/**
+ * Steadfast refused a booking. A refusal that says the invoice is already used means an earlier attempt succeeded, so the
+ * outcome is unknown and the caller settles it with `findByReference`; any other refusal created nothing.
+ */
+function refusedBooking(
+  message: string,
+  options: ConstructorParameters<typeof CourierError>[2] = {},
+): CourierError {
+  return new CourierError('validation', message, {
+    ...options,
+    outcomeUnknown:
+      DUPLICATE_RE.test(message) || (options.fields ?? []).some((f) => f.field === 'invoice'),
+  });
+}
 
 export class SteadfastAdapter implements CourierAdapter {
   readonly provider = 'steadfast' as const;
@@ -118,7 +134,7 @@ export class SteadfastAdapter implements CourierAdapter {
     if (cod > 1_000_000)
       throw new CourierError('unsupported', 'Steadfast takes cash to collect up to ৳1,000,000.');
     const reply = asRecord(
-      await this.http.request({
+      await this.createOrder({
         method: 'POST',
         path: 'create_order',
         headers: this.headers(),
@@ -146,10 +162,7 @@ export class SteadfastAdapter implements CourierAdapter {
       reply['status'] !== 'success' &&
       !c['consignment_id']
     )
-      throw new CourierError(
-        'validation',
-        str(reply['message']) ?? 'Steadfast refused the booking',
-      );
+      throw refusedBooking(str(reply['message']) ?? 'Steadfast refused the booking');
     const consignmentId = str(c['consignment_id']);
     if (!consignmentId)
       throw new CourierError(
@@ -171,6 +184,17 @@ export class SteadfastAdapter implements CourierAdapter {
       status: mapSteadfastStatus(providerStatus),
       raw: reply,
     };
+  }
+
+  /** A create that Steadfast refuses because the invoice exists is a duplicate: the first attempt went through. */
+  private async createOrder(request: Parameters<Http['request']>[0]): Promise<unknown> {
+    try {
+      return await this.http.request(request);
+    } catch (error) {
+      if (error instanceof CourierError && error.kind === 'validation')
+        throw refusedBooking(error.message, { status: error.status, fields: error.fields });
+      throw error;
+    }
   }
 
   async findByReference(reference: string): Promise<TrackingResult | null> {
@@ -202,7 +226,12 @@ export class SteadfastAdapter implements CourierAdapter {
         throw new CourierError('not_found', 'Steadfast has no such parcel');
       throw new CourierError('unexpected', 'Steadfast returned no status for this parcel');
     }
-    return { consignmentId, providerStatus, status: mapSteadfastStatus(providerStatus), raw: body };
+    return {
+      consignmentId: consignmentId ?? str(body['consignment_id']) ?? null,
+      providerStatus,
+      status: mapSteadfastStatus(providerStatus),
+      raw: body,
+    };
   }
 
   async track(target: TrackTarget): Promise<TrackingResult> {

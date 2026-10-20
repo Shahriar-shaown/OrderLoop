@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CourierError } from './errors.js';
-import { PathaoAdapter, PATHAO_BASE_URLS } from './pathao.js';
+import { PathaoAdapter, PATHAO_BASE_URLS, codFeeEstimate } from './pathao.js';
 import { fakeNetwork, timeoutError } from './testing.js';
 import type { BookingRequest } from './types.js';
 
@@ -286,6 +286,10 @@ describe('Pathao: booking', () => {
       [{ codAmountMinor: -100 }, /non-negative/],
       [{ weightKg: 0.1 }, /0\.5 to 10 kg/],
       [{ weightKg: 12 }, /0\.5 to 10 kg/],
+      [{ weightKg: Number.NaN }, /0\.5 to 10 kg/],
+      [{ options: { cityId: 'abc' } }, /city id/],
+      [{ options: { zoneId: -3 } }, /zone id/],
+      [{ options: { areaId: 1.5 } }, /area id/],
       [
         { recipient: { name: 'R', phone: '+8801712345678', address: 'short' } },
         /at least 10 characters/,
@@ -388,6 +392,28 @@ describe('Pathao: estimate and tracking', () => {
       recipient_city: 1,
       recipient_zone: 298,
     });
+  });
+
+  it('works the COD charge out in whole paisa from the percentage text, and says it is an estimate', async () => {
+    expect(codFeeEstimate(146_000, 0.01)).toBe(1460);
+    expect(codFeeEstimate(100_050, '0.0125')).toBe(1251); // 1.25% of 1,000.50, rounded half up
+    expect(codFeeEstimate(1, '0.01')).toBe(0);
+    expect(codFeeEstimate(146_000, 0)).toBeUndefined();
+    expect(codFeeEstimate(146_000, 1)).toBeUndefined(); // 100%: surely a different unit, so no guess
+    expect(codFeeEstimate(146_000, 1.5)).toBeUndefined();
+    expect(codFeeEstimate(146_000, 'abc')).toBeUndefined();
+    expect(codFeeEstimate(146_000, undefined)).toBeUndefined();
+    const { a } = adapter({
+      'POST /aladdin/api/v1/merchant/price-plan': {
+        body: { data: { final_price: 60, cod_percentage: 0.01 } },
+      },
+    });
+    const q = await a.quote({
+      recipient: { address: 'x' },
+      codAmountMinor: 146_000,
+      options: { cityId: 1, zoneId: 298 },
+    });
+    expect(q.notes.join(' ')).toMatch(/estimate.*unit/i);
   });
 
   it('asks for a city and zone rather than guessing', async () => {

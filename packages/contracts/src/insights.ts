@@ -2,10 +2,10 @@ import { z } from 'zod';
 import { Uuid } from './auth.js';
 import { CourierEnvironment, CourierProvider, ShipmentStatus } from './couriers.js';
 import { CashState } from './finance.js';
+import { Day } from './day.js';
 import { OrderSource, OrderStatus, PaymentState } from './orders.js';
 
 const Minor = z.number().int();
-const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
 const CommaList = <T extends z.ZodEnum<Record<string, string>>>(item: T) =>
   z
     .string()

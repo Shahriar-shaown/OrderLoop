@@ -171,6 +171,28 @@ describe('Steadfast: booking', () => {
     const e = await fail(a.book(booking()));
     expect(e.kind).toBe('validation');
     expect(e.message).toBe('The invoice has already been taken.');
+    expect(e.outcomeUnknown).toBe(true); // the first attempt went through: settle it by reference
+  });
+
+  it('treats a duplicate invoice refused with a 200 reply or a field error the same way, and other refusals as final', async () => {
+    const inBody = adapter({
+      'POST /api/v1/create_order': {
+        body: { status: 400, message: 'The invoice has already been taken.' },
+      },
+    });
+    expect((await fail(inBody.a.book(booking()))).outcomeUnknown).toBe(true);
+    const field = adapter({
+      'POST /api/v1/create_order': { status: 422, body: { errors: { invoice: ['Bad invoice'] } } },
+    });
+    expect((await fail(field.a.book(booking()))).outcomeUnknown).toBe(true);
+    const other = adapter({
+      'POST /api/v1/create_order': { status: 400, body: { message: 'Invalid phone number' } },
+    });
+    expect((await fail(other.a.book(booking()))).outcomeUnknown).toBe(false);
+    const otherBody = adapter({
+      'POST /api/v1/create_order': { body: { status: 400, message: 'Invalid phone number' } },
+    });
+    expect((await fail(otherBody.a.book(booking()))).outcomeUnknown).toBe(false);
   });
 
   it('does not repeat a booking after a timeout or a server error, and says the outcome is unknown', async () => {
@@ -208,6 +230,15 @@ describe('Steadfast: finding a booking again, and tracking', () => {
     });
     expect(net.requests[0]!.path).toBe('/api/v1/status_by_invoice/OL-1001');
     expect(a.capabilities.duplicateProtection).toBe('reference');
+  });
+
+  it('returns the consignment id when the lookup by invoice gives one', async () => {
+    const { a } = adapter({
+      'GET /api/v1/status_by_invoice/OL-1001': {
+        body: { status: 200, consignment_id: 1424107, delivery_status: 'in_review' },
+      },
+    });
+    expect((await a.findByReference('OL-1001'))?.consignmentId).toBe('1424107');
   });
 
   it('says “no such booking” for an unknown invoice, in either of the ways Steadfast answers', async () => {

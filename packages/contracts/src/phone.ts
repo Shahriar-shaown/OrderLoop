@@ -1,6 +1,8 @@
 /** Bangladeshi mobile numbers. Lives here (not in domain) because the contracts' schemas validate with it. */
 
 const BANGLA_DIGITS = '০১২৩৪৫৬৭৮৯';
+/** Spaces, dashes of any kind (hyphen, non-breaking hyphen, minus sign), brackets and dots, plus the invisible direction marks that pasting from a chat or a web page adds. */
+const SEPARATORS = /[\s().\p{Pd}\u2212\p{Cf}]/gu;
 
 /**
  * A Bangladeshi mobile number in one canonical form, `+8801XXXXXXXXX`, or null when it is not one. Accepts the ways people
@@ -14,7 +16,7 @@ export function normalizeBdPhone(input: string): string | null {
       return i === -1 ? ch : String(i);
     })
     .join('');
-  let digits = ascii.replace(/[\s\-().]/g, '');
+  let digits = ascii.replace(SEPARATORS, '');
   if (digits.startsWith('+')) digits = digits.slice(1);
   else if (digits.startsWith('00')) digits = digits.slice(2);
   if (!/^\d+$/.test(digits)) return null;

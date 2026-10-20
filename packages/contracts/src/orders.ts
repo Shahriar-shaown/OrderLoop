@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Email, Uuid } from './auth.js';
 import { IdempotencyKey, PriceMinor } from './catalog.js';
 import { CourierProvider, ShipmentStatus } from './couriers.js';
+import { Day } from './day.js';
 import { normalizeBdPhone } from './phone.js';
 
 // ---- vocabulary -------------------------------------------------------------------------------------------------------
@@ -45,17 +46,52 @@ export const DIVISIONS = [
   'Rangpur',
   'Sylhet',
 ] as const;
-export const Division = z.enum(DIVISIONS);
-export type Division = z.infer<typeof Division>;
+export type Division = (typeof DIVISIONS)[number];
 
-const text = (label: string, max: number) =>
+/** Other common spellings of the divisions, written lower case without spaces or punctuation. */
+const DIVISION_ALIASES: Record<string, Division> = {
+  barisal: 'Barishal',
+  chittagong: 'Chattogram',
+  chattagram: 'Chattogram',
+  chittagram: 'Chattogram',
+  dacca: 'Dhaka',
+  mymensing: 'Mymensingh',
+  sylet: 'Sylhet',
+};
+
+/** The division a person meant ("chittagong", "Dhaka Division", "BARISAL"), or null when it is not one of the eight. */
+export function normalizeDivision(input: string): Division | null {
+  const key = input
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '')
+    .replace(/division$/, '');
+  return DIVISIONS.find((d) => d.toLowerCase() === key) ?? DIVISION_ALIASES[key] ?? null;
+}
+
+/** Accepts the common spellings and stores the canonical name. */
+export const Division = z
+  .string()
+  .transform((v) => normalizeDivision(v) ?? v)
+  .pipe(z.enum(DIVISIONS));
+
+const CONTROL = /[\p{Cc}\p{Cf}]/u;
+/** Like CONTROL, but a line break and a tab are fine: free text such as notes and addresses is often pasted with them. */
+const CONTROL_EXCEPT_WHITESPACE = /(?![\n\r\t])[\p{Cc}\p{Cf}]/u;
+
+/** Single-line text for names and labels, or with `multiline` free text that may contain line breaks and tabs. */
+const text = (label: string, max: number, multiline = false) =>
   z
     .string()
     .trim()
     .min(1, `${label} is required`)
     .max(max, `${label} must be at most ${max} characters`)
-    .refine((v) => !/[\p{Cc}\p{Cf}]/u.test(v), `${label} contains characters that are not allowed`);
-const optionalText = (label: string, max: number) => text(label, max).nullable().optional();
+    .refine(
+      (v) => !(multiline ? CONTROL_EXCEPT_WHITESPACE : CONTROL).test(v),
+      `${label} contains characters that are not allowed`,
+    );
+const optionalText = (label: string, max: number, multiline = false) =>
+  text(label, max, multiline).nullable().optional();
 
 /** A Bangladeshi mobile number, accepted in any common spelling and stored as +8801XXXXXXXXX. */
 export const BdPhone = z
@@ -79,7 +115,7 @@ export const BdPhone = z
 export const AddressFields = z.object({
   recipientName: text('Recipient name', 100),
   phone: BdPhone,
-  line1: text('Address', 200),
+  line1: text('Address', 200, true),
   area: text('Thana or upazila', 100),
   district: text('District', 100),
   division: Division,
@@ -118,7 +154,7 @@ export const CustomerFields = z.object({
   name: text('Name', 100).refine((v) => v.length >= 2, 'Name must be at least 2 characters'),
   phone: BdPhone,
   email: Email.nullable().optional(),
-  notes: optionalText('Notes', 1000),
+  notes: optionalText('Notes', 1000, true),
 });
 export const CustomerBody = CustomerFields;
 export type CustomerBody = z.infer<typeof CustomerBody>;
@@ -197,8 +233,8 @@ const Adjustments = {
 
 const SourceFields = {
   source: OrderSource.optional(),
-  sourceReference: optionalText('Source reference', 200),
-  notes: optionalText('Notes', 1000),
+  sourceReference: optionalText('Source reference', 200, true),
+  notes: optionalText('Notes', 1000, true),
 };
 
 export const CreateOrderBody = z
@@ -429,14 +465,8 @@ export const OrderFilters = z.object({
   source: CommaList(OrderSource).optional(),
   customerId: Uuid.optional(),
   /** Created on or after / before, as dates (YYYY-MM-DD, Asia/Dhaka days). */
-  from: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
-    .optional(),
-  to: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
-    .optional(),
+  from: Day.optional(),
+  to: Day.optional(),
   minTotalMinor: z.coerce.number().int().min(0).optional(),
   maxTotalMinor: z.coerce.number().int().min(0).optional(),
 });
