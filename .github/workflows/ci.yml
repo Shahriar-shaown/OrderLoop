@@ -56,6 +56,8 @@ jobs:
         with: { node-version-file: .nvmrc, cache: pnpm }
       - run: cp .env.example .env
       - run: pnpm install --frozen-lockfile
+      # The app imports the workspace packages from their build output: build what the mobile app depends on first.
+      - run: pnpm exec turbo run build --filter='@orderloop/mobile^...'
       - run: pnpm --filter @orderloop/mobile exec expo export --platform ios --platform android --output-dir /tmp/mobile-export
       - run: pnpm --filter @orderloop/mobile exec expo prebuild --no-install --platform ios --platform android
         env: { APP_VARIANT: production, EXPO_PUBLIC_APP_ENV: development }

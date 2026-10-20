@@ -58,14 +58,16 @@ type Job = {
   startedAt: string | null;
   finishedAt: string | null;
 };
+// A 4,000-row file takes ~10 s on a fast laptop and several times that on a shared CI runner.
+const IMPORT_WAIT_MS = 90_000;
 async function finished(id: string, token = owner.accessToken): Promise<Job> {
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + IMPORT_WAIT_MS;
   for (;;) {
     const job = (await t.http.get(`/v1/imports/${id}`).set(bearer(token))).body as Job;
     if (job.status === 'COMPLETED' || job.status === 'FAILED') return job;
     if (Date.now() > deadline)
       throw new Error(
-        `import ${id} still ${job.status} after 30s\nworker output:\n${workerOutput}`,
+        `import ${id} still ${job.status} after ${IMPORT_WAIT_MS / 1000}s\nworker output:\n${workerOutput}`,
       );
     await new Promise((r) => setTimeout(r, 100));
   }
