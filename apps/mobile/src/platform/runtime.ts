@@ -1,6 +1,7 @@
 import { createRuntime } from '@orderloop/features';
 import { connectivity } from './connectivity';
 import { env } from './env';
+import { pushPlatform } from './push';
 import { secureTokenStore } from './secureTokenStore';
 
 /**
@@ -11,5 +12,6 @@ export const runtime = createRuntime({
   baseUrl: env.API_URL,
   refreshTokenStore: secureTokenStore,
   connectivity,
+  push: pushPlatform,
   home: '/dashboard',
 });

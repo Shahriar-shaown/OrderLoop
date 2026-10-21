@@ -641,3 +641,204 @@ describe('timeouts', () => {
     await expect(api.health.live()).rejects.toMatchObject({ code: 'network_error' });
   });
 });
+
+describe('automation and notifications', () => {
+  const ID = '0197b0a0-0000-7000-8000-0000000000aa';
+  const NOW = '2026-10-26T10:00:00.000Z';
+  const run = {
+    id: ID,
+    ruleId: ID,
+    kind: 'LOW_STOCK',
+    slotKey: 'manual:k',
+    trigger: 'manual',
+    scheduledFor: NOW,
+    status: 'succeeded',
+    attempts: 1,
+    error: null,
+    createdCount: 1,
+    skippedCount: 0,
+    startedAt: NOW,
+    finishedAt: NOW,
+    createdAt: NOW,
+  };
+  const notification = {
+    id: ID,
+    kind: 'LOW_STOCK',
+    title: 'Low stock: 1 item',
+    body: 'Vase (V-1): 1 left.',
+    data: { kind: 'LOW_STOCK', count: 1 },
+    createdAt: NOW,
+    readAt: null,
+  };
+  const delivery = {
+    id: ID,
+    notificationId: ID,
+    kind: 'LOW_STOCK',
+    recipientUserId: ID,
+    channel: 'email',
+    status: 'failed',
+    attempts: 3,
+    lastError: 'transient:timeout',
+    sentAt: null,
+    createdAt: NOW,
+  };
+  const rule = {
+    kind: 'LOW_STOCK',
+    configured: true,
+    enabled: true,
+    config: { basis: 'reorder_point', includeZeroStock: true },
+    channels: { inApp: true, push: true, email: false, sms: false, whatsapp: false },
+    recipientPermission: 'inventory:read',
+    updatedAt: NOW,
+    lastRun: run,
+  };
+  const consents = {
+    items: [
+      {
+        channel: 'sms',
+        configured: true,
+        granted: true,
+        phone: '+8801712345678',
+        grantedAt: NOW,
+        revokedAt: null,
+      },
+    ],
+  };
+  const make = (status: number, body: unknown, seen: Seen[]) =>
+    createApiClient({
+      baseUrl: 'http://x',
+      fetch: stub(status, body, seen).fetchImpl,
+      getAccessToken: () => 't',
+    });
+  const line = (s: Seen) => `${s.init.method} ${s.url}`;
+
+  it('reads and changes rules, and starts a run with an idempotency key', async () => {
+    const seen: Seen[] = [];
+    const providers = { push: 'dev', sms: false, whatsapp: false, email: true };
+    expect(
+      (await make(200, { rules: [rule], providers }, seen).automation.rules()).rules,
+    ).toHaveLength(1);
+    await make(200, rule, seen).automation.updateRule('LOW_STOCK', {
+      enabled: true,
+      config: { basis: 'fixed', fixedQuantity: 3, includeZeroStock: false },
+      channels: { email: true },
+    });
+    const ran = await make(200, run, seen).automation.runRule('LOW_STOCK', 'key-12345678');
+    expect(ran.createdCount).toBe(1);
+    expect(seen.map(line)).toEqual([
+      'GET http://x/v1/automation/rules',
+      'PUT http://x/v1/automation/rules/LOW_STOCK',
+      'POST http://x/v1/automation/rules/LOW_STOCK/run',
+    ]);
+    expect(JSON.parse(seen[1]!.init.body as string)).toMatchObject({ channels: { email: true } });
+    expect(JSON.parse(seen[2]!.init.body as string)).toEqual({ idempotencyKey: 'key-12345678' });
+  });
+
+  it('lists runs and deliveries with filters and retries a failed one', async () => {
+    const seen: Seen[] = [];
+    await make(200, { items: [run], nextCursor: null }, seen).automation.runs({ status: 'failed' });
+    await make(200, { items: [delivery], nextCursor: 'c1' }, seen).automation.deliveries({
+      status: 'failed',
+      limit: 10,
+    });
+    await make(200, run, seen).automation.retryRun(ID);
+    await make(200, delivery, seen).automation.retryDelivery(ID);
+    expect(seen.map(line)).toEqual([
+      'GET http://x/v1/automation/runs?status=failed&limit=50',
+      'GET http://x/v1/automation/deliveries?status=failed&limit=10',
+      `POST http://x/v1/automation/runs/${ID}/retry`,
+      `POST http://x/v1/automation/deliveries/${ID}/retry`,
+    ]);
+  });
+
+  it('refuses an unknown rule kind before sending anything', async () => {
+    const seen: Seen[] = [];
+    await expect(make(200, rule, seen).automation.runRule('NOPE' as never)).rejects.toMatchObject({
+      code: 'validation_failed',
+    });
+    expect(seen).toEqual([]);
+  });
+
+  it('turns the API refusals for sms and whatsapp into ApiErrors with their codes', async () => {
+    const problem = (code: string) => ({
+      type: 'about:blank',
+      title: 'Unprocessable',
+      status: 422,
+      code,
+      detail: 'No provider',
+    });
+    for (const code of ['channel_not_configured', 'consent_required'])
+      await expect(
+        make(422, problem(code), []).automation.updateRule('LOW_STOCK', {
+          channels: { sms: true },
+        }),
+      ).rejects.toMatchObject({ status: 422, code });
+  });
+
+  it('lists notifications (unread only), counts, marks one and all read', async () => {
+    const seen: Seen[] = [];
+    const page = { items: [notification], nextCursor: null };
+    await make(200, page, seen).notifications.list({ unread: 'true', cursor: 'abc' } as never);
+    expect((await make(200, { count: 4 }, seen).notifications.unreadCount()).count).toBe(4);
+    const read = await make(200, { ...notification, readAt: NOW }, seen).notifications.markRead(ID);
+    expect(read.readAt).toBe(NOW);
+    expect((await make(200, { updated: 3 }, seen).notifications.markAllRead()).updated).toBe(3);
+    expect(seen.map(line)).toEqual([
+      'GET http://x/v1/notifications?unread=true&cursor=abc&limit=30',
+      'GET http://x/v1/notifications/unread-count',
+      `POST http://x/v1/notifications/${ID}/read`,
+      'POST http://x/v1/notifications/read-all',
+    ]);
+  });
+
+  it('reads and saves notification preferences', async () => {
+    const seen: Seen[] = [];
+    const prefs = {
+      items: [{ kind: 'LOW_STOCK', inApp: true, push: false, email: false, available: true }],
+    };
+    await make(200, prefs, seen).notifications.preferences();
+    await make(200, prefs, seen).notifications.updatePreferences([
+      { kind: 'LOW_STOCK', inApp: false },
+    ]);
+    expect(seen.map(line)).toEqual([
+      'GET http://x/v1/notification-preferences',
+      'PUT http://x/v1/notification-preferences',
+    ]);
+    expect(JSON.parse(seen[1]!.init.body as string)).toEqual({
+      items: [{ kind: 'LOW_STOCK', inApp: false }],
+    });
+  });
+
+  it('registers a phone and forgets its token (encoded in the path)', async () => {
+    const seen: Seen[] = [];
+    const device = { id: ID, platform: 'android', provider: 'expo', lastSeenAt: NOW };
+    await make(200, device, seen).pushDevices.register({
+      token: 'ExponentPushToken[abc123]',
+      platform: 'android',
+    });
+    await make(200, {}, seen).pushDevices.remove('ExponentPushToken[abc123]');
+    expect(seen.map(line)).toEqual([
+      'POST http://x/v1/push-devices',
+      'DELETE http://x/v1/push-devices/ExponentPushToken%5Babc123%5D',
+    ]);
+  });
+
+  it('reads and changes messaging consent; granting needs a phone number', async () => {
+    const seen: Seen[] = [];
+    await make(200, consents, seen).messagingConsents.get();
+    await make(200, consents, seen).messagingConsents.update({
+      channel: 'sms',
+      granted: true,
+      phone: '01712345678',
+    });
+    await make(200, consents, seen).messagingConsents.update({ channel: 'sms', granted: false });
+    await expect(
+      make(200, consents, seen).messagingConsents.update({ channel: 'sms', granted: true }),
+    ).rejects.toMatchObject({ code: 'validation_failed' });
+    expect(seen.map(line)).toEqual([
+      'GET http://x/v1/messaging-consents',
+      'PUT http://x/v1/messaging-consents',
+      'PUT http://x/v1/messaging-consents',
+    ]);
+  });
+});

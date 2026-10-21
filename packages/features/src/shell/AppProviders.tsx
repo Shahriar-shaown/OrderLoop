@@ -14,6 +14,7 @@ import { AuthProvider } from '../core/auth';
 import { QueryProvider } from '../core/query';
 import { RuntimeProvider, type Runtime } from '../core/runtime';
 import { setFormatLocale } from '../lib/format';
+import { PushRegistration } from './PushRegistration';
 
 /** Gives the chosen language to the date formatters, which run outside React. Set while rendering, so the screens below read it in the same pass. */
 function FormatLocale({ children }: { children: ReactNode }) {
@@ -43,7 +44,10 @@ export function AppProviders({
               <RuntimeProvider runtime={runtime}>
                 <QueryProvider>
                   <ToastProvider>
-                    <AuthProvider>{children}</AuthProvider>
+                    <AuthProvider>
+                      <PushRegistration />
+                      {children}
+                    </AuthProvider>
                   </ToastProvider>
                 </QueryProvider>
               </RuntimeProvider>

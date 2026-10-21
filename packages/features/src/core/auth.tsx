@@ -41,7 +41,7 @@ const AuthContext = createContext<AuthValue | null>(null);
 const SERVER_SNAPSHOT = { status: 'loading', session: null } as const;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { api, session: manager } = useRuntime();
+  const { api, session: manager, push } = useRuntime();
   const snap = useSyncExternalStore(manager.subscribe, manager.getSnapshot, () => SERVER_SNAPSHOT);
 
   // Set while rendering, not in an effect: the screens below read it in the same pass. Setting it again is harmless.
@@ -80,7 +80,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [api, manager],
   );
-  const signOut = useCallback(() => manager.logout(), [manager]);
+  // The server forgets this phone first (while the session can still ask it to), but never holds sign-out up: it is best effort.
+  // If signing out then fails (no connection) the person stays signed in, so the phone is registered again.
+  const signOut = useCallback(async () => {
+    await push?.unregister();
+    try {
+      await manager.logout();
+    } catch (error) {
+      void push?.sync();
+      throw error;
+    }
+  }, [manager, push]);
 
   const value = useMemo<AuthValue>(
     () => ({

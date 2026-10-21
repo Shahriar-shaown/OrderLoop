@@ -1,4 +1,4 @@
-import { GlobalSearch, WorkspaceMenu, useAuth } from '@orderloop/features';
+import { GlobalSearch, NotificationBell, WorkspaceMenu, useAuth } from '@orderloop/features';
 import { Avatar, Button, useNavigation, useTheme } from '@orderloop/ui';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -35,6 +35,7 @@ export function MobileHeader() {
         accessibilityLabel="Search"
         onPress={() => setSearching(true)}
       />
+      <NotificationBell />
       {session && (
         <Pressable
           role="button"

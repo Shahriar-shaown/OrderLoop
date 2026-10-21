@@ -44,6 +44,13 @@ export const WEB_NAV: ShellNavItem[] = [
     needs: 'members:read',
     group: 'Workspace',
   },
+  {
+    href: '/automation',
+    label: 'Automation',
+    icon: 'zap',
+    needs: 'automation:read',
+    group: 'Workspace',
+  },
   { href: '/settings', label: 'Settings', icon: 'sliders', group: 'Workspace' },
 ];
 

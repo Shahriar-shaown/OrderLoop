@@ -26,12 +26,16 @@ export function mount(
   ui: React.ReactElement,
   api: Record<string, unknown>,
   role: AuthResult['role'] = 'OWNER',
+  /** Parts of the runtime a test wants to replace: the phone's push, a connectivity store, a session manager. */
+  extra: Partial<Runtime> = {},
 ) {
-  const manager = new SessionManager({
-    refresh: async () => session(role),
-    logout: async () => undefined,
-  });
-  const runtime = { api, session: manager, home: '/products' } as unknown as Runtime;
+  const manager =
+    extra.session ??
+    new SessionManager({
+      refresh: async () => session(role),
+      logout: async () => undefined,
+    });
+  const runtime = { api, home: '/products', ...extra, session: manager } as unknown as Runtime;
   const navigation = { pathname: '/orders', push: vi.fn(), replace: vi.fn(), back: vi.fn() };
   const view = render(
     <AppProviders

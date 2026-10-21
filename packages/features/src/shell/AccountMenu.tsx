@@ -56,6 +56,24 @@ export function AccountMenu({ onSignOut, leaving }: { onSignOut: () => void; lea
           <View role="separator" style={{ height: 1, backgroundColor: colors.border }} />
           <MenuRow
             item={{
+              key: 'notifications',
+              label: 'Notifications',
+              icon: 'bell',
+              href: '/notifications',
+            }}
+            onDone={close}
+          />
+          <MenuRow
+            item={{
+              key: 'notification-preferences',
+              label: 'Notification preferences',
+              icon: 'sliders',
+              href: '/notifications/preferences',
+            }}
+            onDone={close}
+          />
+          <MenuRow
+            item={{
               key: 'settings',
               label: 'Business settings',
               icon: 'sliders',

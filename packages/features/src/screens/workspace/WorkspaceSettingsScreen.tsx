@@ -239,6 +239,28 @@ function MyPreferences() {
   );
 }
 
+/** Where the person's alerts are chosen, and (for those who may see it) how the business sends them. */
+function NotificationLinks() {
+  const can = useCan();
+  return (
+    <Section
+      title="Notifications"
+      description="Choose which alerts you get and where. Owners and admins set up what the business sends."
+    >
+      <Stack direction="row" gap={2} wrap>
+        <Button variant="secondary" icon="bell" href="/notifications/preferences">
+          Notification preferences
+        </Button>
+        {can('automation:read') && (
+          <Button variant="secondary" icon="zap" href="/automation">
+            Automation
+          </Button>
+        )}
+      </Stack>
+    </Section>
+  );
+}
+
 type SettingsTab = 'profile' | 'preferences' | 'couriers';
 
 export function WorkspaceSettingsScreen() {
@@ -285,7 +307,10 @@ export function WorkspaceSettingsScreen() {
       </View>
       {tab === 'preferences' && (
         <View role="tabpanel">
-          <MyPreferences />
+          <Stack gap={4}>
+            <MyPreferences />
+            <NotificationLinks />
+          </Stack>
         </View>
       )}
       {tab === 'couriers' && can('couriers:read') && (

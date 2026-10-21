@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bn as features } from './bn';
+import { bnAutomation } from './bn.automation';
 import { bnExtra } from './bn.extra';
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!);
@@ -7,6 +8,7 @@ const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1
 describe.each([
   ['features', features],
   ['features (mobile shell)', bnExtra],
+  ['features (automation)', bnAutomation],
 ])('the Bangla catalogue (%s)', (_name, catalogue) => {
   const entries = Object.entries(catalogue);
 

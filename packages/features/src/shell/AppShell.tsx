@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, View, type ViewStyle } from 'react-native';
 import { useAuth, useRequireAuth, useSignOut } from '../core/auth';
+import { NotificationBell } from '../components/notifications/NotificationBell';
 import { OfflineBanner } from './OfflineBanner';
 import { RestoreFailed } from './RestoreFailed';
 import { messageFor } from '../forms/errors';
@@ -297,6 +298,7 @@ export function AppShell({
         <Button variant="ghost" icon="search" accessibilityLabel="Search" onPress={openSearch} />
       )}
       {!isMobile && create.length > 0 && <QuickCreate compact={isTablet} items={create} />}
+      <NotificationBell />
       <AccountMenu onSignOut={signOut} leaving={leaving} />
     </View>
   );

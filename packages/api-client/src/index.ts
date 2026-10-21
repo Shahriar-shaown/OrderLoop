@@ -412,6 +412,51 @@ export function createApiClient(options: ApiClientOptions) {
       get: (id: string) => call(routes.getImport, { params: { id } }),
       list: () => call(routes.listImports),
     },
+    /** Rules, their runs and deliveries (`automation:read` to look, `automation:manage` to change). */
+    automation: {
+      rules: () => call(routes.listAutomationRules),
+      /** Replaces the rule's settings: only what is sent is changed (`channels` is partial, `config` is whole). */
+      updateRule: (
+        kind: RouteInput<typeof routes.updateAutomationRule>['params']['kind'],
+        body: RouteInput<typeof routes.updateAutomationRule>['body'],
+      ) => call(routes.updateAutomationRule, { params: { kind }, body }),
+      /** Evaluate now. The same `idempotencyKey` again returns the first run instead of starting another. */
+      runRule: (
+        kind: RouteInput<typeof routes.runAutomationRule>['params']['kind'],
+        idempotencyKey?: string,
+      ) => call(routes.runAutomationRule, { params: { kind }, body: { idempotencyKey } }),
+      runs: (query: RouteInput<typeof routes.listAutomationRuns>['query'] = {}) =>
+        call(routes.listAutomationRuns, { query }),
+      retryRun: (id: string) => call(routes.retryAutomationRun, { params: { id } }),
+      deliveries: (query: RouteInput<typeof routes.listAutomationDeliveries>['query'] = {}) =>
+        call(routes.listAutomationDeliveries, { query }),
+      retryDelivery: (id: string) => call(routes.retryAutomationDelivery, { params: { id } }),
+    },
+    /** The signed-in person's own notifications, channel choices, phones and messaging consent. */
+    notifications: {
+      list: (query: RouteInput<typeof routes.listNotifications>['query'] = {}) =>
+        call(routes.listNotifications, { query }),
+      unreadCount: () => call(routes.getUnreadNotificationCount),
+      /** Returns the notification, so a tapped push can open the right screen from one call. */
+      markRead: (id: string) => call(routes.markNotificationRead, { params: { id } }),
+      markAllRead: () => call(routes.markAllNotificationsRead),
+      preferences: () => call(routes.getNotificationPreferences),
+      updatePreferences: (
+        items: RouteInput<typeof routes.updateNotificationPreferences>['body']['items'],
+      ) => call(routes.updateNotificationPreferences, { body: { items } }),
+    },
+    pushDevices: {
+      /** An upsert by token: calling it again only refreshes the device. */
+      register: (body: RouteInput<typeof routes.registerPushDevice>['body']) =>
+        call(routes.registerPushDevice, { body }),
+      /** Forgetting a token that is not there is not an error. */
+      remove: (token: string) => call(routes.removePushDevice, { params: { token } }),
+    },
+    messagingConsents: {
+      get: () => call(routes.getMessagingConsents),
+      update: (body: RouteInput<typeof routes.updateMessagingConsent>['body']) =>
+        call(routes.updateMessagingConsent, { body }),
+    },
     auditLogs: {
       list: (query: RouteInput<typeof routes.listAuditLogs>['query'] = {}) =>
         call(routes.listAuditLogs, { query }),

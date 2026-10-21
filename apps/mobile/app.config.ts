@@ -103,6 +103,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-secure-store',
     'expo-localization',
+    // Push notifications. `default` is the Android channel the app creates before it asks to notify (see platform/push.ts).
+    ['expo-notifications', { color: INDIGO, defaultChannel: 'default' }],
     // iOS 27 refuses apps that do not use the scene life cycle; the Expo template does not yet (see the plugin).
     './plugins/withIosScenes',
     [

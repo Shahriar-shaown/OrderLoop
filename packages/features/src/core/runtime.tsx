@@ -2,6 +2,7 @@ import type { AuthResult } from '@orderloop/contracts';
 import { createApiClient, type ApiClient, type ApiClientOptions } from '@orderloop/api-client';
 import { createContext, useContext, type ReactNode } from 'react';
 import { browserConnectivity, withOfflineGuard, type ConnectivityStore } from './connectivity';
+import { PushRegistrar, type PushPlatform } from './push';
 import { SessionManager, withTokenRetry } from './session';
 
 /** The two long-lived objects of a running app: the API client and the signed-in session. One pair per app instance. */
@@ -12,6 +13,8 @@ export interface Runtime {
   home: string;
   /** Whether the device is online; writes are refused while it is not (see `withOfflineGuard`). */
   connectivity: ConnectivityStore;
+  /** Push notifications on this phone. Absent on the web: everything that uses it does nothing there. */
+  push?: PushRegistrar;
 }
 
 /** Device storage for the refresh token, for apps that cannot use an HttpOnly cookie (the native apps). */
@@ -32,6 +35,10 @@ export function createRuntime(
     home?: string;
     /** The platform's network state. The web app defaults to the browser's; the mobile app passes its own. */
     connectivity?: ConnectivityStore;
+    /** The phone's push notification service. The web app passes nothing. */
+    push?: PushPlatform;
+    /** Where push registration problems are written (once each is enough: they are not the person's to fix). */
+    warn?: (message: string) => void;
   },
 ): Runtime {
   const store = options.refreshTokenStore;
@@ -69,7 +76,13 @@ export function createRuntime(
       connectivity,
     ),
   });
-  return { api, session, home: options.home ?? '/dashboard', connectivity };
+  return {
+    api,
+    session,
+    home: options.home ?? '/dashboard',
+    connectivity,
+    ...(options.push ? { push: new PushRegistrar(options.push, api, options.warn) } : {}),
+  };
 }
 
 const RuntimeContext = createContext<Runtime | null>(null);

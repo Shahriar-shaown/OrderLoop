@@ -34,6 +34,10 @@ export function messageFor(error: unknown): string {
         return 'Your session has ended. Sign in again.';
       case 'validation_failed':
         return error.errors?.length ? 'Please fix the highlighted fields.' : error.message;
+      case 'channel_not_configured':
+        return 'This server cannot send that kind of message yet. Turn the channel off, or ask whoever runs the server to set it up.';
+      case 'consent_required':
+        return 'Nobody who would get this alert has agreed to SMS or WhatsApp yet. Each person agrees in Notification preferences first.';
       case 'idempotency_conflict':
         return 'This was already sent with different details. Close this form and check the list before adding it again.';
       case 'conflict':

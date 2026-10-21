@@ -29,6 +29,9 @@ export const MORE_ITEMS: MoreItem[] = [
     needs: 'couriers:read',
   },
   { href: '/team', label: 'Team & staff', icon: 'users', needs: 'members:read' },
+  { href: '/notifications', label: 'Notifications', icon: 'bell' },
+  { href: '/notifications/preferences', label: 'Notification preferences', icon: 'sliders' },
+  { href: '/automation', label: 'Automation', icon: 'zap', needs: 'automation:read' },
   { href: '/settings', label: 'Business settings', icon: 'sliders' },
   { href: '/workspaces', label: 'Switch or add a business', icon: 'store' },
 ];

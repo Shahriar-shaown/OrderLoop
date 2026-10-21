@@ -42,10 +42,19 @@ type StockRequest = {
  * Products & inventory: the catalogue and its stock in one place. The tab decides what is below the figures; `/inventory` and
  * `/categories` open this same page on their own tab.
  */
-export function ProductsScreen({ initialTab = 'products' }: { initialTab?: ProductsTabName }) {
+export function ProductsScreen({
+  initialTab = 'products',
+  tab: requestedTab,
+}: {
+  initialTab?: ProductsTabName;
+  /** The tab a link asked for (`?tab=low`); wins over the screen's own default. Anything unknown is ignored. */
+  tab?: string | undefined;
+}) {
   const api = useApi();
   const can = useCan();
-  const [tab, setTab] = useState<ProductsTabName>(() => tabFromUrl(initialTab));
+  const [tab, setTab] = useState<ProductsTabName>(
+    () => TAB_NAMES.find((t) => t === requestedTab) ?? tabFromUrl(initialTab),
+  );
   const [request, setRequest] = useState<StockRequest>(null);
   const categories = useCategories();
   const exporter = useCsvExport(['products', 'stock']);
