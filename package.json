@@ -34,7 +34,7 @@
     "services:mail": "docker compose -f infra/docker-compose.yml --profile mail up -d mailpit"
   },
   "devDependencies": {
-    "turbo": "2.11.8",
+    "turbo": "2.11.9",
     "typescript": "6.0.3",
     "prettier": "^3.6.0"
   },

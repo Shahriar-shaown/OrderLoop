@@ -23,8 +23,8 @@
     "setup-roles": "node scripts/with-root-env.mjs node scripts/setup-roles.mjs"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "7.10.0",
-    "@prisma/client": "7.10.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "pg": "^8.16.3"
   },
   "devDependencies": {
@@ -32,6 +32,6 @@
     "@types/node": "^22.0.0",
     "@types/pg": "^8.16.0",
     "eslint": "^10.0.0",
-    "prisma": "7.10.0"
+    "prisma": "7.10.1"
   }
 }
