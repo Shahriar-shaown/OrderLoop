@@ -12,7 +12,8 @@ import { configureApp } from '../src/app.setup.js';
 import { createLogger } from '../src/logging/logger.js';
 import { LOGGER } from '../src/logging/tokens.js';
 import { COURIER_HTTP } from '../src/couriers/couriers.service.js';
-import { IMPORTS_QUEUE } from '../src/queue/queue.module.js';
+import { AUTOMATION_QUEUE, DELIVERY_QUEUE, IMPORTS_QUEUE } from '../src/queue/queue.module.js';
+import { AUTOMATION_NOW } from '../src/automation/automation.runtime.js';
 import { PinoLoggerService } from '../src/logging/pino-logger.service.js';
 import { Mailer } from '../src/mail/mailer.js';
 import { MemoryMailer } from '../src/mail/memory.mailer.js';
@@ -31,6 +32,8 @@ export async function createTestApp(
   options: {
     logDestination?: Writable;
     queue?: object;
+    /** Fake queues and a fake clock for automation (see test/automation-helpers.ts). Without them the real Redis queues and the real clock are used. */
+    automation?: { evaluate?: object; deliver?: object; now?: () => Date };
     /** A fake network (and no-op sleeps) for the couriers, so no test ever reaches a real one. */
     courier?: { fetch?: unknown; sleep?: (ms: number) => Promise<void> };
   } = {},
@@ -46,6 +49,12 @@ export async function createTestApp(
     : undefined;
   if (logger) builder = builder.overrideProvider(LOGGER).useValue(logger);
   if (options.queue) builder = builder.overrideProvider(IMPORTS_QUEUE).useValue(options.queue);
+  if (options.automation?.evaluate)
+    builder = builder.overrideProvider(AUTOMATION_QUEUE).useValue(options.automation.evaluate);
+  if (options.automation?.deliver)
+    builder = builder.overrideProvider(DELIVERY_QUEUE).useValue(options.automation.deliver);
+  if (options.automation?.now)
+    builder = builder.overrideProvider(AUTOMATION_NOW).useValue(options.automation.now);
   if (options.courier) builder = builder.overrideProvider(COURIER_HTTP).useValue(options.courier);
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });

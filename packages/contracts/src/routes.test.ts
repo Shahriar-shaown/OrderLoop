@@ -24,6 +24,17 @@ describe('route registry', () => {
       'listWorkspaces',
       'createWorkspace',
       'resendVerification',
+      // Notifications belong to the person, not to the business's data: any member lists and reads their own.
+      'listNotifications',
+      'getUnreadNotificationCount',
+      'markNotificationRead',
+      'markAllNotificationsRead',
+      'getNotificationPreferences',
+      'updateNotificationPreferences',
+      'registerPushDevice',
+      'removePushDevice',
+      'getMessagingConsents',
+      'updateMessagingConsent',
     ]);
     for (const spec of Object.values(routes)) {
       if (spec.auth === 'access' && !openToAnyMember.has(spec.id))

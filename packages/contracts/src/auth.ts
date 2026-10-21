@@ -22,6 +22,8 @@ export const Permission = z.enum([
   'finance:read',
   'finance:import',
   'finance:adjust',
+  'automation:read',
+  'automation:manage',
 ]);
 export type Permission = z.infer<typeof Permission>;
 

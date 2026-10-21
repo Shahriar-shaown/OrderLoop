@@ -15,6 +15,7 @@ export const ROUTE_SPEC = 'orderloop:route-spec';
 const METHODS = {
   GET: RequestMethod.GET,
   POST: RequestMethod.POST,
+  PUT: RequestMethod.PUT,
   PATCH: RequestMethod.PATCH,
   DELETE: RequestMethod.DELETE,
 } as const;

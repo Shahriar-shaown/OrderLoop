@@ -352,6 +352,8 @@ describe('the idempotency_keys table', () => {
   });
 
   it('is purged after a day, by the function the worker calls, and nothing younger', async () => {
+    // Keys left over from earlier runs of this suite are older than an hour: clear them so the counts below are ours.
+    await t.db.purgeIdempotencyKeys(0);
     const x = await registerTenant(t);
     const old = newKey();
     const fresh = newKey();

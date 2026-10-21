@@ -83,3 +83,34 @@ describe('NODE_ENV', () => {
     expect(() => loadServerEnv(withoutNodeEnv)).toThrow(/NODE_ENV/);
   });
 });
+
+describe('push and messaging env', () => {
+  it('defaults to the dev push provider and unavailable sms and whatsapp, so nothing paid is needed', () => {
+    expect(loadServerEnv(valid)).toMatchObject({
+      PUSH_PROVIDER: 'dev',
+      SMS_PROVIDER: 'none',
+      WHATSAPP_PROVIDER: 'none',
+    });
+  });
+  it('accepts expo and console, and rejects an unknown provider', () => {
+    expect(
+      loadServerEnv({ ...valid, PUSH_PROVIDER: 'expo', SMS_PROVIDER: 'console' }),
+    ).toMatchObject({
+      PUSH_PROVIDER: 'expo',
+      SMS_PROVIDER: 'console',
+    });
+    expect(() => loadServerEnv({ ...valid, PUSH_PROVIDER: 'fcm' })).toThrow(/PUSH_PROVIDER/);
+    expect(() => loadServerEnv({ ...valid, SMS_PROVIDER: 'twilio' })).toThrow(/SMS_PROVIDER/);
+  });
+  it('keeps the dev provider allowed in production (it is logged loudly at start-up, not refused)', () => {
+    const prod = {
+      ...valid,
+      NODE_ENV: 'production',
+      JWT_PRIVATE_KEY: 'a',
+      JWT_PUBLIC_KEY: 'b',
+      MAIL_PROVIDER: 'smtp',
+      SMTP_HOST: 'smtp.example.test',
+    };
+    expect(loadServerEnv(prod).PUSH_PROVIDER).toBe('dev');
+  });
+});

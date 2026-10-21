@@ -1,9 +1,13 @@
 import { Global, Inject, Injectable, Module, OnApplicationShutdown } from '@nestjs/common';
+import { QUEUES } from '@orderloop/automation';
 import { Queue } from 'bullmq';
-import { Redis } from 'ioredis';
 import { APP_CONFIG, type AppConfig } from '../config/config.module.js';
 
 export const IMPORTS_QUEUE = Symbol('IMPORTS_QUEUE');
+/** Rule evaluations: new-order events and retries. The worker's scheduler puts the timed ones on the same queue. */
+export const AUTOMATION_QUEUE = Symbol('AUTOMATION_QUEUE');
+/** One job per (notification, channel). */
+export const DELIVERY_QUEUE = Symbol('DELIVERY_QUEUE');
 /** The job payload carries ids only. The CSV stays in the database, so Redis never holds customer data. */
 export interface ImportJobData {
   tenantId: string;
@@ -12,11 +16,37 @@ export interface ImportJobData {
 
 @Injectable()
 class QueueLifecycle implements OnApplicationShutdown {
-  constructor(@Inject(IMPORTS_QUEUE) private readonly queue: Queue<ImportJobData>) {}
+  constructor(
+    @Inject(IMPORTS_QUEUE) private readonly imports: Queue<ImportJobData>,
+    @Inject(AUTOMATION_QUEUE) private readonly automation: Queue,
+    @Inject(DELIVERY_QUEUE) private readonly delivery: Queue,
+  ) {}
   async onApplicationShutdown(): Promise<void> {
-    await this.queue.close();
+    await Promise.all(
+      [this.imports, this.automation, this.delivery].map((q) =>
+        typeof q.close === 'function' ? q.close().catch(() => undefined) : undefined,
+      ),
+    );
   }
 }
+
+/**
+ * Connection settings (not a connection): given options, BullMQ opens its own connections (it requires
+ * maxRetriesPerRequest to be disabled) and closes them with the queue, so the process can exit cleanly.
+ */
+export function redisConnection(url: string) {
+  const u = new URL(url);
+  return {
+    host: u.hostname,
+    port: Number(u.port || 6379),
+    ...(u.username ? { username: decodeURIComponent(u.username) } : {}),
+    ...(u.password ? { password: decodeURIComponent(u.password) } : {}),
+    db: u.pathname.length > 1 ? Number(u.pathname.slice(1)) : 0,
+    ...(u.protocol === 'rediss:' ? { tls: {} } : {}),
+    maxRetriesPerRequest: null,
+  };
+}
+const connect = (config: AppConfig) => redisConnection(config.REDIS_URL);
 
 @Global()
 @Module({
@@ -24,14 +54,22 @@ class QueueLifecycle implements OnApplicationShutdown {
     {
       provide: IMPORTS_QUEUE,
       inject: [APP_CONFIG],
-      // BullMQ requires its own connection with maxRetriesPerRequest disabled.
       useFactory: (config: AppConfig) =>
-        new Queue<ImportJobData>('imports', {
-          connection: new Redis(config.REDIS_URL, { maxRetriesPerRequest: null }),
-        }),
+        new Queue<ImportJobData>('imports', { connection: connect(config) }),
+    },
+    {
+      provide: AUTOMATION_QUEUE,
+      inject: [APP_CONFIG],
+      useFactory: (config: AppConfig) =>
+        new Queue(QUEUES.evaluate, { connection: connect(config) }),
+    },
+    {
+      provide: DELIVERY_QUEUE,
+      inject: [APP_CONFIG],
+      useFactory: (config: AppConfig) => new Queue(QUEUES.deliver, { connection: connect(config) }),
     },
     QueueLifecycle,
   ],
-  exports: [IMPORTS_QUEUE],
+  exports: [IMPORTS_QUEUE, AUTOMATION_QUEUE, DELIVERY_QUEUE],
 })
 export class QueueModule {}

@@ -65,6 +65,31 @@ import {
   Variant,
   VariantUpdate,
 } from './catalog.js';
+import {
+  AutomationKindParam,
+  AutomationRule,
+  AutomationRules,
+  DeliveryPage,
+  DeliveryQuery,
+  MessagingConsents,
+  Notification,
+  NotificationPage,
+  NotificationPreferences,
+  NotificationQuery,
+  PushDevice,
+  PushTokenParam,
+  ReadAllResult,
+  RegisterPushDeviceBody,
+  Run,
+  RunPage,
+  RunQuery,
+  RunRuleBody,
+  UnreadCount,
+  UpdateMessagingConsentBody,
+  UpdateNotificationPreferencesBody,
+  UpdateRuleBody,
+  Delivery,
+} from './automation.js';
 import { LiveResponse, ReadyResponse } from './health.js';
 import { Dashboard, DashboardQuery } from './dashboard.js';
 import {
@@ -141,7 +166,7 @@ import {
   ShipmentSummary,
 } from './insights.js';
 
-export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface RouteSpec {
   /** Stable operation id; also the OpenAPI operationId. */
@@ -1393,6 +1418,172 @@ export const routes = {
     permission: 'finance:read',
     query: AnalyticsQuery,
     response: Analytics,
+  }),
+  // ---- automation and notifications -------------------------------------------------------------------------------------
+  listAutomationRules: route({
+    id: 'listAutomationRules',
+    method: 'GET',
+    path: '/v1/automation/rules',
+    summary:
+      'All seven rule kinds with their settings (defaults, disabled, until someone saves them), and which channels this server can deliver',
+    auth: 'access',
+    permission: 'automation:read',
+    response: AutomationRules,
+  }),
+  updateAutomationRule: route({
+    id: 'updateAutomationRule',
+    method: 'PUT',
+    path: '/v1/automation/rules/:kind',
+    summary:
+      'Enable, disable or configure one rule. 422 channel_not_configured / consent_required for sms and whatsapp when unavailable',
+    auth: 'access',
+    permission: 'automation:manage',
+    params: AutomationKindParam,
+    body: UpdateRuleBody,
+    response: AutomationRule,
+  }),
+  runAutomationRule: route({
+    id: 'runAutomationRule',
+    method: 'POST',
+    path: '/v1/automation/rules/:kind/run',
+    summary:
+      'Evaluate a rule now for this business, through the same code and the same de-duplication as the scheduler. Returns the run. Rate limited per business',
+    auth: 'access',
+    permission: 'automation:manage',
+    params: AutomationKindParam,
+    body: RunRuleBody,
+    response: Run,
+  }),
+  listAutomationRuns: route({
+    id: 'listAutomationRuns',
+    method: 'GET',
+    path: '/v1/automation/runs',
+    summary: 'Recent rule evaluations, newest first (filter by status or kind)',
+    auth: 'access',
+    permission: 'automation:read',
+    query: RunQuery,
+    response: RunPage,
+  }),
+  retryAutomationRun: route({
+    id: 'retryAutomationRun',
+    method: 'POST',
+    path: '/v1/automation/runs/:id/retry',
+    summary:
+      'Queue a failed run again. Repeating it, or retrying a run that did not fail, changes nothing',
+    auth: 'access',
+    permission: 'automation:manage',
+    params: IdParam,
+    response: Run,
+  }),
+  listAutomationDeliveries: route({
+    id: 'listAutomationDeliveries',
+    method: 'GET',
+    path: '/v1/automation/deliveries',
+    summary:
+      'Push, email, sms and whatsapp deliveries, newest first (status=failed shows what needs attention)',
+    auth: 'access',
+    permission: 'automation:read',
+    query: DeliveryQuery,
+    response: DeliveryPage,
+  }),
+  retryAutomationDelivery: route({
+    id: 'retryAutomationDelivery',
+    method: 'POST',
+    path: '/v1/automation/deliveries/:id/retry',
+    summary:
+      'Queue a failed delivery again. A delivery that was already sent is never sent twice; repeating the call changes nothing',
+    auth: 'access',
+    permission: 'automation:manage',
+    params: IdParam,
+    response: Delivery,
+  }),
+  listNotifications: route({
+    id: 'listNotifications',
+    method: 'GET',
+    path: '/v1/notifications',
+    summary: 'The signed-in user’s own notifications in this business, newest first',
+    auth: 'access',
+    query: NotificationQuery,
+    response: NotificationPage,
+  }),
+  getUnreadNotificationCount: route({
+    id: 'getUnreadNotificationCount',
+    method: 'GET',
+    path: '/v1/notifications/unread-count',
+    summary: 'How many notifications the signed-in user has not read in this business',
+    auth: 'access',
+    response: UnreadCount,
+  }),
+  markNotificationRead: route({
+    id: 'markNotificationRead',
+    method: 'POST',
+    path: '/v1/notifications/:id/read',
+    summary: 'Mark one of the caller’s notifications read (repeating it keeps the first read time)',
+    auth: 'access',
+    params: IdParam,
+    response: Notification,
+  }),
+  markAllNotificationsRead: route({
+    id: 'markAllNotificationsRead',
+    method: 'POST',
+    path: '/v1/notifications/read-all',
+    summary: 'Mark all of the caller’s notifications in this business read',
+    auth: 'access',
+    response: ReadAllResult,
+  }),
+  getNotificationPreferences: route({
+    id: 'getNotificationPreferences',
+    method: 'GET',
+    path: '/v1/notification-preferences',
+    summary: 'Which channels the caller wants for each kind of notification in this business',
+    auth: 'access',
+    response: NotificationPreferences,
+  }),
+  updateNotificationPreferences: route({
+    id: 'updateNotificationPreferences',
+    method: 'PUT',
+    path: '/v1/notification-preferences',
+    summary: 'Change the caller’s channel choices (only the kinds and fields sent are changed)',
+    auth: 'access',
+    body: UpdateNotificationPreferencesBody,
+    response: NotificationPreferences,
+  }),
+  registerPushDevice: route({
+    id: 'registerPushDevice',
+    method: 'POST',
+    path: '/v1/push-devices',
+    summary:
+      'Register this phone for push notifications (an upsert by token: repeating it just refreshes it). Applies to all of the person’s businesses',
+    auth: 'access',
+    body: RegisterPushDeviceBody,
+    response: PushDevice,
+  }),
+  removePushDevice: route({
+    id: 'removePushDevice',
+    method: 'DELETE',
+    path: '/v1/push-devices/:token',
+    summary:
+      'Forget a push token (call it on sign-out). Removing one that is not there is not an error',
+    auth: 'access',
+    params: PushTokenParam,
+    response: Empty,
+  }),
+  getMessagingConsents: route({
+    id: 'getMessagingConsents',
+    method: 'GET',
+    path: '/v1/messaging-consents',
+    summary: 'The caller’s own consent to receive sms and whatsapp messages from this business',
+    auth: 'access',
+    response: MessagingConsents,
+  }),
+  updateMessagingConsent: route({
+    id: 'updateMessagingConsent',
+    method: 'PUT',
+    path: '/v1/messaging-consents',
+    summary: 'Grant (with a phone number) or revoke the caller’s own consent for one channel',
+    auth: 'access',
+    body: UpdateMessagingConsentBody,
+    response: MessagingConsents,
   }),
 } as const;
 

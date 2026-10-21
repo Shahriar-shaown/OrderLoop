@@ -100,3 +100,12 @@ describe('the documented permission matrix (docs/permissions.md)', () => {
     }
   });
 });
+
+describe('automation permissions', () => {
+  it('OWNER, ADMIN and MANAGER may read the automation setup; only OWNER and ADMIN change it', () => {
+    for (const role of ROLES) {
+      expect(can(role, 'automation:read'), role).toBe(['OWNER', 'ADMIN', 'MANAGER'].includes(role));
+      expect(can(role, 'automation:manage'), role).toBe(['OWNER', 'ADMIN'].includes(role));
+    }
+  });
+});

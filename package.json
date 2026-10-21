@@ -26,6 +26,7 @@
     "test:integration": "turbo run test:integration",
     "db:init": "pnpm db:setup && pnpm db:migrate:deploy",
     "db:seed": "pnpm --filter @orderloop/api db:seed",
+    "automation:demo": "pnpm --filter @orderloop/api automation:demo",
     "services:mail": "docker compose -f infra/docker-compose.yml --profile mail up -d mailpit"
   },
   "devDependencies": {

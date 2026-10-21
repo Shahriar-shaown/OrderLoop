@@ -25,6 +25,8 @@ export const KNOWN_ERROR_CODES = [
   'courier_unsupported',
   'shipment_conflict',
   'settlement_has_issues',
+  'channel_not_configured',
+  'consent_required',
   'service_unavailable',
   'internal_error',
 ] as const;
@@ -58,6 +60,8 @@ export const ERROR_STATUS = {
   settlement_has_issues: 409,
   courier_rejected: 422,
   courier_unsupported: 422,
+  channel_not_configured: 422,
+  consent_required: 422,
   rate_limited: 429,
   internal_error: 500,
   courier_unavailable: 502,

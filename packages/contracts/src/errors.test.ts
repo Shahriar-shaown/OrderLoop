@@ -49,6 +49,10 @@ const MEANING: Record<ErrorCode, string> = {
     'The courier refused the credentials, the booking or the cancellation. `detail` says why.',
   courier_unsupported:
     'The courier cannot do this through its API (for example cancel, or look up by reference).',
+  channel_not_configured:
+    'The server has no provider for that channel (sms or whatsapp), so a rule cannot use it and nobody can consent to it.',
+  consent_required:
+    'Nobody who would receive this has agreed to the channel (sms or whatsapp) yet, so it cannot be switched on.',
   rate_limited:
     'Too many requests, failed sign-ins, or a per-business budget (imports, exports, invitations). See `Retry-After`.',
   internal_error: 'Unexpected. Quote the `x-request-id`.',

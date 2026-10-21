@@ -31,6 +31,13 @@ export const TENANT_TABLES = [
   'discrepancies',
   'manual_costs',
   'idempotency_keys',
+  'automation_rules',
+  'automation_runs',
+  'automation_state',
+  'notifications',
+  'notification_preferences',
+  'notification_deliveries',
+  'messaging_consents',
 ] as const;
 
 /** Tenant tables the runtime role may only INSERT into and SELECT from: history that must never be rewritten. */
@@ -46,7 +53,14 @@ export const APPEND_ONLY_TABLES = [
  * Global auth tables: reached before any tenant is known (login, refresh), keyed by unguessable
  * secrets or unique identity. They hold no tenant business data.
  */
-export const GLOBAL_TABLES = ['users', 'sessions', 'refresh_tokens', 'user_tokens'] as const;
+export const GLOBAL_TABLES = [
+  'users',
+  'sessions',
+  'refresh_tokens',
+  'user_tokens',
+  // A person's phone: belongs to the user, applies to every business they are in. Row-level security confines each user to their own.
+  'push_devices',
+] as const;
 
 /** Prisma bookkeeping; not reachable by the runtime role. */
 export const SYSTEM_TABLES = ['_prisma_migrations'] as const;

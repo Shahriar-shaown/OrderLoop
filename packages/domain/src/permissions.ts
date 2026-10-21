@@ -18,6 +18,8 @@ const ALL: readonly Permission[] = [
   'finance:read',
   'finance:import',
   'finance:adjust',
+  'automation:read',
+  'automation:manage',
 ];
 
 /** What each role may do inside its tenant. Roles are per membership, never global. */
@@ -35,6 +37,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     'orders:write',
     'couriers:read',
     'finance:read',
+    'automation:read',
   ],
   // Floor staff look things up, move stock and take and process orders, but do not change the catalog.
   STAFF: [

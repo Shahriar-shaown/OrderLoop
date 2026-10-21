@@ -10,5 +10,6 @@ export * from './couriers.js';
 export * from './finance.js';
 export * from './insights.js';
 export * from './dashboard.js';
+export * from './automation.js';
 export * from './routes.js';
 export * from './openapi.js';

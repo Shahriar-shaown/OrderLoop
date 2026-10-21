@@ -7,19 +7,20 @@ and the app's identity.
 
 ## What is in it
 
-| Area                                                                                                                  | Where it lives                                                  |
-| --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Sign-in, sign-up, forgot / reset password, verify e-mail, accept invitation                                           | `src/app/*.tsx` (shared auth screens)                           |
-| Business switching and creation                                                                                       | header (tap the business) and More → _Switch or add a business_ |
-| Overview (KPIs, quick actions, needs-attention, COD, low stock, recent orders, courier performance)                   | tab **Home**                                                    |
-| Orders: list with status tabs, search, filters; detail; create; edit; confirm; cancel (with a reason); status changes | tab **Orders**, `src/app/(app)/orders/*`                        |
-| Customer lookup, profile, order history                                                                               | More → _Customers_                                              |
-| Products, variants, stock, receive / adjust / damage, locations, categories, suppliers                                | More → _Products & inventory_                                   |
-| Courier booking and tracking (Pathao, Steadfast, simulated), shipment list and detail                                 | order page → _Courier & tracking_, tab **Shipments**            |
-| COD summary, outstanding COD, statement import, settlements, discrepancies                                            | More → _COD reconciliation_                                     |
-| Analytics and profit                                                                                                  | More → _Analytics & profit_                                     |
-| Profile, language (English / বাংলা), colour theme, sign out                                                           | tab **More**                                                    |
-| Team and business settings                                                                                            | More → _Team & staff_, _Business settings_                      |
+| Area                                                                                                                  | Where it lives                                                                |
+| --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Sign-in, sign-up, forgot / reset password, verify e-mail, accept invitation                                           | `src/app/*.tsx` (shared auth screens)                                         |
+| Business switching and creation                                                                                       | header (tap the business) and More → _Switch or add a business_               |
+| Overview (KPIs, quick actions, needs-attention, COD, low stock, recent orders, courier performance)                   | tab **Home**                                                                  |
+| Orders: list with status tabs, search, filters; detail; create; edit; confirm; cancel (with a reason); status changes | tab **Orders**, `src/app/(app)/orders/*`                                      |
+| Customer lookup, profile, order history                                                                               | More → _Customers_                                                            |
+| Products, variants, stock, receive / adjust / damage, locations, categories, suppliers                                | More → _Products & inventory_                                                 |
+| Courier booking and tracking (Pathao, Steadfast, simulated), shipment list and detail                                 | order page → _Courier & tracking_, tab **Shipments**                          |
+| COD summary, outstanding COD, statement import, settlements, discrepancies                                            | More → _COD reconciliation_                                                   |
+| Analytics and profit                                                                                                  | More → _Analytics & profit_                                                   |
+| Profile, language (English / বাংলা), colour theme, sign out                                                           | tab **More**                                                                  |
+| Team and business settings                                                                                            | More → _Team & staff_, _Business settings_                                    |
+| Notifications (bell in the header), their preferences, automation rules                                               | header bell, More → _Notifications_, _Notification preferences_, _Automation_ |
 
 ### Navigation
 
@@ -148,6 +149,33 @@ associated domain (iOS) and the verified intent filters (Android) for `/verify-e
 The app already has the three screens; they read the `token` from the link. Until a domain is set up, people finish these
 flows in the web app, which is fully supported.
 
+## Notifications and push
+
+The bell in the header shows the unread count (polled every minute while the app is in front, and again when it returns to
+the foreground) and opens the shared Notifications screen. Preferences and Automation are under More and are the same shared
+screens as on the web (see [web.md](web.md) and [automation.md](automation.md)).
+
+Push (Expo notifications, `expo-notifications` + `expo-device`) is kept to a small seam:
+
+- `packages/features/src/core/push.ts` defines `PushPlatform` (what a phone provides) and `PushRegistrar` (the rules). The web
+  passes no platform, so everything is a no-op there. `apps/mobile/src/platform/pushPlatform.ts` makes the platform from a
+  `PushSystem` (plain functions); `push.ts` fills that from Expo's modules. Both are unit-tested with fakes.
+- **When it asks.** Never at start-up. The Notifications screen shows "Get alerts on this phone" until the person chooses
+  (_Turn on_ shows the system question; _Not now_ hides it for the session), and Notification preferences always has a _This
+  phone_ section with the same button and the state. The Android channel `default` is created before the first question or token.
+- **Registering.** After sign-in, if notifications are already allowed, the Expo push token is sent with `POST /v1/push-devices`
+  (an upsert), and again whenever the push service issues a new one.
+- **Signing out.** `DELETE /v1/push-devices/:token` is sent first, best effort: a failure or three seconds of silence never
+  holds sign-out up, and if signing out then fails (offline) the phone is registered again.
+- **A push while the app is open** shows an in-app toast and refreshes the bell (no system banner). **A tap** (also the one
+  that launched the app, kept until the session is restored) calls `POST /v1/notifications/:id/read`, which returns the
+  notification, and opens its screen. The push itself carries only `{ kind, id }`.
+- **No project id, no push.** The token needs the EAS project id (`EAS_PROJECT_ID` becomes `extra.eas.projectId`). Without it, on
+  a simulator, in Expo Go (which cannot receive push) or on the web, the app offers nothing, asks nothing and logs one line
+  `[push] Push notifications are off: ...`. Real delivery also needs Firebase credentials for Android and an Apple key for iOS in the
+  EAS project (see Expo's push setup), and `PUSH_PROVIDER=expo` on the server; with the default `dev` provider pushes are only recorded.
+- Not verified on a phone from this repository: a real device and an EAS project are needed.
+
 ## Sessions, offline and expiry
 
 - **Tokens.** The refresh token lives in the platform's secure storage (Keychain / Keystore, `expo-secure-store`); the short
@@ -168,7 +196,7 @@ flows in the web app, which is fully supported.
 English and Bangla, chosen in _More → Language_ (and on the sign-in screen); the default is the phone's language, and the
 choice is kept on the device. The English text in the source is the translation key; `Text`, `Button` and `TextField`
 translate what they render, so screens did not change. Catalogues: `packages/ui/src/i18n/bn.ts`,
-`packages/features/src/i18n/bn.ts` (+ `bn.extra.ts`). Entries may contain `{name}` placeholders for text built at run time.
+`packages/features/src/i18n/bn.ts` (+ `bn.extra.ts`, `bn.automation.ts`). Entries may contain `{name}` placeholders for text built at run time.
 Digits in prices, counts and dates are shown as Bengali numerals; order numbers and codes keep theirs. Known limits:
 explanatory sentences that the **API** writes (the finance caveats) and a few sentences with inline bold text stay English,
 and screen-reader labels outside `Button`/`TextField` are not translated yet. To find what is still English:
@@ -185,7 +213,8 @@ the app's Orders tab.)
 ## Tests
 
 - `pnpm --filter @orderloop/mobile test`: routes (every tab and menu entry has a screen, groups and dynamic segments),
-  refresh-token storage, language storage, connectivity (OS vs. server, recovery, failure reports).
+  refresh-token storage, language storage, connectivity (OS vs. server, recovery, failure reports), the push seam
+  (permission, token, listeners, when it stays silent).
 - `pnpm --filter @orderloop/features test`: the shared screens and flows (orders create/edit/confirm/cancel, inventory,
   couriers, COD, team, auth), the offline guard (reads pass, every write is refused before it is sent, via the real API
   client), session expiry, restore without a connection, the Bangla catalogue (placeholders, no repeats), date and digit

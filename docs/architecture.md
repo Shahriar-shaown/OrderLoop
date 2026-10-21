@@ -296,3 +296,23 @@ the oversell and ledger logic, SQL bindings, isolation and parser were found sou
 | Low: `seq` exposed, so its gaps reveal other tenants' ledger volume                                              | Fixed: removed from the API; results are ordered by it internally. Replay per level only (a global "everything after N" feed would need commit-ordered sequencing). |
 | Low: a malformed cursor could 500                                                                                | Fixed: strict validation; also fixed oversized bodies returning 500 instead of 413.                                                                                 |
 | Low: resumed imports report approximate counts                                                                   | Accepted and documented.                                                                                                                                            |
+
+## 14. Automation and notifications
+
+The full design is [automation.md](automation.md). Decisions in short:
+
+- **`packages/automation`** is the engine shared by `api` (manual run, retry) and `worker` (BullMQ), like `packages/catalog`: it sits
+  on `db`, `domain` and `contracts` and imports neither app (enforced by `scripts/check-boundaries.mjs`). Pure rules (recipients,
+  `dueSlot`, notification wording) are in `packages/domain`.
+- **Scheduling without in-process cron:** one BullMQ job scheduler (`automation-tick`, every minute, idempotent by id so any number of
+  workers is safe) queues evaluations under deterministic ids; the unique `(rule_id, slot_key)` in `automation_runs` is the real
+  guarantee. Reports are slotted by the business's local date or ISO week, which makes daylight-saving repeats and gaps fire once.
+- **Exactly-once notifications on at-least-once infrastructure:** episode state claimed and notifications written in one
+  transaction, a unique dedupe key per recipient, unique `(notification, channel)` deliveries, a claim-with-lease before every send.
+  The one honest edge (a crash after the provider accepted) is documented.
+- **Two more `SECURITY DEFINER` functions for cross-business reads** (`enabled_automation_rules`, `stale_pending_deliveries`), on the
+  same pattern as the import sweep, plus two for the global `push_devices` table (`upsert_push_device`, `remove_push_token`).
+- **Providers are interfaces with free defaults:** `DevPushProvider`, `ExpoPushProvider`, `ConsoleMessagingProvider`, the existing
+  SMTP/Mailpit mail path. SMS and WhatsApp are gated by provider configuration and the recipient's own consent.
+- **Privacy by construction:** builders accept only ids, numbers and product names; push carries `{kind, id}` and a generic text.
+- `PUT` was added to the route registry's methods (`HttpMethod`), the controllers' decorators and CORS.

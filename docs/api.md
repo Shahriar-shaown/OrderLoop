@@ -89,6 +89,8 @@ one status, wherever it is raised; the table below is generated from the contrac
 | `settlement_has_issues`  | 409    | The settlement still has unmatched lines or open discrepancies.                                                               |
 | `courier_rejected`       | 422    | The courier refused the credentials, the booking or the cancellation. `detail` says why.                                      |
 | `courier_unsupported`    | 422    | The courier cannot do this through its API (for example cancel, or look up by reference).                                     |
+| `channel_not_configured` | 422    | The server has no provider for that channel (sms or whatsapp), so a rule cannot use it and nobody can consent to it.          |
+| `consent_required`       | 422    | Nobody who would receive this has agreed to the channel (sms or whatsapp) yet, so it cannot be switched on.                   |
 | `rate_limited`           | 429    | Too many requests, failed sign-ins, or a per-business budget (imports, exports, invitations). See `Retry-After`.              |
 | `internal_error`         | 500    | Unexpected. Quote the `x-request-id`.                                                                                         |
 | `courier_unavailable`    | 502    | The courier could not be reached or answered badly. Try again shortly.                                                        |
@@ -437,6 +439,32 @@ the same set as the finance summary. `profit` is `null` for roles without `finan
 `{ available: false, reason, linesWithCost, lines }`. Periods are whole calendar days in the business's time zone. Definitions are
 in [dashboard.md](dashboard.md).
 
+## Automation and notifications
+
+Rules, notifications, push devices and messaging consent. Behaviour, exact trigger definitions, scheduling, retries and privacy
+are in [automation.md](automation.md); the contracts are `packages/contracts/src/automation.ts` and the routes below are in
+`packages/contracts/src/routes.ts` (and `docs/openapi.json`).
+
+| Method and path                                           | Needs               | Notes                                                                                                                                   |
+| --------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /v1/automation/rules`                                | `automation:read`   | Always all 7 kinds with defaults (`configured: false`, disabled) until saved, plus `providers` (what this server can deliver).          |
+| `PUT /v1/automation/rules/:kind`                          | `automation:manage` | `{ enabled?, config?, channels? }`. `400` with `body.config.<field>` paths; `422 channel_not_configured` / `consent_required`. Audited. |
+| `POST /v1/automation/rules/:kind/run`                     | `automation:manage` | Evaluate now; returns the run. Optional `idempotencyKey`. `409` if the rule is not saved and on; `429` over 10 a minute per business.   |
+| `GET /v1/automation/runs?status=&kind=&cursor=`           | `automation:read`   | Newest first.                                                                                                                           |
+| `POST /v1/automation/runs/:id/retry`                      | `automation:manage` | Only a `failed` run moves to `queued`; repeating changes nothing.                                                                       |
+| `GET /v1/automation/deliveries?status=&channel=`          | `automation:read`   | `status=failed` is the dead-letter view.                                                                                                |
+| `POST /v1/automation/deliveries/:id/retry`                | `automation:manage` | Never re-sends a `sent` delivery; repeating changes nothing.                                                                            |
+| `GET /v1/notifications?unread=&cursor=&limit=`            | any member          | The caller's own, in this business, newest first.                                                                                       |
+| `GET /v1/notifications/unread-count`                      | any member          | `{ count }`.                                                                                                                            |
+| `POST /v1/notifications/:id/read`, `/read-all`            | any member          | Idempotent; another person's notification is `404`.                                                                                     |
+| `GET` / `PUT /v1/notification-preferences`                | any member          | Per kind: `inApp`, `push`, `email` (defaults on, on, off) and `available` (the role can receive it).                                    |
+| `POST /v1/push-devices`, `DELETE /v1/push-devices/:token` | any member          | Registration is an upsert by token and applies to all the person's businesses. Delete on sign-out.                                      |
+| `GET` / `PUT /v1/messaging-consents`                      | any member          | The caller's own sms/whatsapp consent; granting needs a phone number and a configured provider.                                         |
+
+`PUT` is a new method in the API (rules, preferences and consents are replaced or merged, not created); CORS allows it.
+Idempotency: `POST .../run` takes an optional `idempotencyKey` (same key, same run); registering a device is an upsert by token;
+the retry endpoints and mark-read are idempotent by construction; `PUT` is idempotent by nature.
+
 ## Rate limiting and lockout
 
 Limits are per client IP and apply to every route unless stated. Exceeding one returns `429 rate_limited` with a
@@ -539,18 +567,20 @@ The one deliberate exception is `MAIL_PROVIDER=console`, which prints the email 
 Validated when the process starts; a bad or missing value stops it with a message listing every problem (values are not
 echoed). The full annotated list is `.env.example`.
 
-| Variable                                             | Required   | Notes                                                                                                                                         |
-| ---------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                       | yes        | Runtime role `app_user`. See database.md.                                                                                                     |
-| `REDIS_URL`                                          | yes        |                                                                                                                                               |
-| `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY`                  | production | Both or neither. Dev generates an ephemeral key (restart signs everyone out).                                                                 |
-| `MAIL_PROVIDER`, `MAIL_FROM`, `SMTP_*`               | no (dev)   | `smtp` requires `SMTP_HOST`; `console` is refused in production.                                                                              |
-| `WEB_ORIGINS`                                        | no         | Allowed browser origins (CORS and cookie refresh). Default `http://localhost:3000`.                                                           |
-| `TRUST_PROXY`                                        | no         | Reverse-proxy hops, 0 to 5. Default 0.                                                                                                        |
-| `ACCESS_TOKEN_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS` | no         | Defaults 900 and 30.                                                                                                                          |
-| `LOG_LEVEL`                                          | no         | Default `info`.                                                                                                                               |
-| `NODE_ENV`                                           | **yes**    | `development`, `test` or `production`. No default, so a deploy that forgets it fails to start instead of running with development safeguards. |
-| `API_PORT`, `RATE_LIMIT_ENABLED`                     | no         | `RATE_LIMIT_ENABLED=false` is for automated tests only.                                                                                       |
+| Variable                                                | Required   | Notes                                                                                                                                         |
+| ------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                          | yes        | Runtime role `app_user`. See database.md.                                                                                                     |
+| `REDIS_URL`                                             | yes        |                                                                                                                                               |
+| `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY`                     | production | Both or neither. Dev generates an ephemeral key (restart signs everyone out).                                                                 |
+| `MAIL_PROVIDER`, `MAIL_FROM`, `SMTP_*`                  | no (dev)   | `smtp` requires `SMTP_HOST`; `console` is refused in production.                                                                              |
+| `WEB_ORIGINS`                                           | no         | Allowed browser origins (CORS and cookie refresh). Default `http://localhost:3000`.                                                           |
+| `TRUST_PROXY`                                           | no         | Reverse-proxy hops, 0 to 5. Default 0.                                                                                                        |
+| `ACCESS_TOKEN_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS`    | no         | Defaults 900 and 30.                                                                                                                          |
+| `LOG_LEVEL`                                             | no         | Default `info`.                                                                                                                               |
+| `NODE_ENV`                                              | **yes**    | `development`, `test` or `production`. No default, so a deploy that forgets it fails to start instead of running with development safeguards. |
+| `API_PORT`, `RATE_LIMIT_ENABLED`                        | no         | `RATE_LIMIT_ENABLED=false` is for automated tests only.                                                                                       |
+| `PUSH_PROVIDER`, `PUSH_DEV_OUTBOX`, `EXPO_ACCESS_TOKEN` | no         | `dev` (default, logs only) or `expo`. See automation.md.                                                                                      |
+| `SMS_PROVIDER`, `WHATSAPP_PROVIDER`                     | no         | `none` (default: channel unavailable) or `console` (logs only).                                                                               |
 
 ## Trying it
 

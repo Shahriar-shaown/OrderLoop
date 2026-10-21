@@ -46,6 +46,7 @@ model User {
   sessions        Session[]
   userTokens      UserToken[]
   idempotencyKeys IdempotencyKey[]
+  pushDevices     PushDevice[]
 
   @@map("users")
 }
@@ -96,6 +97,13 @@ model Tenant {
   discrepancies        Discrepancy[]
   manualCosts          ManualCost[]
   idempotencyKeys      IdempotencyKey[]
+  automationRules      AutomationRule[]
+  automationRuns       AutomationRun[]
+  automationStates     AutomationState[]
+  notifications        Notification[]
+  notificationPrefs    NotificationPreference[]
+  notificationDeliveries NotificationDelivery[]
+  messagingConsents    MessagingConsent[]
 
   @@map("tenants")
 }
@@ -110,6 +118,10 @@ model Membership {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  notifications Notification[]
+  notificationPrefs NotificationPreference[]
+  messagingConsents MessagingConsent[]
 
   @@unique([tenantId, userId])
   @@index([userId])
@@ -1026,4 +1038,248 @@ model IdempotencyKey {
   @@unique([userId, scope, key])
   @@index([createdAt])
   @@map("idempotency_keys")
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Automation and notifications. Tenant-scoped like everything above (tenant_id, forced row-level security, composite
+// foreign keys), except push_devices, which belongs to a person and so to all of their businesses (see docs/automation.md).
+// ---------------------------------------------------------------------------------------------------------------------
+
+enum AutomationKind {
+  LOW_STOCK
+  NEW_ORDER
+  UNCONFIRMED_ORDER
+  DELAYED_ORDER
+  COD_DISCREPANCY
+  DAILY_REPORT
+  WEEKLY_REPORT
+}
+
+/// in_app is the notification itself (one delivery row, born sent); the rest are sent by the worker.
+enum NotificationChannel {
+  in_app
+  push
+  email
+  sms
+  whatsapp
+}
+
+enum DeliveryStatus {
+  pending
+  sent
+  failed
+  skipped
+}
+
+enum AutomationRunStatus {
+  queued
+  running
+  succeeded
+  failed
+  skipped
+}
+
+enum AutomationTrigger {
+  scheduled
+  event
+  manual
+  retry
+}
+
+enum PushPlatform {
+  ios
+  android
+}
+
+enum PushProviderKind {
+  expo
+  dev
+}
+
+enum MessagingChannel {
+  sms
+  whatsapp
+}
+
+/// One row per (business, kind), created the first time someone saves it; until then the API shows defaults, disabled.
+model AutomationRule {
+  id          String         @id @default(uuid(7)) @db.Uuid
+  tenantId    String         @map("tenant_id") @db.Uuid
+  kind        AutomationKind
+  enabled     Boolean        @default(false)
+  /// Validated per kind by the contracts package (a zod discriminated union); stored without the kind.
+  config      Json           @default("{}")
+  /// { inApp, push, email, sms, whatsapp }
+  channels    Json           @default("{}")
+  /// When the rule was last switched on: events and catch-up scans ignore orders created before it.
+  enabledAt   DateTime?      @map("enabled_at") @db.Timestamptz(3)
+  updatedById String?        @map("updated_by_id") @db.Uuid
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runs   AutomationRun[]
+  states AutomationState[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, kind])
+  @@map("automation_rules")
+}
+
+/// One evaluation of one rule. (rule_id, slot_key) is the idempotent scheduling slot: a second execution of the same slot is
+/// a no-op, or resumes a failed run.
+model AutomationRun {
+  id           String              @id @default(uuid(7)) @db.Uuid
+  tenantId     String              @map("tenant_id") @db.Uuid
+  ruleId       String              @map("rule_id") @db.Uuid
+  kind         AutomationKind
+  /// `scan:20261025T1430Z`, `daily:2026-03-29`, `weekly:2026-W13`, `neworder-<orderId>`, `manual:<key>`.
+  slotKey      String              @map("slot_key")
+  trigger      AutomationTrigger
+  scheduledFor DateTime            @map("scheduled_for") @db.Timestamptz(3)
+  status       AutomationRunStatus @default(queued)
+  attempts     Int                 @default(0)
+  error        String?
+  createdCount Int                 @default(0) @map("created_count")
+  skippedCount Int                 @default(0) @map("skipped_count")
+  startedAt    DateTime?           @map("started_at") @db.Timestamptz(3)
+  finishedAt   DateTime?           @map("finished_at") @db.Timestamptz(3)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rule          AutomationRule @relation(fields: [tenantId, ruleId], references: [tenantId, id], onDelete: Restrict)
+  notifications Notification[]
+
+  @@unique([tenantId, id])
+  @@unique([ruleId, slotKey])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status, createdAt])
+  @@map("automation_runs")
+}
+
+/// Episode tracking: a subject (a variant, an order, a discrepancy) the rule has already told people about. It stays quiet
+/// until the subject stops matching (stock recovers, the order is confirmed), when the row is removed and the rule re-arms.
+model AutomationState {
+  tenantId       String   @map("tenant_id") @db.Uuid
+  ruleId         String   @map("rule_id") @db.Uuid
+  subjectId      String   @map("subject_id")
+  /// How many notifications this episode has produced (unconfirmed-order reminders are capped).
+  count          Int      @default(1)
+  lastNotifiedAt DateTime @map("last_notified_at") @db.Timestamptz(3)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rule   AutomationRule @relation(fields: [tenantId, ruleId], references: [tenantId, id], onDelete: Restrict)
+
+  @@id([ruleId, subjectId])
+  @@index([tenantId, ruleId])
+  @@map("automation_state")
+}
+
+/// One per recipient. Titles, bodies and data hold order numbers, SKUs, counts and business totals, never customer data.
+model Notification {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  tenantId  String         @map("tenant_id") @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  runId     String?        @map("run_id") @db.Uuid
+  kind      AutomationKind
+  title     String
+  body      String
+  /// Ids and counts only, for deep links.
+  data      Json           @default("{}")
+  /// Makes creating it twice impossible: (tenant, user, dedupe_key) is unique.
+  dedupeKey String         @map("dedupe_key")
+  /// Whether it shows in the app's list (the person may have in-app switched off but still want a push or an email).
+  inApp     Boolean        @default(true) @map("in_app")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  readAt    DateTime?      @map("read_at") @db.Timestamptz(3)
+
+  tenant     Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member     Membership             @relation(fields: [tenantId, userId], references: [tenantId, userId], onDelete: Cascade)
+  run        AutomationRun?         @relation(fields: [tenantId, runId], references: [tenantId, id], onDelete: Restrict)
+  deliveries NotificationDelivery[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, userId, dedupeKey])
+  @@index([tenantId, userId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([tenantId, runId])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  tenantId  String         @map("tenant_id") @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  kind      AutomationKind
+  inApp     Boolean        @default(true) @map("in_app")
+  push      Boolean        @default(true)
+  email     Boolean        @default(false)
+  updatedAt DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member Membership @relation(fields: [tenantId, userId], references: [tenantId, userId], onDelete: Cascade)
+
+  @@id([tenantId, userId, kind])
+  @@map("notification_preferences")
+}
+
+/// (notification_id, channel) is unique, so a retry can never create a second delivery, and the worker's claim
+/// (status pending or failed, not leased) can never send one twice.
+model NotificationDelivery {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  tenantId       String              @map("tenant_id") @db.Uuid
+  notificationId String              @map("notification_id") @db.Uuid
+  channel        NotificationChannel
+  status         DeliveryStatus      @default(pending)
+  attempts       Int                 @default(0)
+  lastError      String?             @map("last_error")
+  /// Set while a worker holds the delivery; a lease, so two workers never send the same one.
+  claimedAt      DateTime?           @map("claimed_at") @db.Timestamptz(3)
+  sentAt         DateTime?           @map("sent_at") @db.Timestamptz(3)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  notification Notification @relation(fields: [tenantId, notificationId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([notificationId, channel])
+  @@index([tenantId, status, createdAt])
+  @@map("notification_deliveries")
+}
+
+/// Global (a person's phone belongs to the person, whatever business they are in). Registration is an upsert by token;
+/// sign-out removes it. Row-level security confines each user to their own rows, plus the members of the current business
+/// for the worker's reads; the cross-user writes are two narrow SECURITY DEFINER functions.
+model PushDevice {
+  id         String           @id @default(uuid(7)) @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
+  token      String           @unique
+  platform   PushPlatform
+  provider   PushProviderKind
+  lastSeenAt DateTime         @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_devices")
+}
+
+/// A member's own consent to receive sms or whatsapp from a business, with the number to use. Only they can change it.
+model MessagingConsent {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  tenantId  String           @map("tenant_id") @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  channel   MessagingChannel
+  phone     String
+  grantedAt DateTime         @map("granted_at") @db.Timestamptz(3)
+  revokedAt DateTime?        @map("revoked_at") @db.Timestamptz(3)
+  /// Where it was given (`app`).
+  source    String
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member Membership @relation(fields: [tenantId, userId], references: [tenantId, userId], onDelete: Cascade)
+
+  @@unique([tenantId, userId, channel])
+  @@map("messaging_consents")
 }

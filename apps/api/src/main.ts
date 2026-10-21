@@ -28,9 +28,17 @@ async function bootstrap() {
   app.enableCors({
     origin: config.WEB_ORIGINS,
     credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['authorization', 'content-type', 'x-client'],
   });
+  // Said once at start-up, loudly: the default push provider only logs. (The worker, which sends, says it too.)
+  if (config.NODE_ENV === 'production' && config.PUSH_PROVIDER === 'dev')
+    app
+      .get(PinoLoggerService)
+      .warn(
+        'PUSH_PROVIDER=dev in production: push notifications are logged, not delivered. Set PUSH_PROVIDER=expo.',
+        'Automation',
+      );
   app.enableShutdownHooks();
   await app.listen(config.API_PORT);
 }

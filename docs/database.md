@@ -110,6 +110,18 @@ order through `packages/domain/src/stock.ts` never violates an invariant. `seq` 
 level row is locked, so for a given level it matches the order changes were actually applied. Do not order by `created_at`:
 that is the transaction start time, and rows in the same millisecond tie.
 
+## Automation and notifications tables
+
+Migration `20261026100000_automation_notifications`. Seven more tenant tables (`automation_rules`, `automation_runs`,
+`automation_state`, `notifications`, `notification_preferences`, `notification_deliveries`, `messaging_consents`), all with
+`tenant_id`, forced row-level security and composite `(tenant_id, id)` foreign keys (a notification, preference and consent also
+reference the membership `(tenant_id, user_id)` and disappear with it), and one global table, `push_devices`. The application
+never deletes rules, runs, notifications, deliveries, preferences or consents (`DELETE` is revoked); only `automation_state`
+(episode tracking) is deleted from. Column by column, and what each unique constraint guarantees, is in
+[automation.md](automation.md#tables). Cross-business reads are the `SECURITY DEFINER` functions `enabled_automation_rules` and
+`stale_pending_deliveries`; the owner has one owner-only `SELECT` policy each on `automation_rules`, `tenants` and
+`notification_deliveries` for them (the same pattern as `stale_pending_imports`).
+
 ## Tenant isolation
 
 Every request that touches tenant data runs inside **one transaction that first sets two transaction-local settings**,

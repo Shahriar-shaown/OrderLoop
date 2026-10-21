@@ -39,6 +39,21 @@ export async function applyContext(tx: Tx, ctx: DbContext): Promise<void> {
   await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true), set_config('app.user_id', ${userId}, true)`;
 }
 
+export interface EnabledRule {
+  id: string;
+  tenantId: string;
+  kind:
+    | 'LOW_STOCK'
+    | 'NEW_ORDER'
+    | 'UNCONFIRMED_ORDER'
+    | 'DELAYED_ORDER'
+    | 'COD_DISCREPANCY'
+    | 'DAILY_REPORT'
+    | 'WEEKLY_REPORT';
+  config: Record<string, unknown>;
+  timezone: string;
+}
+
 export class Database {
   private readonly client: PrismaClient;
 
@@ -67,6 +82,46 @@ export class Database {
     const rows = await this.client.$queryRaw<
       { n: number }[]
     >`SELECT purge_idempotency_keys(${Math.ceil(olderThanSeconds)}::int) AS n`;
+    return rows[0]?.n ?? 0;
+  }
+
+  /** The scheduler tick's one cross-business read: rules that are switched on, with their business's time zone, `afterId`-keyed pages in id order. */
+  async enabledAutomationRules(afterId: string | null, maxRows = 500): Promise<EnabledRule[]> {
+    if (afterId !== null) assertUuid('afterId', afterId);
+    const rows = await this.client.$queryRaw<
+      {
+        id: string;
+        tenant_id: string;
+        kind: EnabledRule['kind'];
+        config: unknown;
+        timezone: string;
+      }[]
+    >`SELECT id, tenant_id, kind, config, timezone FROM enabled_automation_rules(${afterId}::uuid, ${Math.floor(maxRows)}::int)`;
+    return rows.map((r) => ({
+      id: r.id,
+      tenantId: r.tenant_id,
+      kind: r.kind,
+      config: (r.config ?? {}) as Record<string, unknown>,
+      timezone: r.timezone,
+    }));
+  }
+
+  /** Deliveries saved as pending that nothing has tried for `olderThanSeconds` (at least 30): the queue never got them. */
+  async stalePendingDeliveries(
+    olderThanSeconds: number,
+    maxRows = 200,
+  ): Promise<{ id: string; tenantId: string }[]> {
+    const rows = await this.client.$queryRaw<
+      { id: string; tenant_id: string }[]
+    >`SELECT id, tenant_id FROM stale_pending_deliveries(${Math.ceil(olderThanSeconds)}::int, ${Math.floor(maxRows)}::int)`;
+    return rows.map((r) => ({ id: r.id, tenantId: r.tenant_id }));
+  }
+
+  /** Forget a push token the push service reported dead, whoever it belonged to. */
+  async removePushToken(token: string): Promise<number> {
+    const rows = await this.client.$queryRaw<
+      { n: number }[]
+    >`SELECT remove_push_token(${token}) AS n`;
     return rows[0]?.n ?? 0;
   }
 

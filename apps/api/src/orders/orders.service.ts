@@ -27,6 +27,7 @@ import {
   type OrderTotals,
 } from '@orderloop/domain';
 import { AuditService } from '../audit/audit.service.js';
+import { AutomationEvents } from '../automation/automation-events.service.js';
 import { ApiError } from '../common/api-error.js';
 import { stable } from '../common/stable.js';
 import type { AuthContext } from '../common/endpoint.js';
@@ -70,6 +71,7 @@ export class OrdersService {
     private readonly audit: AuditService,
     private readonly runner: StockRunner,
     private readonly customers: CustomersService,
+    private readonly automation: AutomationEvents,
   ) {}
 
   // ---- reading -------------------------------------------------------------------------------------------------------
@@ -273,13 +275,17 @@ export class OrdersService {
         }
         return this.createInTx(tx, auth, body, requestHash, ip);
       });
+    let order: OrderDetail;
     try {
-      return await attempt();
+      order = await attempt();
     } catch (error) {
       // Two requests with one key raced: the loser's insert hit the unique index and rolled back. Now the key exists.
-      if (isUniqueViolation(error, 'idempotency_key')) return attempt();
-      throw error;
+      if (!isUniqueViolation(error, 'idempotency_key')) throw error;
+      order = await attempt();
     }
+    // Tell automation after the order is committed (never inside the transaction). A replay queues the same job id, so once.
+    void this.automation.orderCreated(auth.tenantId, order.id);
+    return order;
   }
 
   private async createInTx(

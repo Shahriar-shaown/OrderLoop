@@ -5,13 +5,22 @@ import { fileURLToPath } from 'node:url';
 
 /** Packages each workspace project must NOT import. */
 export const FORBIDDEN = {
-  'apps/web': ['contracts/server', 'db', 'catalog', 'courier-sdk', 'api', 'worker'],
-  'apps/mobile': ['contracts/server', 'db', 'catalog', 'courier-sdk', 'api', 'worker'],
+  'apps/web': ['contracts/server', 'db', 'catalog', 'automation', 'courier-sdk', 'api', 'worker'],
+  'apps/mobile': [
+    'contracts/server',
+    'db',
+    'catalog',
+    'automation',
+    'courier-sdk',
+    'api',
+    'worker',
+  ],
   'apps/api': ['worker'],
   'apps/worker': ['api'],
   'packages/contracts': [
     'db',
     'catalog',
+    'automation',
     'domain',
     'courier-sdk',
     'api-client',
@@ -24,6 +33,7 @@ export const FORBIDDEN = {
     'contracts/server',
     'db',
     'catalog',
+    'automation',
     'domain',
     'courier-sdk',
     'api',
@@ -40,6 +50,7 @@ export const FORBIDDEN = {
     'features',
     'db',
     'catalog',
+    'automation',
     'courier-sdk',
     'api',
     'worker',
@@ -51,6 +62,7 @@ export const FORBIDDEN = {
     'contracts/server',
     'db',
     'catalog',
+    'automation',
     'courier-sdk',
     'api',
     'worker',
@@ -67,10 +79,23 @@ export const FORBIDDEN = {
     'web',
     'mobile',
   ],
+  // automation is the server-side rules, notifications and delivery engine shared by api and worker (like catalog): it sits on
+  // db, domain and contracts, and knows nothing of either app.
+  'packages/automation': [
+    'contracts/server',
+    'catalog',
+    'courier-sdk',
+    'api-client',
+    'api',
+    'worker',
+    'web',
+    'mobile',
+  ],
   'packages/domain': [
     'contracts/server',
     'db',
     'catalog',
+    'automation',
     'courier-sdk',
     'api-client',
     'api',

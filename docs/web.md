@@ -56,6 +56,23 @@ Most components are one file that works on both platforms. Where the platforms g
 - `kind` on `TextField` (`email`, `password`, `newPassword`, `integer`, `decimal`, ...) sets keyboard, autofill and capitalisation in one place.
 - Colours on the web are `var(--ol-...)` references, so a component can not compute with them in JavaScript.
 
+## Automation and notifications
+
+The backend is in [automation.md](automation.md); the screens are shared with the phone (`packages/features`).
+
+| Screen                                | Route                        | Who                                                                                          |
+| ------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------- |
+| Notifications (bell in the header)    | `/notifications`             | everyone: their own list, cursor-paged                                                       |
+| Notification preferences              | `/notifications/preferences` | everyone: kind x in-app / push / email; SMS and WhatsApp consent when the server offers them |
+| Automation (rules, run now, problems) | `/automation`                | `automation:read` to look, `automation:manage` to change, run and retry                      |
+
+- The bell (`NotificationBell`) asks `GET /v1/notifications/unread-count` every 60 s while the tab is in front and again when it regains focus; marking read, "Mark all read" and a manual run refresh it.
+- Tapping a notification marks it read and opens its screen (`notificationTarget` in `lib/notifications.ts`): low stock -> `/products?tab=low`; one order -> that order, several -> `/orders` (`?status=pending_confirmation` for the reminder); COD -> `/cod`; daily report -> `/dashboard`, weekly -> `/analytics`.
+- Notification titles and texts are written by the server in English. The Bangla catalogue `i18n/bn.automation.ts` translates them by pattern; a low-stock list is taken apart in `lib/notificationText.ts` because it names products. A test builds every notification with the domain builders and checks nothing is left in English except product names and SKUs.
+- Each rule's form is described once (`CONFIG_FIELDS` in `lib/automation.ts`) and checked against the contract's limits by a test; `fromDraft` also runs the contract's `parseRuleConfig`.
+- Push is mobile only: the web runtime has no `push`, so registration, the permission prompt and the sign-out clean-up do nothing.
+- Browser scenarios: `apps/web/e2e/automation.spec.ts` (set up low stock, run now, bell and list, open it, run again for no second alert, turn in-app off, an accountant has no rules).
+
 ## Sign-in and the session
 
 - The access token (15 min) lives **only in memory**. The refresh token is an HttpOnly cookie the page cannot read. After a reload the app restores the session by asking the API to refresh.
@@ -77,11 +94,11 @@ Set `MAIL_PROVIDER=smtp`, `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025` in `.env` to s
 
 ## Tests
 
-| What                                                                                                  | Where                                   | Run                                     |
-| ----------------------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------- |
-| Components (theme, variants, forms, links, dialogs, tables, toasts) in jsdom through react-native-web | `packages/ui/src/**/*.test.tsx`         | `pnpm test`                             |
-| Session manager, error messages, money, variants, form state                                          | `packages/features/src/**/*.test.ts(x)` | `pnpm test`                             |
-| Browser scenarios in real Chrome, with a WCAG A/AA scan (axe) of every screen                         | `apps/web/e2e`                          | `pnpm --filter @orderloop/web test:e2e` |
+| What                                                                                                                 | Where                                   | Run                                     |
+| -------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------- |
+| Components (theme, variants, forms, links, dialogs, tables, toasts) in jsdom through react-native-web                | `packages/ui/src/**/*.test.tsx`         | `pnpm test`                             |
+| Session manager, error messages, money, variants, form state, automation and notification screens, push registration | `packages/features/src/**/*.test.ts(x)` | `pnpm test`                             |
+| Browser scenarios in real Chrome, with a WCAG A/AA scan (axe) of every screen                                        | `apps/web/e2e`                          | `pnpm --filter @orderloop/web test:e2e` |
 
 The browser tests need `pnpm services:up` and `pnpm services:mail`. Their setup uses the isolated `orderloop_test` database and Redis index 2, builds the web app into `apps/web/build/e2e`, starts the API (:4100), worker and web app (:3100), and follows the real links from emails delivered to Mailpit. Every test also fails if the browser console shows anything other than an expected 4xx response. Set `E2E_SKIP_BUILD=1` to reuse the last build and `E2E_VERBOSE=1` to see server logs.
 

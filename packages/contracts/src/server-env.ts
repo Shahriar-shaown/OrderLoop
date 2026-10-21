@@ -58,6 +58,18 @@ export const ServerEnv = z
     COURIER_MOCK_ENABLED: z.enum(['true', 'false']).optional(),
     /** The address couriers can reach this API on, used to show the webhook URL to paste into a courier's panel. */
     API_PUBLIC_URL: z.string().url().optional(),
+    /**
+     * How push notifications are sent. `dev` (default) only logs a redacted line and records the delivery as sent, and can write
+     * what it "sent" to PUSH_DEV_OUTBOX; nothing reaches a phone. `expo` posts to Expo's push service (free; EXPO_ACCESS_TOKEN
+     * is only needed if the Expo project enforces access tokens).
+     */
+    PUSH_PROVIDER: z.enum(['dev', 'expo']).default('dev'),
+    /** Dev provider only: append every push it would have sent, as one JSON line each, to this file. */
+    PUSH_DEV_OUTBOX: z.string().min(1).optional(),
+    EXPO_ACCESS_TOKEN: z.string().min(1).optional(),
+    /** `none`: the channel is unavailable (rules cannot enable it: 422 channel_not_configured). `console`: logs a redacted line only. No vendor is integrated. */
+    SMS_PROVIDER: z.enum(['none', 'console']).default('none'),
+    WHATSAPP_PROVIDER: z.enum(['none', 'console']).default('none'),
     /** Comma-separated browser origins allowed to call the API with credentials. */
     WEB_ORIGINS: z
       .string()
