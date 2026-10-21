@@ -12,6 +12,21 @@ updates:
     ignore:
       - dependency-name: '*'
         update-types: [version-update:semver-major]
+      # The Expo SDK decides the versions of React, React Native and its companions (a 0.x minor of React Native is a breaking
+      # change, and the mobile bundle fails when they drift: see scripts/check-versions.mjs and the Expo SDK upgrade notes). They
+      # move together with an SDK upgrade done by hand (`expo install --fix`), never as a routine weekly bump.
+      - dependency-name: react
+      - dependency-name: react-dom
+      - dependency-name: react-native
+      - dependency-name: 'react-native-*'
+      - dependency-name: '@react-native/*'
+      - dependency-name: '@react-native-*/*'
+      - dependency-name: expo
+      - dependency-name: 'expo-*'
+      - dependency-name: '@expo/*'
+      - dependency-name: '@types/react'
+      - dependency-name: '@types/react-dom'
+      - dependency-name: typescript
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly, day: monday }

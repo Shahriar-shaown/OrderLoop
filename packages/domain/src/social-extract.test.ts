@@ -246,6 +246,10 @@ describe('robustness', () => {
   });
 });
 
+// The cubic parser took several seconds on these inputs; a ceiling this far above the fixed code's few milliseconds still fails on a
+// regression, and does not fail on a slow, shared CI runner (an earlier 50 ms limit measured 70 ms there).
+const LIMIT_MS = 500;
+
 describe('bounded work on hostile text', () => {
   /** Best of five after a warm-up: a busy CI machine slows a run down, it does not make cubic work look linear. */
   const time = (fn: () => void) => {
@@ -267,12 +271,12 @@ describe('bounded work on hostile text', () => {
     ['one long digit run', joined],
     ['dashes between digits', '1-'.repeat(1000)],
   ])('extractDraft and looksLikeOrder stay fast on %s', (_name, text) => {
-    expect(time(() => extractDraft([msg(text)], catalog))).toBeLessThan(50);
-    expect(time(() => looksLikeOrder([msg(text)], catalog))).toBeLessThan(50);
+    expect(time(() => extractDraft([msg(text)], catalog))).toBeLessThan(LIMIT_MS);
+    expect(time(() => looksLikeOrder([msg(text)], catalog))).toBeLessThan(LIMIT_MS);
   });
   it('stays fast over many messages that together are huge', () => {
     const many = Array.from({ length: 2000 }, () => msg(repeated));
-    expect(time(() => extractDraft(many, catalog))).toBeLessThan(50);
+    expect(time(() => extractDraft(many, catalog))).toBeLessThan(LIMIT_MS);
   });
   it('still reads a number inside the per-message cap and ignores text beyond it', () => {
     expect(one(`${'x '.repeat(100)} 01712345678`).phone?.value).toBe('+8801712345678');
