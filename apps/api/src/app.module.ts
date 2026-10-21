@@ -21,6 +21,7 @@ import { DatabaseModule } from './db/database.module.js';
 import { HealthModule } from './health/health.module.js';
 import { LoggingModule } from './logging/logging.module.js';
 import { RequestLogMiddleware } from './logging/request-log.middleware.js';
+import { MetaModule } from './meta/meta.module.js';
 import { MailModule } from './mail/mail.module.js';
 import { MembersModule } from './members/members.module.js';
 import { OpenApiController } from './openapi.controller.js';
@@ -58,6 +59,7 @@ import { RedisModule } from './redis/redis.module.js';
     FinanceModule,
     DashboardModule,
     AutomationModule,
+    MetaModule,
   ],
   controllers: [OpenApiController],
   providers: [

@@ -1,5 +1,22 @@
-import { QUEUES, buildProviders, channelAvailability, jsonLogger } from '@orderloop/automation';
-import { failImportJob, findStalePendingImports, processImportJob } from '@orderloop/catalog';
+import {
+  META_QUEUES,
+  MetaGraphClient,
+  QUEUES,
+  SOCIAL_PURGE_EVERY_MS,
+  SOCIAL_SWEEP_EVERY_MS,
+  SecretBox,
+  buildProviders,
+  channelAvailability,
+  jsonLogger,
+  purgeSocialData,
+  sweepReceivedSocialEvents,
+} from '@orderloop/automation';
+import {
+  failImportJob,
+  findStalePendingImports,
+  findStalledRunningImports,
+  processImportJob,
+} from '@orderloop/catalog';
 import { loadDotEnv, loadServerEnv } from '@orderloop/contracts/server';
 import { Database } from '@orderloop/db';
 import { Queue, Worker } from 'bullmq';
@@ -8,21 +25,14 @@ import { z } from 'zod';
 import { SWEEP_EVERY_MS, sweepPendingImports } from './sweep-imports.js';
 import { PURGE_EVERY_MS, purgeIdempotencyKeys } from './purge-idempotency.js';
 import { automationProcessors, logFailedJob, registerTick } from './automation.js';
+import { metaProcessors, onEventJobFailed, registerHealthSchedule } from './meta.js';
+import { describe } from './describe-error.js';
+import { startHeartbeat } from './heartbeat.js';
 import { SmtpEmailSender, consoleEmailSender } from './smtp-email.js';
 
 /** What the API puts on the queue: ids only. Re-validated here, because the worker must not trust what comes out of Redis. */
 const ImportJobData = z.object({ tenantId: z.string().uuid(), importId: z.string().uuid() });
 type ImportJobData = z.infer<typeof ImportJobData>;
-
-/** Connection failures surface as AggregateError with an empty message; fall back to the code or the errors inside. */
-function describe(err: Error & { code?: string; errors?: Error[] }): string {
-  return (
-    err.message ||
-    err.code ||
-    err.errors?.map((e) => e.message || (e as { code?: string }).code).join(', ') ||
-    err.name
-  );
-}
 
 async function main(): Promise<void> {
   loadDotEnv();
@@ -69,6 +79,7 @@ async function main(): Promise<void> {
   const sweep = setInterval(() => {
     sweepPendingImports({
       find: (olderThanMs) => findStalePendingImports(db, olderThanMs),
+      findStalledRunning: (olderThanMs) => findStalledRunningImports(db, olderThanMs),
       queue,
       log: (message) => console.log(`[worker] ${message}`),
     }).catch((e: Error) => console.error(`[worker] sweep failed: ${describe(e)}`));
@@ -142,10 +153,76 @@ async function main(): Promise<void> {
     '[worker] automation ready: tick every minute, queues "automation" and "automation-delivery"',
   );
 
+  // ---- Meta (Facebook Page / Instagram) inbox ------------------------------------------------------------------------------
+  // Events are stored by the API's webhook first and queued second; this worker turns them into drafts, a sweeper queues the
+  // ones the API could not (Redis down), retention deletes old data, and a daily job checks the connections. See docs/meta.md.
+  const metaEventsQueue = new Queue(META_QUEUES.events, { connection });
+  const metaHealthQueue = new Queue(META_QUEUES.health, { connection });
+  const metaLive =
+    env.META_MODE === 'live' && env.META_APP_ID && env.META_APP_SECRET && env.META_GRAPH_VERSION;
+  const meta = metaProcessors({
+    process: { db, log: jsonLogger },
+    health: metaLive
+      ? {
+          db,
+          log: jsonLogger,
+          now,
+          graph: new MetaGraphClient({
+            fetch,
+            version: env.META_GRAPH_VERSION!,
+            appId: env.META_APP_ID!,
+            appSecret: env.META_APP_SECRET!,
+          }),
+          vault: new SecretBox({
+            keyId: env.COURIER_CREDENTIALS_KEY_ID,
+            key: env.COURIER_CREDENTIALS_KEY,
+            oldKeys: env.COURIER_CREDENTIALS_OLD_KEYS,
+            keyName: 'COURIER_CREDENTIALS_KEY',
+          }),
+        }
+      : undefined,
+  });
+  const metaWorkers = [
+    new Worker(META_QUEUES.events, meta.event, { connection, concurrency: 4 }),
+    new Worker(META_QUEUES.health, meta.health, { connection, concurrency: 1 }),
+  ];
+  metaWorkers[0]!.on('error', (err) => console.error('[worker] meta-events error:', describe(err)));
+  metaWorkers[0]!.on('failed', (j, err) => {
+    onEventJobFailed(db, jsonLogger, j, err).catch((e: Error) =>
+      console.error(`[worker] could not mark Meta event failed: ${describe(e)}`),
+    );
+  });
+  metaWorkers[1]!.on('error', (err) => console.error('[worker] meta-health error:', describe(err)));
+  await registerHealthSchedule(metaHealthQueue);
+  const metaSweep = setInterval(() => {
+    sweepReceivedSocialEvents({ db, queue: metaEventsQueue, log: jsonLogger }).catch((e: Error) =>
+      console.error(`[worker] Meta sweep failed: ${describe(e)}`),
+    );
+  }, SOCIAL_SWEEP_EVERY_MS);
+  const metaPurge = setInterval(() => {
+    purgeSocialData({ db, retentionDays: env.META_RETENTION_DAYS, log: jsonLogger }).catch(
+      (e: Error) => console.error(`[worker] Meta purge failed: ${describe(e)}`),
+    );
+  }, SOCIAL_PURGE_EVERY_MS);
+  console.log(
+    `[worker] Meta ready (${env.META_MODE}): queue "${META_QUEUES.events}", daily health check${metaLive ? '' : ' (idle: no live Meta app configured)'}`,
+  );
+
+  // Liveness signal without an HTTP port: docs/operations/monitoring.md shows how to read it.
+  const heartbeat = startHeartbeat({
+    redis: connection,
+    log: (message) => console.error(`[worker] ${message}`),
+  });
+
   const shutdown = async (signal: string) => {
     console.log(`[worker] ${signal} received, finishing the current job and shutting down`);
+    heartbeat.stop();
     clearInterval(sweep);
     clearInterval(purge);
+    clearInterval(metaSweep);
+    clearInterval(metaPurge);
+    await Promise.all(metaWorkers.map((w) => w.close()));
+    await Promise.all([metaEventsQueue, metaHealthQueue].map((q) => q.close()));
     await queue.close();
     await Promise.all(automationWorkers.map((w) => w.close()));
     await Promise.all([evaluateQueue, deliverQueue, tickQueue].map((q) => q.close()));

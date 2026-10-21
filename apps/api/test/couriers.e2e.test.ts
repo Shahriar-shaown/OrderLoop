@@ -1,6 +1,7 @@
 import { fakeNetwork, timeoutError } from '@orderloop/courier-sdk';
 import { Writable } from 'node:stream';
 import { ApiError } from '../src/common/api-error.js';
+import { ShipmentsService } from '../src/couriers/shipments.service.js';
 import { OrdersService } from '../src/orders/orders.service.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -262,6 +263,23 @@ describe('the simulated courier: book, track, retry (the milestone checkpoint)',
     ]);
   });
 
+  it('cash to collect with paisa is flagged on the order and refused before any shipment exists, with what to do', async () => {
+    const { owner, api } = await shop();
+    await connectMock(api).expect(200);
+    const whole = await readyOrder(owner, api);
+    expect((await orderOf(api, whole.id)).codHasPaisa).toBe(false);
+    const paisa = await readyOrder(owner, api, { price: 100_050 }); // 1000.50 + 60.00 delivery = 1060.50
+    expect((await orderOf(api, paisa.id)).codHasPaisa).toBe(true);
+    const refused = await book(api, paisa.id);
+    expect(refused.status).toBe(422);
+    expect(refused.body.code).toBe('courier_unsupported');
+    expect(refused.body.detail).toContain('৳1060.50');
+    expect(refused.body.detail).toContain('whole taka');
+    expect(refused.body.detail).toContain('cancel this order');
+    expect(await shipmentsOf(api, paisa.id)).toEqual([]); // no failed attempt left behind
+    expect((await orderOf(api, paisa.id)).status).toBe('ready_to_ship');
+  });
+
   it('after a timeout it cannot know whether a parcel exists, so it blocks a second booking until a person settles it', async () => {
     const { owner, api } = await shop();
     const order = await readyOrder(owner, api);
@@ -305,6 +323,54 @@ describe('the simulated courier: book, track, retry (the milestone checkpoint)',
         })
       ).status,
     ).toBe(409);
+  });
+
+  it('a booking reply that arrives after a person settled it as not booked leaves a visible orphan-parcel record', async () => {
+    const { owner, api } = await shop();
+    const order = await readyOrder(owner, api);
+    await connectMock(api, { outcome: 'timeout_after_booking', referenceLookup: false }).expect(
+      200,
+    );
+    const unsure = await book(api, order.id).expect(201);
+    await api
+      .post(`/v1/shipments/${unsure.body.id}/resolve`, {
+        resolution: 'not_booked',
+        reason: 'Checked the panel, nothing there',
+      })
+      .expect(200);
+    // the slow reply finally lands: the courier did create a parcel
+    const auth = {
+      userId: owner.user.id,
+      tenantId: owner.tenant.id,
+      role: 'OWNER' as const,
+      sessionId: 'x',
+    };
+    const late = await (
+      t.app.get(ShipmentsService) as unknown as {
+        settleBooked(
+          a: object,
+          id: string,
+          r: object,
+          ip: null,
+        ): Promise<{ status: string; events: { note: string | null; applied: boolean }[] }>;
+      }
+    ).settleBooked(
+      auth,
+      unsure.body.id,
+      { consignmentId: 'LATE-1', providerStatus: 'created', status: 'booked', raw: {} },
+      null,
+    );
+    expect(late.status).toBe('booking_failed'); // the person's decision stands
+    expect(late.events.some((e) => !e.applied && /LATE-1/.test(e.note ?? ''))).toBe(true);
+    const log = (await api.get('/v1/audit-logs?limit=100').expect(200)).body.items as {
+      action: string;
+      targetId: string;
+      metadata: { kind?: string; consignmentId?: string };
+    }[];
+    expect(log.find((e) => e.action === 'shipment.orphan_booking')).toMatchObject({
+      targetId: unsure.body.id,
+      metadata: { kind: 'orphan_booking', consignmentId: 'LATE-1' },
+    });
   });
 
   it('when the courier can be asked by reference, a lost reply is recovered without a second booking', async () => {
@@ -572,6 +638,31 @@ describe('safety around live shipments', () => {
       tx.stockMovement.count({ where: { referenceId: order.id, type: 'SHIP' } }),
     );
     expect(ship).toBe(0);
+  });
+});
+
+describe('an unexpected failure while carrying the order forward', () => {
+  it('does not abort the courier news: the shipment keeps it, the order is untouched, the event says so', async () => {
+    const { owner, api } = await shop();
+    await connectMock(api).expect(200);
+    const order = await readyOrder(owner, api);
+    const b = await book(api, order.id).expect(201);
+    const orders = t.app.get(OrdersService);
+    const real = orders.moveInTx.bind(orders);
+    orders.moveInTx = async () => {
+      throw new Error('boom');
+    };
+    let res;
+    try {
+      res = await api
+        .post(`/v1/shipments/${b.body.id}/simulate`, { event: 'delivered' })
+        .expect(200);
+    } finally {
+      orders.moveInTx = real;
+    }
+    expect(res.body.status).toBe('delivered');
+    expect(res.body.events.at(-1).note).toMatch(/not changed because of an unexpected error/);
+    expect((await orderOf(api, order.id)).status).toBe('ready_to_ship');
   });
 });
 

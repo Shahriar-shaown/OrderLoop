@@ -17,6 +17,7 @@ export const Permission = z.enum([
   'inventory:write',
   'orders:read',
   'orders:write',
+  'orders:close',
   'couriers:read',
   'couriers:manage',
   'finance:read',
@@ -24,6 +25,8 @@ export const Permission = z.enum([
   'finance:adjust',
   'automation:read',
   'automation:manage',
+  'integrations:read',
+  'integrations:manage',
 ]);
 export type Permission = z.infer<typeof Permission>;
 
@@ -283,6 +286,11 @@ export const AuditEntry = z.object({
   actorUserId: Uuid.nullable(),
   targetType: z.string().nullable(),
   targetId: z.string().nullable(),
+  /**
+   * What the event recorded: ids, counts and money, never credentials. Order and price edits carry `before` and `after`
+   * (amounts in minor units, item lines by id). Null when the event recorded nothing more.
+   */
+  metadata: z.record(z.string(), z.unknown()).nullable(),
   createdAt: z.string(),
 });
 export type AuditEntry = z.infer<typeof AuditEntry>;

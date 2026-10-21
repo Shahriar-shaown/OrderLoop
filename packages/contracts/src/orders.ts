@@ -320,9 +320,19 @@ export const ChangeStatusBody = z.object({
   status: OrderStatus,
   /** Required for cancelled, delivery_failed, return_requested and returned. Kept in the status history. */
   reason: Reason.optional(),
-  /** For `returned`: what condition each line came back in. Lines not listed come back resaleable. */
+  /**
+   * For `returned`: which lines came back, in what condition and how many (`quantity`, 1 to the line's quantity; default
+   * the whole line). When the list is given, a line that is NOT listed did not come back and adds no stock. Leave the
+   * list out (or empty) when the whole order came back resaleable.
+   */
   returnedItems: z
-    .array(z.object({ itemId: Uuid, condition: z.enum(['RESALEABLE', 'DAMAGED']) }))
+    .array(
+      z.object({
+        itemId: Uuid,
+        condition: z.enum(['RESALEABLE', 'DAMAGED']),
+        quantity: z.number().int().min(1).optional(),
+      }),
+    )
     .max(100)
     .optional(),
   ifVersion: z.number().int().min(1).optional(),
@@ -381,6 +391,11 @@ export const Order = z.object({
   advancePaidMinor: z.number().int(),
   /** What the courier collects. Worked out by the server. */
   codAmountMinor: z.number().int(),
+  /**
+   * True when the cash to collect has paisa. Real couriers (and the simulated one) take whole taka only, and a confirmed
+   * order cannot be edited, so booking would be refused: warn before the person gets that far. Always sent by the API.
+   */
+  codHasPaisa: z.boolean().optional(),
   /** Whether stock is currently reserved for this order. */
   stockHeld: z.boolean(),
   version: z.number().int(),

@@ -47,6 +47,7 @@ model User {
   userTokens      UserToken[]
   idempotencyKeys IdempotencyKey[]
   pushDevices     PushDevice[]
+  socialConnections SocialConnection[]
 
   @@map("users")
 }
@@ -104,6 +105,10 @@ model Tenant {
   notificationPrefs    NotificationPreference[]
   notificationDeliveries NotificationDelivery[]
   messagingConsents    MessagingConsent[]
+  socialConnections    SocialConnection[]
+  socialOauthSessions  SocialOauthSession[]
+  socialEvents         SocialEvent[]
+  socialDrafts         SocialDraft[]
 
   @@map("tenants")
 }
@@ -122,6 +127,7 @@ model Membership {
   notifications Notification[]
   notificationPrefs NotificationPreference[]
   messagingConsents MessagingConsent[]
+  socialOauthSessions SocialOauthSession[]
 
   @@unique([tenantId, userId])
   @@index([userId])
@@ -570,6 +576,7 @@ model OrderCounter {
 }
 
 model Order {
+  socialDrafts SocialDraft[]
   id              String      @id @default(uuid(7)) @db.Uuid
   tenantId        String      @map("tenant_id") @db.Uuid
   orderNumber     Int         @map("order_number")
@@ -1282,4 +1289,154 @@ model MessagingConsent {
 
   @@unique([tenantId, userId, channel])
   @@map("messaging_consents")
+}
+
+
+// ---- Meta (Facebook Page / Instagram) social inbox: receive-only, messages become DRAFT orders a human confirms ---------
+
+enum SocialProvider {
+  facebook_page
+  instagram
+}
+
+enum SocialConnectionStatus {
+  active
+  needs_reconnect
+  permission_error
+  disconnected
+}
+
+enum SocialEventStatus {
+  received
+  processed
+  ignored
+  failed
+}
+
+enum SocialDraftStatus {
+  needs_review
+  confirmed
+  dismissed
+}
+
+model SocialConnection {
+  id             String                 @id @default(uuid(7)) @db.Uuid
+  tenantId       String                 @map("tenant_id") @db.Uuid
+  provider       SocialProvider
+  /// Facebook Page id or Instagram user id (the id webhooks carry in entry[].id).
+  externalId     String                 @map("external_id")
+  displayName    String                 @map("display_name")
+  username       String?
+  /// For an Instagram account: the Facebook Page it is linked to.
+  linkedPageId   String?                @map("linked_page_id")
+  status         SocialConnectionStatus @default(active)
+  /// True for the labelled mock provider: no Meta account exists behind it.
+  mock           Boolean                @default(false)
+  /// AES-GCM sealed Page access token (never returned by the API, never logged). Null for mock and after disconnect.
+  accessTokenEnc String?                @map("access_token_enc")
+  tokenType      String?                @map("token_type")
+  tokenExpiresAt DateTime?              @map("token_expires_at") @db.Timestamptz(3)
+  scopes         Json                   @default("[]")
+  /// The app-scoped id of the person who connected it (what the deauthorize and data-deletion callbacks carry).
+  metaUserId     String?                @map("meta_user_id")
+  lastCheckedAt  DateTime?              @map("last_checked_at") @db.Timestamptz(3)
+  lastErrorCode  String?                @map("last_error_code")
+  lastErrorMessage String?              @map("last_error_message")
+  connectedById  String?                @map("connected_by_id") @db.Uuid
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  disconnectedAt DateTime?              @map("disconnected_at") @db.Timestamptz(3)
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connectedBy User?         @relation(fields: [connectedById], references: [id], onDelete: SetNull)
+  events      SocialEvent[]
+  drafts      SocialDraft[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status])
+  @@map("social_connections")
+}
+
+model SocialOauthSession {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  /// SHA-256 of the signed state; the state itself is never stored.
+  stateHash         String    @unique @map("state_hash")
+  /// Set when the callback consumed the state (single use).
+  stateUsedAt       DateTime? @map("state_used_at") @db.Timestamptz(3)
+  userTokenEnc      String?   @map("user_token_enc")
+  metaUserId        String?   @map("meta_user_id")
+  /// [{ id, name, instagram?: { id, username } }]: names and ids only, no tokens.
+  pages             Json      @default("[]")
+  /// Set when reconnecting one existing connection.
+  reconnectConnectionId String? @map("reconnect_connection_id") @db.Uuid
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(3)
+  consumedAt        DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member Membership @relation(fields: [tenantId, userId], references: [tenantId, userId], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@map("social_oauth_sessions")
+}
+
+model SocialEvent {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  tenantId        String            @map("tenant_id") @db.Uuid
+  connectionId    String            @map("connection_id") @db.Uuid
+  provider        SocialProvider
+  /// Message id (mid) or a derived key: the idempotency key of the whole pipeline.
+  externalEventId String            @map("external_event_id")
+  /// Opaque page-scoped / Instagram-scoped id of the customer. Not a name, not a phone number.
+  senderId        String            @map("sender_id")
+  eventType       String            @map("event_type")
+  eventTimestamp  DateTime          @map("event_timestamp") @db.Timestamptz(3)
+  /// Minimal: { text?, attachments?: [{ type }] }. No media is downloaded and no media URL is kept.
+  payload         Json              @default("{}")
+  status          SocialEventStatus @default(received)
+  error           String?
+  processedAt     DateTime?         @map("processed_at") @db.Timestamptz(3)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connection SocialConnection @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, connectionId, externalEventId])
+  @@index([status, createdAt])
+  @@index([tenantId, connectionId, senderId, eventTimestamp])
+  @@map("social_events")
+}
+
+model SocialDraft {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  tenantId       String            @map("tenant_id") @db.Uuid
+  connectionId   String            @map("connection_id") @db.Uuid
+  /// The conversation key.
+  senderId       String            @map("sender_id")
+  status         SocialDraftStatus @default(needs_review)
+  /// What extraction found (re-computed whenever a message is added): see ExtractedDraft in contracts.
+  extracted      Json              @default("{}")
+  /// What a person typed over it. Wins over `extracted` and survives re-extraction.
+  overrides      Json              @default("{}")
+  sourceEventIds Json              @default("[]") @map("source_event_ids")
+  firstMessageAt DateTime          @map("first_message_at") @db.Timestamptz(3)
+  lastMessageAt  DateTime          @map("last_message_at") @db.Timestamptz(3)
+  orderId        String?           @map("order_id") @db.Uuid
+  dismissedReason String?          @map("dismissed_reason")
+  reviewedById   String?           @map("reviewed_by_id") @db.Uuid
+  reviewedAt     DateTime?         @map("reviewed_at") @db.Timestamptz(3)
+  mock           Boolean           @default(false)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connection SocialConnection @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Cascade)
+  order      Order?           @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status, lastMessageAt(sort: Desc), id(sort: Desc)])
+  @@map("social_drafts")
 }

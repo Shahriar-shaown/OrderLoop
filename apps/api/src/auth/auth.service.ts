@@ -15,6 +15,7 @@ import {
   type UpdatePreferencesBody,
   type UserSummary,
 } from '@orderloop/contracts';
+import { registrationAllowed } from '@orderloop/contracts/server';
 import { applyContext, Database, isUniqueViolation, TokenPurpose, type Tx } from '@orderloop/db';
 import { canAssignRole, permissionsFor } from '@orderloop/domain';
 import { AuditService } from '../audit/audit.service.js';
@@ -158,7 +159,13 @@ export class AuthService {
   }
 
   async register(body: RegisterBody, meta: ClientMeta): Promise<Issued> {
+    // Hashed before the allowlist check, so a closed sign-up costs the same time as an open one (no listed/unlisted oracle).
     const passwordHash = await this.passwords.hash(body.password);
+    if (!registrationAllowed(this.config, body.email))
+      throw new ApiError(
+        'registration_closed',
+        'Sign-up is closed for now. Ask the person who invited you to send an invitation, or contact support.',
+      );
     // Ids are generated here so the tenant context exists before the tenant row does.
     const tenantId = uuidv7();
     const userId = uuidv7();

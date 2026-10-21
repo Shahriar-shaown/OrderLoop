@@ -20,6 +20,8 @@ import { SmtpMailer } from './smtp.mailer.js';
               user: config.SMTP_USER,
               password: config.SMTP_PASSWORD,
               from: config.MAIL_FROM,
+              // STARTTLS is mandatory in production unless the connection is TLS from the start (SMTP_SECURE=true).
+              requireTls: config.NODE_ENV === 'production',
             })
           : new ConsoleMailer(),
     },

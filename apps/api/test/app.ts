@@ -12,7 +12,13 @@ import { configureApp } from '../src/app.setup.js';
 import { createLogger } from '../src/logging/logger.js';
 import { LOGGER } from '../src/logging/tokens.js';
 import { COURIER_HTTP } from '../src/couriers/couriers.service.js';
-import { AUTOMATION_QUEUE, DELIVERY_QUEUE, IMPORTS_QUEUE } from '../src/queue/queue.module.js';
+import {
+  AUTOMATION_QUEUE,
+  DELIVERY_QUEUE,
+  IMPORTS_QUEUE,
+  META_EVENTS_QUEUE,
+} from '../src/queue/queue.module.js';
+import { META_HTTP, META_NOW } from '../src/meta/meta.runtime.js';
 import { AUTOMATION_NOW } from '../src/automation/automation.runtime.js';
 import { PinoLoggerService } from '../src/logging/pino-logger.service.js';
 import { Mailer } from '../src/mail/mailer.js';
@@ -36,6 +42,8 @@ export async function createTestApp(
     automation?: { evaluate?: object; deliver?: object; now?: () => Date };
     /** A fake network (and no-op sleeps) for the couriers, so no test ever reaches a real one. */
     courier?: { fetch?: unknown; sleep?: (ms: number) => Promise<void> };
+    /** A fake queue for Meta events, a fake Graph network and a fake clock, so no test reaches Meta. */
+    meta?: { events?: object; fetch?: unknown; now?: () => Date };
   } = {},
 ): Promise<TestApp> {
   const previous = Object.fromEntries(Object.keys(env).map((k) => [k, process.env[k]]));
@@ -55,6 +63,11 @@ export async function createTestApp(
     builder = builder.overrideProvider(DELIVERY_QUEUE).useValue(options.automation.deliver);
   if (options.automation?.now)
     builder = builder.overrideProvider(AUTOMATION_NOW).useValue(options.automation.now);
+  if (options.meta?.events)
+    builder = builder.overrideProvider(META_EVENTS_QUEUE).useValue(options.meta.events);
+  if (options.meta?.fetch)
+    builder = builder.overrideProvider(META_HTTP).useValue({ fetch: options.meta.fetch });
+  if (options.meta?.now) builder = builder.overrideProvider(META_NOW).useValue(options.meta.now);
   if (options.courier) builder = builder.overrideProvider(COURIER_HTTP).useValue(options.courier);
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });

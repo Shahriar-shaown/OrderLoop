@@ -5,6 +5,8 @@ import { Redis } from 'ioredis';
 import { Client } from 'pg';
 
 const TIMEOUT_MS = 1500;
+/** The answer is reused for this long, and concurrent callers share one probe: /health/ready is public and each probe opens a Postgres and a Redis connection. */
+export const READY_CACHE_MS = 2000;
 
 async function probe(fn: () => Promise<unknown>): Promise<DependencyStatus> {
   try {
@@ -22,7 +24,16 @@ async function probe(fn: () => Promise<unknown>): Promise<DependencyStatus> {
 export class HealthService implements OnModuleDestroy {
   private readonly env = loadServerEnv();
 
-  async check(): Promise<ReadyResponse> {
+  private cached: { at: number; result: Promise<ReadyResponse> } | null = null;
+
+  check(now: number = Date.now()): Promise<ReadyResponse> {
+    if (this.cached && now - this.cached.at < READY_CACHE_MS) return this.cached.result;
+    const result = this.probeAll();
+    this.cached = { at: now, result };
+    return result;
+  }
+
+  private async probeAll(): Promise<ReadyResponse> {
     const [postgres, redis] = await Promise.all([this.pingPostgres(), this.pingRedis()]);
     return {
       status: postgres === 'up' && redis === 'up' ? 'ok' : 'degraded',

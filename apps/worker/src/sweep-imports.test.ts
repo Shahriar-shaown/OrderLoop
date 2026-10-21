@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { STALE_PENDING_MS, sweepPendingImports, type ImportRef } from './sweep-imports.js';
+import {
+  STALE_PENDING_MS,
+  STALLED_RUNNING_MS,
+  sweepPendingImports,
+  type ImportRef,
+} from './sweep-imports.js';
 
 const ref = (n: number): ImportRef => ({
   tenantId: `00000000-0000-4000-8000-00000000000${n}`,
@@ -36,5 +41,26 @@ describe('sweepPendingImports', () => {
     await expect(
       sweepPendingImports({ find: async () => [ref(1)], queue: { add }, log: vi.fn() }),
     ).rejects.toThrow('redis down');
+  });
+
+  it('also re-queues imports left RUNNING by a worker that is gone, under the same job id', async () => {
+    const add = vi.fn().mockResolvedValue(undefined);
+    const findStalledRunning = vi.fn().mockResolvedValue([ref(3)]);
+    const log = vi.fn();
+    const n = await sweepPendingImports({
+      find: async () => [ref(1)],
+      findStalledRunning,
+      queue: { add },
+      log,
+    });
+    expect(n).toBe(2);
+    expect(findStalledRunning).toHaveBeenCalledWith(STALLED_RUNNING_MS);
+    expect(STALLED_RUNNING_MS).toBeGreaterThan(10 * 60_000);
+    expect(add).toHaveBeenCalledWith(
+      'products',
+      ref(3),
+      expect.objectContaining({ jobId: ref(3).importId, attempts: 3 }),
+    );
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('left running'));
   });
 });

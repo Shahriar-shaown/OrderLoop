@@ -2,7 +2,7 @@ import { Writable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import { createLogger } from './logger.js';
 import { PinoLoggerService } from './pino-logger.service.js';
-import { scrubSecrets } from './scrub.js';
+import { scrubPath, scrubSecrets } from './scrub.js';
 
 function capture() {
   const lines: string[] = [];
@@ -129,5 +129,23 @@ describe('scrubSecrets', () => {
     expect(scrubSecrets('Unique constraint failed on users_email_key')).toBe(
       'Unique constraint failed on users_email_key',
     );
+  });
+});
+
+describe('scrubPath', () => {
+  it('hides the push token and any long opaque segment, keeps routes and ids', () => {
+    expect(scrubPath('/v1/push-devices/ExponentPushToken%5BabcDEF123%5D')).toBe(
+      '/v1/push-devices/[REDACTED]',
+    );
+    expect(scrubPath('/v1/push-devices/x')).toBe('/v1/push-devices/[REDACTED]');
+    expect(scrubPath('/v1/things/abcdefghij0123456789ABCDEFGHIJ0123456789abc')).toBe(
+      '/v1/things/[REDACTED]',
+    );
+    const id = '0190f2c4-7a2b-7c11-9d3e-5f6a7b8c9d0e';
+    expect(scrubPath(`/v1/orders/${id}/status-history`)).toBe(`/v1/orders/${id}/status-history`);
+    expect(scrubPath('/v1/webhooks/couriers/steadfast/' + id + '/' + id)).toBe(
+      '/v1/webhooks/couriers/steadfast/' + id + '/' + id,
+    );
+    expect(scrubPath('/health/ready')).toBe('/health/ready');
   });
 });

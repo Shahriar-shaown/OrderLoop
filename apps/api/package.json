@@ -15,7 +15,11 @@
     "auth:generate-keys": "node dist/scripts/generate-keys.js",
     "bench:tenant": "node dist/scripts/bench-tenant-tx.js",
     "db:seed": "tsc -p tsconfig.build.json && node dist/scripts/seed-dev.js",
-    "automation:demo": "tsc -p tsconfig.build.json && node dist/scripts/automation-demo.js"
+    "automation:demo": "tsc -p tsconfig.build.json && node dist/scripts/automation-demo.js",
+    "meta:demo": "tsc -p tsconfig.build.json && node dist/scripts/meta-demo.js",
+    "meta:send-webhook": "tsc -p tsconfig.build.json && node dist/scripts/meta-send-webhook.js",
+    "inventory:verify": "tsc -p tsconfig.build.json && node dist/scripts/inventory-verify.js",
+    "sessions:revoke": "tsc -p tsconfig.build.json && node dist/scripts/sessions-revoke.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.1.3",

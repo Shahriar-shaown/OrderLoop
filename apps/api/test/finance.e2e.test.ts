@@ -1010,3 +1010,79 @@ describe('isolation and the database as the last line of defence', () => {
     expect(after.netMinor).toBe(98_940);
   });
 });
+
+describe('one payout id covering many parcels', () => {
+  it('counts every parcel, keeps a re-import a duplicate, and warns about repeated rows', async () => {
+    const { owner, api } = await shop();
+    const d = today();
+    const [c1, c2, c3] = [
+      await booked(owner, api),
+      await booked(owner, api),
+      await booked(owner, api),
+    ];
+    const csv = file(
+      `PAY-1,${c1.consignmentId},,,,${d},cod,1000,0,0,0,0,,`,
+      `PAY-1,${c2.consignmentId},,,,${d},cod,2000,0,0,0,0,,`,
+      `PAY-1,${c3.consignmentId},,,,${d},cod,500,0,0,0,0,,`,
+    );
+    const res = (await importFile(api, csv).expect(200)).body;
+    expect(res.counts.duplicate).toBe(0);
+    expect(res.counts.matched + res.counts.unmatched + res.counts.ambiguous).toBe(3);
+    expect(res.totals.collectedMinor).toBe(350_000);
+    expect(res.warnings).toEqual([]);
+    // the same file again is the same file
+    const again = (await importFile(api, csv).expect(200)).body;
+    expect(again).toMatchObject({ alreadyImported: true, batchId: res.batchId });
+    // a different file that repeats a recorded line (same payout, same parcel) is a duplicate, and says so
+    const overlap = file(
+      `PAY-1,${c1.consignmentId},,,,${d},cod,1000,0,0,0,0,,`,
+      `PAY-1,${c2.consignmentId},,,,${d},cod,2000,0,0,0,0,,`,
+      `PAY-1,${c2.consignmentId},,,,${d},cod,2000,0,0,0,0,,`,
+    );
+    const second = (await importFile(api, overlap).expect(200)).body;
+    expect(second.counts.duplicate).toBe(3);
+    expect(second.warnings).toHaveLength(1);
+    expect(second.warnings[0]).toContain('3 line(s)');
+    expect(second.totals.collectedMinor).toBe(0);
+  });
+});
+
+describe('sums that exceed what one 32-bit column holds', () => {
+  it('summaries add in 64 bits: two 20,000,000.00 costs and statement lines do not overflow', async () => {
+    const { owner, api } = await shop();
+    const d = today();
+    for (const note of ['Big one', 'Big two'])
+      await api
+        .post('/v1/finance/costs', {
+          kind: 'other',
+          amountMinor: 2_000_000_000,
+          incurredOn: d,
+          note,
+          idempotencyKey: key(),
+        })
+        .expect(201);
+    const a = await booked(owner, api);
+    const b = await booked(owner, api);
+    const res = (
+      await importFile(
+        api,
+        file(
+          `,${a.consignmentId},,,,${d},cod,20000000,0,0,0,0,,`,
+          `,${b.consignmentId},,,,${d},cod,20000000,0,0,0,0,,`,
+        ),
+      ).expect(200)
+    ).body;
+    expect(res.totals.collectedMinor).toBe(4_000_000_000);
+    const s = (await api.get(`/v1/finance/summary?from=${d}&to=${d}`).expect(200)).body;
+    expect(s.manualCostsByKind).toEqual([{ kind: 'other', amountMinor: 4_000_000_000 }]);
+    const list = (await api.get('/v1/settlements/batches').expect(200)).body as {
+      totals: { collectedMinor: number };
+    }[];
+    expect(list[0]!.totals.collectedMinor).toBe(4_000_000_000);
+    expect(
+      (await api.get(`/v1/settlements/batches/${res.batchId}`).expect(200)).body.totals,
+    ).toMatchObject({
+      collectedMinor: 4_000_000_000,
+    });
+  });
+});

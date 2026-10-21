@@ -9,7 +9,7 @@ import {
 import { ensureDefaultLocation, receiveStock } from './stock.js';
 
 /** A RUNNING job older than this is presumed abandoned by a crashed worker and may be resumed. */
-const STALL_MS = 10 * 60_000;
+export const STALL_MS = 10 * 60_000;
 
 /** A row problem the user can fix by editing the file. */
 class RowProblem extends Error {}
@@ -464,6 +464,23 @@ export async function findStalePendingImports(
   return db.withContext({}, async (tx) => {
     const rows = await tx.$queryRaw<{ id: string; tenant_id: string }[]>`
       SELECT id, tenant_id FROM stale_pending_imports(${Math.ceil(olderThanMs / 1000)}::int, ${limit}::int)`;
+    return rows.map((r) => ({ tenantId: r.tenant_id, importId: r.id }));
+  });
+}
+
+/**
+ * Imports that have been RUNNING since before `olderThanMs` ago. A live job is never this old (an import is capped at 5000
+ * rows), so these were abandoned: the worker died and Redis lost the job too (a stalled job that Redis still holds is
+ * redelivered by BullMQ itself). Ids only, through a SECURITY DEFINER function (see the import_sweep_running migration).
+ */
+export async function findStalledRunningImports(
+  db: Database,
+  olderThanMs: number,
+  limit = 100,
+): Promise<ImportInput[]> {
+  return db.withContext({}, async (tx) => {
+    const rows = await tx.$queryRaw<{ id: string; tenant_id: string }[]>`
+      SELECT id, tenant_id FROM stalled_running_imports(${Math.ceil(olderThanMs / 1000)}::int, ${limit}::int)`;
     return rows.map((r) => ({ tenantId: r.tenant_id, importId: r.id }));
   });
 }

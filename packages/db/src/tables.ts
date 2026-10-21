@@ -38,6 +38,10 @@ export const TENANT_TABLES = [
   'notification_preferences',
   'notification_deliveries',
   'messaging_consents',
+  'social_connections',
+  'social_oauth_sessions',
+  'social_events',
+  'social_drafts',
 ] as const;
 
 /** Tenant tables the runtime role may only INSERT into and SELECT from: history that must never be rewritten. */

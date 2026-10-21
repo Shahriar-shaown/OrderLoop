@@ -13,11 +13,13 @@ import type {
   OrderQuery,
   OrderStatus,
   PotentialDuplicate,
+  Role,
   UpdateOrderBody,
 } from '@orderloop/contracts';
 import { Database, isUniqueViolation, Prisma, type Tx } from '@orderloop/db';
 import {
   calculateOrderTotals,
+  can,
   canTransition,
   editScope,
   normalizeBdPhone,
@@ -45,12 +47,17 @@ import {
   sortColumn,
 } from './order-query.js';
 import {
+  describeReturn,
+  planReturn,
   releaseOrder,
   reserveOrder,
   restockOrder,
   shipOrder,
   type LineRef,
 } from './order-stock.js';
+
+/** Statuses only a person with `orders:close` may set by hand. */
+const MANUAL_CLOSE: readonly OrderStatus[] = ['delivered', 'returned'];
 
 const validation = (path: string, message: string) =>
   new ApiError('validation_failed', 'Request validation failed', [{ path, message }]);
@@ -59,6 +66,37 @@ const orderInclude = {
   items: { orderBy: { position: 'asc' as const } },
   customer: { select: { id: true, name: true, phone: true } },
 } satisfies Prisma.OrderInclude;
+
+interface MoneyLine {
+  variantId: string;
+  quantity: number;
+  unitPriceMinor: number;
+  discountMinor: number;
+}
+interface MoneyFigures {
+  subtotalMinor: number;
+  discountMinor: number;
+  deliveryChargeMinor: number;
+  advancePaidMinor: number;
+  totalMinor: number;
+  codAmountMinor: number;
+}
+
+/** What an order edit records of the money: the figures and the lines (by variant), never a name, phone or address. */
+const moneySnapshot = (figures: MoneyFigures, lines: readonly MoneyLine[]) => ({
+  subtotalMinor: figures.subtotalMinor,
+  discountMinor: figures.discountMinor,
+  deliveryChargeMinor: figures.deliveryChargeMinor,
+  advancePaidMinor: figures.advancePaidMinor,
+  totalMinor: figures.totalMinor,
+  codAmountMinor: figures.codAmountMinor,
+  items: lines.map((l) => ({
+    variantId: l.variantId,
+    quantity: l.quantity,
+    unitPriceMinor: l.unitPriceMinor,
+    discountMinor: l.discountMinor,
+  })),
+});
 
 /** Where a recent order counts as a possible repeat of a new one. */
 const DUPLICATE_WINDOW_MS = 72 * 3_600_000;
@@ -256,25 +294,45 @@ export class OrdersService {
 
   // ---- create --------------------------------------------------------------------------------------------------------
 
-  async create(auth: AuthContext, body: CreateOrderBody, ip: string | null): Promise<OrderDetail> {
+  /**
+   * Create an order inside the CALLER'S transaction, with the same idempotency rule as `create` (an existing order under the
+   * same key is returned as it is; the same key with another body is 409). For flows that must do something else in the very
+   * same transaction (the Meta draft link). Call `announce` after the transaction commits.
+   */
+  async createWithin(
+    tx: Tx,
+    auth: AuthContext,
+    body: CreateOrderBody,
+    ip: string | null,
+  ): Promise<{ order: OrderDetail; created: boolean }> {
     const { idempotencyKey, ...rest } = body;
     const requestHash = createHash('sha256').update(stable(rest)).digest('hex');
+    const existing = await tx.order.findUnique({
+      where: { tenantId_idempotencyKey: { tenantId: auth.tenantId, idempotencyKey } },
+      select: { id: true, requestHash: true },
+    });
+    if (existing) {
+      if (existing.requestHash !== requestHash)
+        throw new ApiError(
+          'idempotency_conflict',
+          'This idempotency key was already used for a different order',
+        );
+      return { order: await this.loadDetail(tx, auth.tenantId, existing.id), created: false };
+    }
+    return { order: await this.createInTx(tx, auth, body, requestHash, ip), created: true };
+  }
+
+  /** Tell automation about a committed new order (never inside the transaction). A repeat queues the same job id, so once. */
+  announce(tenantId: string, orderId: string): void {
+    void this.automation.orderCreated(tenantId, orderId);
+  }
+
+  async create(auth: AuthContext, body: CreateOrderBody, ip: string | null): Promise<OrderDetail> {
     const attempt = () =>
-      this.db.withContext({ tenantId: auth.tenantId, userId: auth.userId }, async (tx) => {
-        const existing = await tx.order.findUnique({
-          where: { tenantId_idempotencyKey: { tenantId: auth.tenantId, idempotencyKey } },
-          select: { id: true, requestHash: true },
-        });
-        if (existing) {
-          if (existing.requestHash !== requestHash)
-            throw new ApiError(
-              'idempotency_conflict',
-              'This idempotency key was already used for a different order',
-            );
-          return this.loadDetail(tx, auth.tenantId, existing.id);
-        }
-        return this.createInTx(tx, auth, body, requestHash, ip);
-      });
+      this.db.withContext(
+        { tenantId: auth.tenantId, userId: auth.userId },
+        async (tx) => (await this.createWithin(tx, auth, body, ip)).order,
+      );
     let order: OrderDetail;
     try {
       order = await attempt();
@@ -284,7 +342,7 @@ export class OrdersService {
       order = await attempt();
     }
     // Tell automation after the order is committed (never inside the transaction). A replay queues the same job id, so once.
-    void this.automation.orderCreated(auth.tenantId, order.id);
+    this.announce(auth.tenantId, order.id);
     return order;
   }
 
@@ -433,8 +491,11 @@ export class OrdersService {
    */
   async moveInTx(
     tx: Tx,
-    /** `userId` is null when the courier, not a person, causes the move (a delivery update): the history then shows no actor. */
-    auth: { tenantId: string; userId: string | null },
+    /**
+     * `userId` is null when the courier, not a person, causes the move (a delivery update): the history then shows no
+     * actor, and no permission applies. A person's move needs their `role`.
+     */
+    auth: { tenantId: string; userId: string | null; role?: Role },
     id: string,
     body: Pick<ChangeStatusBody, 'status' | 'reason' | 'returnedItems' | 'ifVersion'>,
     ip: string | null,
@@ -452,6 +513,17 @@ export class OrdersService {
     const to = body.status;
     const from = order.status as OrderStatus;
     if (from === to) return; // already there: nothing to do, nothing to record
+
+    // Delivered and returned decide revenue and put stock back, so by hand they are for people trusted to close an order.
+    // The courier's own news (no person) is the evidence that makes them safe for anyone else.
+    if (
+      auth.userId !== null &&
+      MANUAL_CLOSE.includes(to) &&
+      !(auth.role && can(auth.role, 'orders:close'))
+    )
+      throw ApiError.forbidden(
+        `Only an owner, admin or manager can mark an order ${to} by hand. Ask one of them, or let the courier's update do it.`,
+      );
 
     if (body.ifVersion !== undefined && body.ifVersion !== order.version)
       throw new ApiError(
@@ -474,7 +546,8 @@ export class OrdersService {
             : 'This order has a live courier shipment. Cancel the shipment first, then cancel the order.',
         );
     }
-    const reason = body.reason?.trim() || defaultReason;
+    let reason = body.reason?.trim() || defaultReason;
+    let returned: ReturnType<typeof describeReturn> | undefined;
     if (REASON_REQUIRED.includes(to) && !body.reason?.trim())
       throw validation('body.reason', 'Say why (at least 3 characters)');
 
@@ -501,14 +574,13 @@ export class OrdersService {
         await shipOrder(tx, actor, id, lines);
         break;
       case 'restock': {
-        const known = new Set(lines.map((l) => l.id));
-        const conditions = new Map<string, 'RESALEABLE' | 'DAMAGED'>();
-        for (const [i, r] of (body.returnedItems ?? []).entries()) {
-          if (!known.has(r.itemId))
-            throw validation(`body.returnedItems.${i}.itemId`, 'That line is not on this order');
-          conditions.set(r.itemId, r.condition);
-        }
-        await restockOrder(tx, actor, id, lines, conditions, reason ?? 'Order returned');
+        const plan = planReturn(lines, body.returnedItems ?? []);
+        returned = describeReturn(lines, plan);
+        // The history keeps what came back, so a partial return reads as one later.
+        const short = returned.filter((r) => r.returned < r.sent);
+        if (short.length)
+          reason = `${reason ?? 'Order returned'} (partial: ${short.map((r) => `${r.sku} ${r.returned}/${r.sent}`).join(', ')})`;
+        await restockOrder(tx, actor, id, lines, plan, reason ?? 'Order returned');
         break;
       }
       case 'none':
@@ -532,7 +604,7 @@ export class OrdersService {
       action: to === 'cancelled' ? 'order.cancelled' : 'order.status_changed',
       targetType: 'order',
       targetId: id,
-      metadata: { orderNumber: order.orderNumber, from, to },
+      metadata: { orderNumber: order.orderNumber, from, to, ...(returned ? { returned } : {}) },
       ip,
     });
     // Whether cash the courier reported is early, short or fine depends on the order's status, so look again now that it changed.
@@ -677,7 +749,9 @@ export class OrdersService {
         changed.push('notes');
       }
 
+      let moneyChange: { before: object; after: object } | undefined;
       if (touchesMoney) {
+        const before = moneySnapshot(order, order.items);
         // Recompute everything from the lines and the three adjustments; the client never supplies a total.
         const lines = body.items
           ? await this.resolveItems(tx, tenantId, body.items, order.items)
@@ -725,6 +799,7 @@ export class OrdersService {
           advancePaidMinor: totals.advancePaidMinor,
           codAmountMinor: totals.codAmountMinor,
         });
+        moneyChange = { before, after: moneySnapshot(totals, lines) };
         if (body.discountMinor !== undefined) changed.push('discount');
         if (body.deliveryChargeMinor !== undefined) changed.push('deliveryCharge');
         if (body.advancePaidMinor !== undefined) changed.push('advancePaid');
@@ -737,8 +812,8 @@ export class OrdersService {
         action: 'order.updated',
         targetType: 'order',
         targetId: id,
-        // Field names only: addresses and phone numbers stay out of the audit log.
-        metadata: { orderNumber: order.orderNumber, changed },
+        // Field names, and for money the before and after: addresses and phone numbers stay out of the audit log.
+        metadata: { orderNumber: order.orderNumber, changed, ...moneyChange },
         ip,
       });
       return this.loadDetail(tx, tenantId, id);

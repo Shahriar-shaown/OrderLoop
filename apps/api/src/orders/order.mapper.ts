@@ -78,6 +78,7 @@ export const toOrder = (o: OrderRow): Order => ({
   totalMinor: o.totalMinor,
   advancePaidMinor: o.advancePaidMinor,
   codAmountMinor: o.codAmountMinor,
+  codHasPaisa: o.codAmountMinor % 100 !== 0,
   stockHeld: holdsStock(o.status),
   version: o.version,
   createdAt: o.createdAt.toISOString(),

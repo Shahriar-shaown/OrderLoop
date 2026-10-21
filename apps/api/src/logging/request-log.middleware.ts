@@ -3,6 +3,7 @@ import { Inject, Injectable, type NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Response } from 'express';
 import type { AppRequest } from '../common/endpoint.js';
 import type { Logger } from './logger.js';
+import { scrubPath } from './scrub.js';
 import { LOGGER } from './tokens.js';
 
 const REQUEST_ID_RE = /^[A-Za-z0-9._-]{8,64}$/;
@@ -25,7 +26,7 @@ export class RequestLogMiddleware implements NestMiddleware {
     const started = process.hrtime.bigint();
 
     res.on('finish', () => {
-      const path = req.originalUrl.split('?')[0];
+      const path = scrubPath(req.originalUrl.split('?')[0] ?? '');
       const status = res.statusCode;
       const level =
         path?.startsWith('/health/') && status < 400

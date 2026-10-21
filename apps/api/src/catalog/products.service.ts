@@ -310,6 +310,16 @@ export class ProductsService {
         action: body.archived === true ? 'variant.archived' : 'variant.updated',
         targetType: 'variant',
         targetId: id,
+        // Price and cost decide every later order's margin, so an edit keeps the old and the new figure.
+        metadata: {
+          sku: found.sku,
+          ...(body.priceMinor !== undefined
+            ? { price: { before: found.priceMinor, after: v.priceMinor } }
+            : {}),
+          ...(body.costMinor !== undefined
+            ? { cost: { before: found.costMinor, after: v.costMinor } }
+            : {}),
+        },
       });
       return toVariant(v, await stockTotals(tx, auth.tenantId, [id]));
     });

@@ -8,7 +8,8 @@ export {
   type HttpOptions,
   type RequestOptions,
 } from './http.js';
-export { takaToMinor, toLocalPhone, wholeTaka } from './money.js';
+export { httpsLink } from './link.js';
+export { paisaAdvice, takaToMinor, toLocalPhone, wholeTaka } from './money.js';
 export * from './status.js';
 export * from './webhook.js';
 export {

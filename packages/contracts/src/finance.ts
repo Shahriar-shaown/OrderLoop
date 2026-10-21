@@ -198,6 +198,8 @@ export const SettlementImportResult = z.object({
   rows: z.number().int(),
   errors: z.array(z.object({ line: z.number().int(), message: z.string() })),
   fatal: z.string().nullable(),
+  /** Things worth a look in a file that was accepted, for example lines left out as duplicates. Always sent by the API. */
+  warnings: z.array(z.string()).optional(),
   counts: SettlementCounts,
   totals: SettlementTotals,
   discrepancies: z.number().int(),

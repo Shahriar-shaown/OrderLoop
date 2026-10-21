@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { loadServerEnv } from './server-env.js';
+import { loadServerEnv, registrationAllowed } from './server-env.js';
 
 const valid = {
   DATABASE_URL: 'postgresql://u:p@localhost:5433/db',
   REDIS_URL: 'redis://localhost:6379',
   NODE_ENV: 'development',
+};
+
+/** What production also needs on purpose: a proxy hop, an explicit Meta mode and https origins. */
+const prodExtras = {
+  TRUST_PROXY: '1',
+  META_MODE: 'mock',
+  WEB_ORIGINS: 'https://app.example.test',
 };
 
 describe('loadServerEnv', () => {
@@ -48,7 +55,13 @@ describe('mail and logging env', () => {
     ).toThrow(/SMTP_PASSWORD/);
   });
   it('refuses the console mail provider in production, where it would log live tokens', () => {
-    const prod = { ...valid, NODE_ENV: 'production', JWT_PRIVATE_KEY: 'a', JWT_PUBLIC_KEY: 'b' };
+    const prod = {
+      ...valid,
+      NODE_ENV: 'production',
+      ...prodExtras,
+      JWT_PRIVATE_KEY: 'a',
+      JWT_PUBLIC_KEY: 'b',
+    };
     expect(() => loadServerEnv(prod)).toThrow(/MAIL_PROVIDER/);
     expect(
       loadServerEnv({ ...prod, MAIL_PROVIDER: 'smtp', SMTP_HOST: 'smtp.example.test' })
@@ -59,6 +72,7 @@ describe('mail and logging env', () => {
     const prod = {
       ...valid,
       NODE_ENV: 'production',
+      ...prodExtras,
       JWT_PRIVATE_KEY: 'a',
       JWT_PUBLIC_KEY: 'b',
       MAIL_PROVIDER: 'smtp',
@@ -106,11 +120,143 @@ describe('push and messaging env', () => {
     const prod = {
       ...valid,
       NODE_ENV: 'production',
+      ...prodExtras,
       JWT_PRIVATE_KEY: 'a',
       JWT_PUBLIC_KEY: 'b',
       MAIL_PROVIDER: 'smtp',
       SMTP_HOST: 'smtp.example.test',
     };
     expect(loadServerEnv(prod).PUSH_PROVIDER).toBe('dev');
+  });
+});
+
+describe('meta env', () => {
+  const live = {
+    ...valid,
+    META_MODE: 'live',
+    META_APP_ID: '1234567890',
+    META_APP_SECRET: 'a-sixteen-char-secret',
+    META_WEBHOOK_VERIFY_TOKEN: 'a-sixteen-char-token',
+    META_GRAPH_VERSION: 'v23.0',
+    API_PUBLIC_URL: 'https://api.example.test',
+    COURIER_CREDENTIALS_KEY: Buffer.alloc(32, 1).toString('base64'),
+  };
+  it('defaults to mock mode with 30 days of retention and needs nothing else', () => {
+    expect(loadServerEnv(valid)).toMatchObject({ META_MODE: 'mock', META_RETENTION_DAYS: 30 });
+  });
+  it('accepts a complete live configuration', () => {
+    expect(loadServerEnv(live)).toMatchObject({ META_MODE: 'live', META_GRAPH_VERSION: 'v23.0' });
+  });
+  it.each([
+    'META_APP_ID',
+    'META_APP_SECRET',
+    'META_WEBHOOK_VERIFY_TOKEN',
+    'META_GRAPH_VERSION',
+    'API_PUBLIC_URL',
+    'COURIER_CREDENTIALS_KEY',
+  ])('live mode without %s fails to start and names it', (name) => {
+    const env: Record<string, string | undefined> = { ...live };
+    delete env[name];
+    expect(() => loadServerEnv(env)).toThrow(new RegExp(`${name} is required when META_MODE=live`));
+  });
+  it('rejects a malformed Graph version and a non-numeric app id', () => {
+    expect(() => loadServerEnv({ ...live, META_GRAPH_VERSION: '23' })).toThrow(/Graph API version/);
+    expect(() => loadServerEnv({ ...live, META_APP_ID: 'abc' })).toThrow(/numeric/);
+  });
+});
+
+describe('production safeguards', () => {
+  const prod = {
+    ...valid,
+    ...prodExtras,
+    NODE_ENV: 'production',
+    JWT_PRIVATE_KEY: 'a',
+    JWT_PUBLIC_KEY: 'b',
+    MAIL_PROVIDER: 'smtp',
+    SMTP_HOST: 'smtp.example.test',
+  };
+  const without = (key: string) =>
+    Object.fromEntries(Object.entries(prod).filter(([k]) => k !== key));
+  it('accepts the complete production baseline', () => {
+    expect(loadServerEnv(prod)).toMatchObject({
+      META_MODE: 'mock',
+      TRUST_PROXY: 1,
+      META_ALLOW_MOCK_IN_PRODUCTION: false,
+      OPENAPI_PUBLIC: true,
+    });
+  });
+  it('requires META_MODE to be set on purpose in production, and defaults to mock elsewhere', () => {
+    expect(() => loadServerEnv(without('META_MODE'))).toThrow(/META_MODE/);
+    expect(loadServerEnv(valid).META_MODE).toBe('mock');
+  });
+  it('requires TRUST_PROXY >= 1 in production unless TRUST_PROXY_NONE_OK=true', () => {
+    expect(() => loadServerEnv(without('TRUST_PROXY'))).toThrow(/TRUST_PROXY/);
+    expect(() => loadServerEnv({ ...prod, TRUST_PROXY: '0' })).toThrow(/TRUST_PROXY_NONE_OK/);
+    expect(loadServerEnv({ ...prod, TRUST_PROXY: '0', TRUST_PROXY_NONE_OK: 'true' })).toBeTruthy();
+    expect(loadServerEnv({ ...valid, TRUST_PROXY: '0' })).toBeTruthy();
+  });
+  it('requires https web origins in production, but not in development', () => {
+    expect(() => loadServerEnv({ ...prod, WEB_ORIGINS: 'http://app.example.test' })).toThrow(
+      /WEB_ORIGINS must be https/,
+    );
+    expect(() =>
+      loadServerEnv({ ...prod, WEB_ORIGINS: 'https://a.example.test,http://b.example.test' }),
+    ).toThrow(/WEB_ORIGINS/);
+    expect(() => loadServerEnv(without('WEB_ORIGINS'))).toThrow(/WEB_ORIGINS/);
+    expect(() => loadServerEnv({ ...prod, WEB_APP_URL: 'http://app.example.test' })).toThrow(
+      /WEB_APP_URL/,
+    );
+    expect(loadServerEnv({ ...valid, WEB_ORIGINS: 'http://localhost:3000' })).toBeTruthy();
+  });
+  it('reads the opt-in flags', () => {
+    expect(
+      loadServerEnv({ ...prod, META_ALLOW_MOCK_IN_PRODUCTION: 'true', OPENAPI_PUBLIC: 'false' }),
+    ).toMatchObject({ META_ALLOW_MOCK_IN_PRODUCTION: true, OPENAPI_PUBLIC: false });
+  });
+});
+
+describe('registration control', () => {
+  it('is open by default', () => {
+    const env = loadServerEnv(valid);
+    expect(env.REGISTRATION_MODE).toBe('open');
+    expect(registrationAllowed(env, 'anyone@example.com')).toBe(true);
+  });
+  it('requires a non-empty list in allowlist mode', () => {
+    expect(() => loadServerEnv({ ...valid, REGISTRATION_MODE: 'allowlist' })).toThrow(
+      /REGISTRATION_ALLOWED_EMAILS/,
+    );
+    expect(() =>
+      loadServerEnv({
+        ...valid,
+        REGISTRATION_MODE: 'allowlist',
+        REGISTRATION_ALLOWED_EMAILS: ' , ',
+      }),
+    ).toThrow(/REGISTRATION_ALLOWED_EMAILS/);
+  });
+  it('rejects malformed entries and unknown modes', () => {
+    expect(() =>
+      loadServerEnv({
+        ...valid,
+        REGISTRATION_MODE: 'allowlist',
+        REGISTRATION_ALLOWED_EMAILS: 'nope',
+      }),
+    ).toThrow(/Each entry/);
+    expect(() => loadServerEnv({ ...valid, REGISTRATION_MODE: 'closed' })).toThrow(
+      /REGISTRATION_MODE/,
+    );
+  });
+  it('matches exact emails and whole domains, case-insensitively', () => {
+    const env = loadServerEnv({
+      ...valid,
+      REGISTRATION_MODE: 'allowlist',
+      REGISTRATION_ALLOWED_EMAILS: 'Owner@Shop.test, @Pilot.example',
+    });
+    expect(env.REGISTRATION_ALLOWED_EMAILS).toEqual(['owner@shop.test', '@pilot.example']);
+    expect(registrationAllowed(env, 'OWNER@shop.test')).toBe(true);
+    expect(registrationAllowed(env, 'anyone@PILOT.example')).toBe(true);
+    expect(registrationAllowed(env, 'other@shop.test')).toBe(false);
+    expect(registrationAllowed(env, 'x@sub.pilot.example')).toBe(false);
+    expect(registrationAllowed(env, 'x@evilpilot.example')).toBe(false);
+    expect(registrationAllowed(env, 'no-at-sign')).toBe(false);
   });
 });

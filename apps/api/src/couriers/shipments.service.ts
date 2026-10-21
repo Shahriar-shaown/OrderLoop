@@ -13,11 +13,19 @@ import type {
 import {
   advanceShipment,
   CourierError,
+  httpsLink,
+  paisaAdvice,
   type BookingResult,
   type CourierAdapter,
   type TrackingResult,
 } from '@orderloop/courier-sdk';
-import { Database, isUniqueViolation, type Prisma, type Tx } from '@orderloop/db';
+import {
+  Database,
+  isRetryableTxError,
+  isUniqueViolation,
+  type Prisma,
+  type Tx,
+} from '@orderloop/db';
 import { can, type OrderStatus } from '@orderloop/domain';
 import { AuditService } from '../audit/audit.service.js';
 import { ApiError } from '../common/api-error.js';
@@ -263,6 +271,13 @@ export class ShipmentsService {
           'Mark the order Ready to ship before booking a courier.',
         );
 
+      // Refuse before a shipment row exists: a courier only takes whole taka, and a confirmed order cannot be edited.
+      if (order.codAmountMinor % 100 !== 0)
+        throw new ApiError(
+          'courier_unsupported',
+          paisaAdvice(order.codAmountMinor, 'The cash to collect'),
+        );
+
       this.assertWeight(
         body.provider,
         body.weightKg ??
@@ -386,7 +401,7 @@ export class ShipmentsService {
             providerStatus: result.providerStatus,
             providerConsignmentId: result.consignmentId,
             trackingCode: result.trackingCode ?? null,
-            trackingUrl: result.trackingUrl ?? null,
+            trackingUrl: httpsLink(result.trackingUrl) ?? null, // https only, whatever an adapter returned
             deliveryFeeMinor: result.deliveryFeeMinor ?? null,
             failureReason: null,
             bookedAt: new Date(),
@@ -418,6 +433,38 @@ export class ShipmentsService {
             provider: row.provider,
             simulated: row.simulated,
             consignmentId: result.consignmentId,
+          },
+          ip,
+        });
+      } else if (row.status === 'booking_failed' || row.status === 'cancelled') {
+        // A person settled this booking as "not booked" (or cancelled) while the courier's reply was still on its way, and
+        // the reply says a parcel was created. The shipment stays as the person left it, but the parcel is real: record it
+        // where it can be seen so it is cancelled at the courier or matched up, not silently collected on.
+        await tx.shipmentEvent.create({
+          data: {
+            tenantId: auth.tenantId,
+            shipmentId: id,
+            source: 'booking',
+            eventKey: 'booking:orphan',
+            providerStatus: result.providerStatus,
+            mappedStatus: result.status,
+            applied: false,
+            note: `The courier did create a parcel (consignment ${result.consignmentId}) after this booking was settled as ${row.status === 'cancelled' ? 'cancelled' : 'not booked'}. Check it in the courier's panel and cancel it, or book it here again.`,
+            payload: result.raw as Prisma.InputJsonValue,
+          },
+        });
+        await this.audit.record(tx, {
+          tenantId: auth.tenantId,
+          actorUserId: auth.userId,
+          action: 'shipment.orphan_booking',
+          targetType: 'shipment',
+          targetId: id,
+          metadata: {
+            kind: 'orphan_booking',
+            provider: row.provider,
+            consignmentId: result.consignmentId,
+            trackingCode: result.trackingCode ?? null,
+            orderId: row.orderId,
           },
           ip,
         });
@@ -651,9 +698,17 @@ export class ShipmentsService {
           ip,
         );
       } catch (error) {
-        if (!(error instanceof ApiError)) throw error;
+        // A deadlock or serialization abort is retried by the whole transaction (Database.withContext), not swallowed.
+        if (isRetryableTxError(error)) throw error;
         await tx.$executeRaw`ROLLBACK TO SAVEPOINT order_sync`;
-        return `The order was not changed: ${error.detail ?? error.message}`;
+        if (error instanceof ApiError)
+          return `The order was not changed: ${error.detail ?? error.message}`;
+        // Anything else must not abort the courier's webhook (it would be retried for ever): the shipment keeps the news,
+        // the order is left as it was, and the event says so.
+        this.log.error(
+          `Could not carry order ${shipment.orderId} forward for shipment ${shipment.id}: ${(error as Error)?.message ?? error}`,
+        );
+        return 'The order was not changed because of an unexpected error. Check the order and update it by hand.';
       }
     }
     await tx.$executeRaw`RELEASE SAVEPOINT order_sync`;

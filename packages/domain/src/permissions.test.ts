@@ -86,6 +86,7 @@ describe('the documented permission matrix (docs/permissions.md)', () => {
     'inventory:write': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'],
     'orders:read': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTANT'],
     'orders:write': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'],
+    'orders:close': ['OWNER', 'ADMIN', 'MANAGER'],
     'couriers:read': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTANT'],
     'couriers:manage': ['OWNER', 'ADMIN'],
     'finance:read': ['OWNER', 'ADMIN', 'MANAGER', 'ACCOUNTANT'],
@@ -106,6 +107,17 @@ describe('automation permissions', () => {
     for (const role of ROLES) {
       expect(can(role, 'automation:read'), role).toBe(['OWNER', 'ADMIN', 'MANAGER'].includes(role));
       expect(can(role, 'automation:manage'), role).toBe(['OWNER', 'ADMIN'].includes(role));
+    }
+  });
+});
+
+describe('integrations permissions', () => {
+  it('OWNER, ADMIN and MANAGER may see the integrations; only OWNER and ADMIN connect or disconnect them', () => {
+    for (const role of ROLES) {
+      expect(can(role, 'integrations:read'), role).toBe(
+        ['OWNER', 'ADMIN', 'MANAGER'].includes(role),
+      );
+      expect(can(role, 'integrations:manage'), role).toBe(['OWNER', 'ADMIN'].includes(role));
     }
   });
 });

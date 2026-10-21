@@ -1,6 +1,9 @@
 import { fakeNetwork } from '@orderloop/courier-sdk';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createProduct, createTestApp, registerTenant, type TestApp } from './app.js';
+import { AuditService } from '../src/audit/audit.service.js';
+import { uuidv7 } from '../src/common/uuid.js';
+import { syncDiscrepancy } from '../src/finance/discrepancies.js';
 
 /** Order status changes re-check the cash discrepancies of that order's settlement lines, with no "recheck" needed. */
 let t: TestApp;
@@ -132,5 +135,48 @@ describe('order status changes and cash discrepancies', () => {
       })
       .expect(200);
     expect(await open()).toEqual([]);
+  });
+});
+
+describe('two evaluations racing to open the same discrepancy', () => {
+  it('the second finds it already open instead of failing (and rolling back its own work)', async () => {
+    const owner = await registerTenant(t);
+    const tenantId = owner.tenant.id;
+    const audit = t.app.get(AuditService);
+    const subject = {
+      type: 'short_paid' as const,
+      subjectKey: `shipment:${uuidv7()}`,
+      condition: { expectedMinor: 100, actualMinor: 50, message: 'Short' },
+    };
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let inserted!: () => void;
+    const first = new Promise<void>((r) => (inserted = r));
+    const a = t.db.withContext({ tenantId }, async (tx) => {
+      const r = await syncDiscrepancy(tx, audit, tenantId, subject);
+      inserted();
+      await gate; // holds the new row uncommitted while the other evaluation runs
+      return r;
+    });
+    await first;
+    // The other evaluation cannot see the row yet, so it tries to create it too.
+    const b = t.db.withContext({ tenantId }, async (tx) => {
+      const r = await syncDiscrepancy(tx, audit, tenantId, subject);
+      await audit.record(tx, { tenantId, action: 'test.after_discrepancy' }); // work that must not be rolled back
+      return r;
+    });
+    await new Promise((r) => setTimeout(r, 300));
+    release();
+    const [ra, rb] = await Promise.all([a, b]);
+    expect(ra.opened).toBe(1);
+    expect(rb.opened).toBe(0);
+    const rows = await t.db.withContext({ tenantId }, (tx) =>
+      tx.discrepancy.findMany({ where: { tenantId, subjectKey: subject.subjectKey } }),
+    );
+    expect(rows).toHaveLength(1);
+    const after = await t.db.withContext({ tenantId }, (tx) =>
+      tx.auditLog.count({ where: { tenantId, action: 'test.after_discrepancy' } }),
+    );
+    expect(after).toBe(1);
   });
 });

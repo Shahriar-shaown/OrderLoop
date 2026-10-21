@@ -365,6 +365,7 @@ export class SettlementsService {
       rows: 0,
       errors: parsed.errors,
       fatal: parsed.fatal,
+      warnings: [],
       counts: EMPTY_COUNTS,
       totals: EMPTY_TOTALS,
       discrepancies: 0,
@@ -430,6 +431,7 @@ export class SettlementsService {
       rows: s.rowCount,
       errors: [],
       fatal: null,
+      warnings: [],
       counts: s.counts,
       totals: s.totals,
       discrepancies: s.openDiscrepancies,
@@ -625,6 +627,11 @@ export class SettlementsService {
       rows: rows.length,
       errors: [],
       fatal: null,
+      warnings: counts.duplicate
+        ? [
+            `${counts.duplicate} line(s) repeat a line that is already recorded (or an earlier line in this file) and are not counted. If they are really different parcels, give each its own consignment_id, tracking_code or reference.`,
+          ]
+        : [],
       counts,
       totals: { collectedMinor: collected, chargesMinor: charges, netMinor: net },
       discrepancies: summary.openDiscrepancies,

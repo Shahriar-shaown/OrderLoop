@@ -805,9 +805,13 @@ describe('returns', () => {
     await walk(api, o.id, ['ready_to_ship', 'shipped', 'in_transit', 'delivered']);
     await status(api, o.id, 'return_requested', { reason: 'Arrived damaged' }).expect(200);
     const brokenLine = o.items.find((i: { variantId: string }) => i.variantId === broken.id);
+    const goodLine = o.items.find((i: { variantId: string }) => i.variantId === good.id);
     await status(api, o.id, 'returned', {
       reason: 'Inspected',
-      returnedItems: [{ itemId: brokenLine.id, condition: 'DAMAGED' }],
+      returnedItems: [
+        { itemId: goodLine.id, condition: 'RESALEABLE' },
+        { itemId: brokenLine.id, condition: 'DAMAGED' },
+      ],
     }).expect(200);
     expect(await level(api, good.id)).toMatchObject({ onHand: 10, damaged: 0 });
     expect(await level(api, broken.id)).toMatchObject({ onHand: 7, damaged: 3, available: 7 });
@@ -819,6 +823,117 @@ describe('returns', () => {
         })
       ).status,
     ).toBe(200); // already returned: harmless
+  });
+
+  it('marking an order delivered or returned by hand needs orders:close (not STAFF); other moves stay open', async () => {
+    const { owner, api } = await shop();
+    const staff = call(await addMember(t, owner, 'STAFF'));
+    const manager = call(await addMember(t, owner, 'MANAGER'));
+    const v = await item(owner, 10);
+    const o = (
+      await staff
+        .post('/v1/orders', body([{ variantId: v.id, quantity: 2 }], { confirm: true }))
+        .expect(201)
+    ).body;
+    await walk(staff, o.id, ['ready_to_ship', 'shipped', 'in_transit']); // everything short of closing
+    const denied = await status(staff, o.id, 'delivered');
+    expect(denied.status).toBe(403);
+    expect(denied.body.code).toBe('forbidden');
+    // bulk reports it per order, and nothing moved
+    const bulk = (
+      await staff
+        .post('/v1/orders/bulk-status', { orderIds: [o.id], status: 'delivered' })
+        .expect(200)
+    ).body;
+    expect(bulk.results[0]).toMatchObject({ ok: false, error: { code: 'forbidden' } });
+    expect((await api.get(`/v1/orders/${o.id}`)).body.status).toBe('in_transit');
+    await status(manager, o.id, 'delivered').expect(200);
+    await status(staff, o.id, 'return_requested', { reason: 'Customer refused' }).expect(200);
+    expect((await status(staff, o.id, 'returned', { reason: 'Back' })).status).toBe(403);
+    expect(await level(api, v.id)).toMatchObject({ onHand: 8 });
+    await status(manager, o.id, 'returned', { reason: 'Back' }).expect(200);
+    expect(await level(api, v.id)).toMatchObject({ onHand: 10 });
+    // repeating the status it is already in stays harmless for anyone
+    await status(staff, o.id, 'returned', { reason: 'Back' }).expect(200);
+  });
+
+  it('when the default location is short but another holds the stock, confirm says where it is', async () => {
+    const { owner, api } = await shop();
+    const v = await item(owner, 1); // creates the default location ("Main warehouse") with 1 unit
+    const shopLoc = (await api.post('/v1/locations', { name: 'Dhanmondi shop' }).expect(201)).body;
+    await api
+      .post('/v1/inventory/receive', { variantId: v.id, quantity: 9, locationId: shopLoc.id })
+      .expect(201);
+    const r = await api.post(
+      '/v1/orders',
+      body([{ variantId: v.id, quantity: 4 }], { confirm: true }),
+    );
+    expect(r.status).toBe(409);
+    expect(r.body.code).toBe('insufficient_stock');
+    expect(r.body.detail).toContain('only 1 available, 4 needed');
+    expect(r.body.detail).toContain('default location (Main warehouse)');
+    expect(r.body.detail).toContain('9 at Dhanmondi shop');
+    expect(r.body.detail).toContain('Move it to the default location');
+  });
+
+  it('a partial return adds back only what came back; unlisted lines and unreturned units add nothing', async () => {
+    const { owner, api } = await shop();
+    const a = await item(owner, 10);
+    const b = await item(owner, 10);
+    const c = await item(owner, 10);
+    const o = (
+      await api
+        .post(
+          '/v1/orders',
+          body(
+            [
+              { variantId: a.id, quantity: 4 },
+              { variantId: b.id, quantity: 3 },
+              { variantId: c.id, quantity: 2 },
+            ],
+            { confirm: true },
+          ),
+        )
+        .expect(201)
+    ).body;
+    await walk(api, o.id, ['ready_to_ship', 'shipped', 'in_transit', 'delivered']);
+    await status(api, o.id, 'return_requested', { reason: 'Two lines refused' }).expect(200);
+    const lineOf = (v: { id: string }) =>
+      o.items.find((i: { variantId: string }) => i.variantId === v.id).id as string;
+    // more than was sent is refused and nothing moves
+    const over = await status(api, o.id, 'returned', {
+      reason: 'Back',
+      returnedItems: [{ itemId: lineOf(a), condition: 'RESALEABLE', quantity: 5 }],
+    });
+    expect(over.status).toBe(400);
+    expect(await level(api, a.id)).toMatchObject({ onHand: 6 });
+    await status(api, o.id, 'returned', {
+      reason: 'Back',
+      returnedItems: [
+        { itemId: lineOf(a), condition: 'RESALEABLE', quantity: 1 },
+        { itemId: lineOf(b), condition: 'DAMAGED' }, // whole line, damaged
+      ],
+    }).expect(200);
+    expect(await level(api, a.id)).toMatchObject({ onHand: 7, damaged: 0 }); // 1 of 4 back
+    expect(await level(api, b.id)).toMatchObject({ onHand: 7, damaged: 3 });
+    expect(await level(api, c.id)).toMatchObject({ onHand: 8, damaged: 0 }); // unlisted: stayed with the customer
+    expect(await moves(api, c.id, 'RETURN')).toHaveLength(0);
+    const detail = (await api.get(`/v1/orders/${o.id}`)).body;
+    const last = detail.history.at(-1);
+    expect(last.reason).toContain('partial');
+    expect(last.reason).toContain(`${a.sku} 1/4`);
+    expect(last.reason).toContain(`${c.sku} 0/2`);
+    const audit = (await api.get('/v1/audit-logs?limit=100')).body.items as {
+      action: string;
+      metadata: { returned?: { itemId: string; returned: number }[] };
+    }[];
+    const entry = audit.find((e) => e.metadata?.returned);
+    expect(entry?.metadata.returned?.find((r) => r.itemId === lineOf(c))?.returned).toBe(0);
+    // the finance summary says the books are understated by this return, instead of staying silent
+    const summary = (await api.get('/v1/finance/summary').expect(200)).body;
+    expect(summary.caveats.join(' ')).toContain(
+      '1 order(s) returned in this period came back only in part',
+    );
   });
 
   it('refuses a returned item that is not on the order', async () => {
@@ -1083,6 +1198,60 @@ describe('records that cannot be rewritten', () => {
       ]),
     );
     expect(log.find((e) => e.action === 'order.created')!.actorUserId).toBe(owner.user.id);
+  });
+
+  it('an edit of the money records before and after in the audit trail, and the audit list returns it', async () => {
+    const { owner, api } = await shop();
+    const v = await item(owner, 5, { priceMinor: 100_000 });
+    const o = (
+      await api
+        .post(
+          '/v1/orders',
+          body([{ variantId: v.id, quantity: 1 }], { deliveryChargeMinor: 6_000 }),
+        )
+        .expect(201)
+    ).body;
+    await api
+      .patch(`/v1/orders/${o.id}`, {
+        items: [{ variantId: v.id, quantity: 2 }],
+        discountMinor: 10_000,
+        advancePaidMinor: 20_000,
+      })
+      .expect(200);
+    const log = (await api.get('/v1/audit-logs?limit=100').expect(200)).body.items as {
+      action: string;
+      targetId: string;
+      metadata: {
+        changed: string[];
+        before: Record<string, unknown>;
+        after: Record<string, unknown>;
+      };
+    }[];
+    const edit = log.find((e) => e.targetId === o.id && e.action === 'order.updated')!;
+    expect(edit.metadata.before).toMatchObject({
+      subtotalMinor: 100_000,
+      discountMinor: 0,
+      deliveryChargeMinor: 6_000,
+      advancePaidMinor: 0,
+      totalMinor: 106_000,
+      codAmountMinor: 106_000,
+      items: [{ variantId: v.id, quantity: 1, unitPriceMinor: 100_000, discountMinor: 0 }],
+    });
+    expect(edit.metadata.after).toMatchObject({
+      subtotalMinor: 200_000,
+      discountMinor: 10_000,
+      totalMinor: 196_000,
+      advancePaidMinor: 20_000,
+      codAmountMinor: 176_000,
+      items: [{ variantId: v.id, quantity: 2, unitPriceMinor: 100_000 }],
+    });
+    // a note-only edit has no money to compare
+    await api.patch(`/v1/orders/${o.id}`, { notes: 'just a note' }).expect(200);
+    const again = (await api.get('/v1/audit-logs?limit=100').expect(200)).body.items as typeof log;
+    const note = again.find(
+      (e) => e.targetId === o.id && e.action === 'order.updated' && !e.metadata.before,
+    );
+    expect(note?.metadata.changed).toEqual(['notes']);
   });
 
   it('audit entries and history never contain customer contact details', async () => {

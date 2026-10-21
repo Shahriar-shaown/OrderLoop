@@ -26,7 +26,7 @@ import type { AuthContext } from '../common/endpoint.js';
 import { LONG_TX } from '../common/long-tx.js';
 import { evaluate } from './discrepancies.js';
 import { discrepancyDto } from './settlements.service.js';
-import { deliveredOrdersSql, deliveredTotals } from './revenue.js';
+import { deliveredOrdersSql, deliveredTotals, partiallyReturnedCount } from './revenue.js';
 
 const dayIn = (tz: string, at: Date): string => at.toLocaleDateString('en-CA', { timeZone: tz });
 function addDays(date: string, days: number): string {
@@ -336,6 +336,7 @@ export class FinanceService {
 
         // Revenue: orders that are delivered now, in the period they were delivered (one definition, see revenue.ts).
         const rev = await deliveredTotals(tx, t, tz, from, to);
+        const partialReturns = await partiallyReturnedCount(tx, t, tz, from, to);
 
         // Statements, by the date printed on each line. Duplicates and lines a person set aside are left out.
         const [stm] = await tx.$queryRaw<
@@ -563,6 +564,11 @@ export class FinanceService {
           ...(outstanding.untrackedDeliveredCount
             ? [
                 `${outstanding.untrackedDeliveredCount} delivered order(s) with COD have no real courier shipment, so no statement can ever confirm their cash. They are not in outstanding COD.`,
+              ]
+            : []),
+          ...(partialReturns
+            ? [
+                `${partialReturns} order(s) returned in this period came back only in part. They are not revenue, and the units the customer kept are in neither revenue nor cost of goods, so profit may be overstated by their cost.`,
               ]
             : []),
           ...(manualAll !== manualTotal

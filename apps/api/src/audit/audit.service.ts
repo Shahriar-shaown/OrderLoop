@@ -70,6 +70,10 @@ export class AuditService {
         actorUserId: r.actorUserId,
         targetType: r.targetType,
         targetId: r.targetId,
+        metadata:
+          r.metadata && typeof r.metadata === 'object' && !Array.isArray(r.metadata)
+            ? (r.metadata as Record<string, unknown>)
+            : null,
         createdAt: r.createdAt.toISOString(),
       })),
       nextCursor: rows.length > query.limit && last ? encodeCursor(last.createdAt, last.id) : null,

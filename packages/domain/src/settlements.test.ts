@@ -130,7 +130,14 @@ describe('reading a settlement file', () => {
     );
     expect(key({ transactionId: 'TX-1', collectedMinor: 5 })).toBe(
       key({ transactionId: 'tx-1', collectedMinor: 9 }),
-    ); // the courier's own id wins
+    ); // the courier's own id wins for one parcel
+    // ...but a payout id shared by many parcels never makes two parcels one line
+    const pay = (r: Partial<SettlementRow>) => key({ transactionId: 'PAY-1', ...r });
+    expect(pay({ consignmentId: 'C2' })).not.toBe(pay({ consignmentId: 'C1' }));
+    expect(pay({ trackingCode: 'T9' })).not.toBe(pay({}));
+    expect(pay({ reference: 'OL-2' })).not.toBe(pay({}));
+    expect(pay({ kind: 'return' })).not.toBe(pay({}));
+    expect(pay({ consignmentId: 'c1', collectedMinor: 7 })).toBe(pay({ consignmentId: 'C1' }));
   });
 });
 

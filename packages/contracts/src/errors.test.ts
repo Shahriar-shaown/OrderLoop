@@ -30,6 +30,8 @@ const MEANING: Record<ErrorCode, string> = {
   token_reuse_detected: 'A used refresh token was presented again. The session is revoked.',
   forbidden: 'Authenticated, but your role lacks the permission.',
   email_not_verified: 'Verify your email address first (currently required to invite people).',
+  registration_closed:
+    'Sign-up is closed on this server (pilot): the email is not on the invite list. Ask the operator. Invitations to a business still work.',
   not_found:
     'Resource does not exist **or belongs to another tenant** (the two are indistinguishable).',
   conflict: 'For example the email is already registered, or the person is already a member.',
@@ -53,6 +55,21 @@ const MEANING: Record<ErrorCode, string> = {
     'The server has no provider for that channel (sms or whatsapp), so a rule cannot use it and nobody can consent to it.',
   consent_required:
     'Nobody who would receive this has agreed to the channel (sms or whatsapp) yet, so it cannot be switched on.',
+  meta_not_configured:
+    'The Meta integration is not set up on this server (live mode needs the META_* settings), or the action needs a mode this server is not in.',
+  meta_oauth_invalid:
+    'The Meta sign-in link or hand-over is unknown, expired (10 minutes), already used, or was started by someone else. Start again.',
+  meta_permission_denied:
+    'Meta refused: the person did not grant a required permission, or has no admin task on that Page. `detail` names what to fix.',
+  meta_instagram_not_linked:
+    'The Page has no Instagram professional account linked, so an Instagram connection is not possible.',
+  meta_messages_access_off:
+    'Instagram message access is off. In the Instagram app turn on Allow Access to Messages (Message controls > Connected tools).',
+  meta_token_invalid:
+    'Meta no longer accepts the saved access (password change, removed app, expired). Reconnect the account.',
+  meta_unavailable:
+    'Meta could not be reached, is limiting requests, or answered badly. Try again shortly.',
+  draft_closed: 'The draft was already confirmed or dismissed, so it can no longer be changed.',
   rate_limited:
     'Too many requests, failed sign-ins, or a per-business budget (imports, exports, invitations). See `Retry-After`.',
   internal_error: 'Unexpected. Quote the `x-request-id`.',

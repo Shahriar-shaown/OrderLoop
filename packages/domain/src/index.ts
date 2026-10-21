@@ -8,3 +8,5 @@ export * from './orders.js';
 export * from './orders-import.js';
 export * from './settlements.js';
 export * from './automation.js';
+export * from './bd-districts.js';
+export * from './social-extract.js';

@@ -27,6 +27,10 @@
     "db:init": "pnpm db:setup && pnpm db:migrate:deploy",
     "db:seed": "pnpm --filter @orderloop/api db:seed",
     "automation:demo": "pnpm --filter @orderloop/api automation:demo",
+    "meta:demo": "pnpm --filter @orderloop/api meta:demo",
+    "meta:send-webhook": "pnpm --filter @orderloop/api meta:send-webhook",
+    "inventory:verify": "pnpm --filter @orderloop/api inventory:verify",
+    "sessions:revoke": "pnpm --filter @orderloop/api sessions:revoke",
     "services:mail": "docker compose -f infra/docker-compose.yml --profile mail up -d mailpit"
   },
   "devDependencies": {

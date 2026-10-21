@@ -14,15 +14,15 @@ export function takaToMinor(value: unknown): number | undefined {
   return Number.isSafeInteger(minor) && minor <= MAX_MINOR ? minor : undefined;
 }
 
+/** What to do about an amount with paisa, in words for the person who must fix it. */
+export const paisaAdvice = (minor: number, label: string): string =>
+  `${label} is ৳${(minor / 100).toFixed(2)}, which has paisa. Couriers take whole taka only, and a confirmed order cannot be edited: cancel this order and enter it again with prices, discount and delivery charge that make the cash to collect a whole number of taka.`;
+
 /** Providers take whole taka. An amount with paisa is refused: silently rounding someone's money is never right. */
 export function wholeTaka(minor: number, label: string): number {
   if (!Number.isSafeInteger(minor) || minor < 0)
     throw new CourierError('unsupported', `${label} must be a non-negative amount`);
-  if (minor % 100 !== 0)
-    throw new CourierError(
-      'unsupported',
-      `${label} has paisa. The courier takes whole taka only: change the order's amounts so ${label.toLowerCase()} is a whole number of taka.`,
-    );
+  if (minor % 100 !== 0) throw new CourierError('unsupported', paisaAdvice(minor, label));
   return minor / 100;
 }
 

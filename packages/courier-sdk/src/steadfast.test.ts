@@ -131,6 +131,24 @@ describe('Steadfast: booking', () => {
     });
   });
 
+  it.each([
+    ['http://example.test/t/T9'],
+    ['javascript:alert(1)'],
+    ['data:text/html,<script>1</script>'],
+    ['https://user:pw@example.test/t/T9'],
+    ['//example.test/t/T9'],
+    ['not a url'],
+  ])('drops a tracking link that is not plain https (%s)', async (link) => {
+    const { a } = adapter({
+      'POST /api/v1/create_order': {
+        body: { status: 200, consignment_id: 9, tracking_code: 'T9', tracking_link: link },
+      },
+    });
+    const r = await a.book(booking());
+    expect(r.trackingUrl).toBeUndefined();
+    expect(r.trackingCode).toBe('T9'); // the rest of the booking is kept
+  });
+
   it('refuses invalid input before sending', async () => {
     const { a, net } = adapter({ 'POST /api/v1/create_order': created });
     const cases: [Partial<BookingRequest>, RegExp][] = [

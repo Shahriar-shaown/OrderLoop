@@ -2,6 +2,7 @@ import type { DiscrepancyType } from '@orderloop/contracts';
 import type { Tx } from '@orderloop/db';
 import { assertPaisa, cashPosition, formatBdt, type OrderStatusName } from '@orderloop/domain';
 import { AuditService } from '../audit/audit.service.js';
+import { uuidv7 } from '../common/uuid.js';
 
 const money = (minor: number) => formatBdt(assertPaisa(minor));
 
@@ -57,22 +58,20 @@ export async function syncDiscrepancy(
   if (s.condition) {
     const c = s.condition;
     if (!existing) {
-      const created = await tx.discrepancy.create({
-        data: {
-          tenantId,
-          type: s.type,
-          subjectKey: s.subjectKey,
-          itemId: s.itemId ?? null,
-          shipmentId: s.shipmentId ?? null,
-          orderId: s.orderId ?? null,
-          expectedMinor: c.expectedMinor,
-          actualMinor: c.actualMinor,
-          message: c.message,
-        },
-      });
-      await record('finance.discrepancy_opened', created.id);
-      await unreconcile(tx, tenantId, s);
-      result.opened++;
+      // ON CONFLICT DO NOTHING: another evaluation may open the same problem at the same moment. A plain insert would
+      // fail on the unique index and roll back whatever status change this evaluation belongs to; this one just yields.
+      const id = uuidv7();
+      const created = await tx.$queryRaw<{ id: string }[]>`
+        INSERT INTO discrepancies (id, tenant_id, type, subject_key, item_id, shipment_id, order_id, expected_minor, actual_minor, message, updated_at)
+        VALUES (${id}::uuid, ${tenantId}::uuid, ${s.type}::"DiscrepancyType", ${s.subjectKey}, ${s.itemId ?? null}::uuid,
+                ${s.shipmentId ?? null}::uuid, ${s.orderId ?? null}::uuid, ${c.expectedMinor}::int, ${c.actualMinor}::int, ${c.message}, now())
+        ON CONFLICT (tenant_id, subject_key, type) DO NOTHING
+        RETURNING id`;
+      if (created[0]) {
+        await record('finance.discrepancy_opened', id);
+        await unreconcile(tx, tenantId, s);
+        result.opened++;
+      }
     } else if (existing.status === 'open') {
       if (
         existing.actualMinor !== c.actualMinor ||

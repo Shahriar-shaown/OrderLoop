@@ -183,6 +183,14 @@ describe('products and variants', () => {
       costMinor: 900,
       barcode: '8901234567890',
     }); // sku in the body is ignored
+    const log = (
+      await t.http.get('/v1/audit-logs?limit=100').set(bearer(owner.accessToken)).expect(200)
+    ).body.items as { action: string; targetId: string; metadata: Record<string, unknown> }[];
+    expect(
+      log.find((e) => e.targetId === variant.id && e.action === 'variant.updated'),
+    ).toMatchObject({
+      metadata: { price: { before: 1000, after: 1500 }, cost: { before: null, after: 900 } },
+    });
 
     const added = await t.http
       .post(`/v1/products/${product.id}/variants`)

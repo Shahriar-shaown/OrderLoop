@@ -16,6 +16,23 @@ export interface TxOptions {
   isolationLevel?: Prisma.TransactionIsolationLevel;
 }
 
+/** How many times in all a transaction that PostgreSQL aborted for a deadlock or a serialization failure is run. */
+export const TX_ATTEMPTS = 3;
+
+/**
+ * Did PostgreSQL abort the transaction (and nothing else), so running it again is safe and likely to succeed? Deadlock
+ * (40P01) and serialization failure (40001), however the driver and Prisma word them.
+ */
+export function isRetryableTxError(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (error.code === 'P2034') return true; // "write conflict or a deadlock"
+  return /\b(40P01|40001)\b|deadlock detected|could not serialize access/i.test(
+    `${JSON.stringify(error.meta ?? {})} ${error.message}`,
+  );
+}
+
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /** Any canonical UUID, whatever its version. */
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -63,13 +80,29 @@ export class Database {
     });
   }
 
-  /** Run `fn` in one transaction with the RLS context applied. Commits on return, rolls back on throw. */
-  withContext<T>(ctx: DbContext, fn: (tx: Tx) => Promise<T>, options: TxOptions = {}): Promise<T> {
-    return this.client.$transaction(async (tx) => {
-      // set_config(..., true) is transaction-local, so a pooled connection never carries it over.
-      await applyContext(tx, ctx);
-      return fn(tx);
-    }, options);
+  /**
+   * Run `fn` in one transaction with the RLS context applied. Commits on return, rolls back on throw.
+   * A transaction PostgreSQL aborts for a deadlock or serialization failure has changed nothing, so `fn` is run again
+   * (up to {@link TX_ATTEMPTS} times, after a short random pause): `fn` must therefore do its work through `tx` only,
+   * or be safe to repeat.
+   */
+  async withContext<T>(
+    ctx: DbContext,
+    fn: (tx: Tx) => Promise<T>,
+    options: TxOptions = {},
+  ): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.client.$transaction(async (tx) => {
+          // set_config(..., true) is transaction-local, so a pooled connection never carries it over.
+          await applyContext(tx, ctx);
+          return fn(tx);
+        }, options);
+      } catch (error) {
+        if (attempt >= TX_ATTEMPTS || !isRetryableTxError(error)) throw error;
+        await pause(10 * attempt + Math.random() * 40);
+      }
+    }
   }
 
   /** Global auth tables outside any tenant context (login lookup, refresh-token exchange). */
@@ -123,6 +156,73 @@ export class Database {
       { n: number }[]
     >`SELECT remove_push_token(${token}) AS n`;
     return rows[0]?.n ?? 0;
+  }
+
+  /** The webhook's one cross-business read: the connected (not disconnected) account that owns a Page or Instagram id. */
+  async metaConnectionFor(
+    provider: 'facebook_page' | 'instagram',
+    externalId: string,
+  ): Promise<{
+    id: string;
+    tenantId: string;
+    status: 'active' | 'needs_reconnect' | 'permission_error' | 'disconnected';
+  } | null> {
+    const rows = await this.client.$queryRaw<
+      {
+        id: string;
+        tenant_id: string;
+        status: 'active' | 'needs_reconnect' | 'permission_error' | 'disconnected';
+      }[]
+    >`SELECT id, tenant_id, status FROM meta_connection_for(${provider}::"SocialProvider", ${externalId})`;
+    const r = rows[0];
+    return r ? { id: r.id, tenantId: r.tenant_id, status: r.status } : null;
+  }
+
+  /** Webhook events saved as `received` that nothing has processed for `olderThanSeconds` (at least 30): the queue never got them. */
+  async staleReceivedSocialEvents(
+    olderThanSeconds: number,
+    maxRows = 200,
+  ): Promise<{ id: string; tenantId: string }[]> {
+    const rows = await this.client.$queryRaw<
+      { id: string; tenant_id: string }[]
+    >`SELECT id, tenant_id FROM stale_received_social_events(${Math.ceil(olderThanSeconds)}::int, ${Math.floor(maxRows)}::int)`;
+    return rows.map((r) => ({ id: r.id, tenantId: r.tenant_id }));
+  }
+
+  /** Connections that talk to the real Meta and can still work or recover, `afterId`-keyed pages in id order. For the health check. */
+  async liveSocialConnections(
+    afterId: string | null,
+    maxRows = 200,
+  ): Promise<{ id: string; tenantId: string }[]> {
+    if (afterId !== null) assertUuid('afterId', afterId);
+    const rows = await this.client.$queryRaw<
+      { id: string; tenant_id: string }[]
+    >`SELECT id, tenant_id FROM live_social_connections(${afterId}::uuid, ${Math.floor(maxRows)}::int)`;
+    return rows.map((r) => ({ id: r.id, tenantId: r.tenant_id }));
+  }
+
+  /** Connections tied to a Meta id: the person who authorised them, or a customer who wrote to them. For the deauthorize and data-deletion callbacks. */
+  async metaDeletionTargets(
+    subject: string,
+  ): Promise<{ tenantId: string; connectionId: string; reason: 'authoriser' | 'sender' }[]> {
+    const rows = await this.client.$queryRaw<
+      { tenant_id: string; connection_id: string; reason: 'authoriser' | 'sender' }[]
+    >`SELECT tenant_id, connection_id, reason FROM meta_deletion_targets(${subject})`;
+    return rows.map((r) => ({
+      tenantId: r.tenant_id,
+      connectionId: r.connection_id,
+      reason: r.reason,
+    }));
+  }
+
+  /** Retention for the Meta inbox across businesses (see the migration for exactly what goes). */
+  async purgeSocialData(
+    retentionDays: number,
+  ): Promise<{ drafts: number; events: number; sessions: number }> {
+    const rows = await this.client.$queryRaw<
+      { drafts: number; events: number; sessions: number }[]
+    >`SELECT drafts, events, sessions FROM purge_social_data(${Math.ceil(retentionDays)}::int)`;
+    return rows[0] ?? { drafts: 0, events: 0, sessions: 0 };
   }
 
   /** Liveness probe for readiness checks. */

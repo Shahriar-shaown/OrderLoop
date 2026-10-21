@@ -3,7 +3,7 @@ import { createTransport } from 'nodemailer';
 import { describe, expect, it } from 'vitest';
 import { MailService } from './mail.service.js';
 import { MemoryMailer } from './memory.mailer.js';
-import { SmtpMailer } from './smtp.mailer.js';
+import { SmtpMailer, smtpTransportOptions } from './smtp.mailer.js';
 import { templates } from './templates.js';
 
 describe('SmtpMailer', () => {
@@ -27,6 +27,21 @@ describe('SmtpMailer', () => {
         subject: 'Your OrderLoop password was changed',
       }),
     ]);
+  });
+});
+
+describe('smtpTransportOptions', () => {
+  const base = { host: 'smtp.example.test', port: 587, from: 'a@b.test' };
+  it('requires STARTTLS when asked to and the connection is not implicit TLS', () => {
+    expect(smtpTransportOptions({ ...base, secure: false, requireTls: true })).toMatchObject({
+      requireTLS: true,
+    });
+  });
+  it('adds nothing for implicit TLS or for development', () => {
+    expect(smtpTransportOptions({ ...base, secure: true, requireTls: true })).not.toHaveProperty(
+      'requireTLS',
+    );
+    expect(smtpTransportOptions({ ...base, secure: false })).not.toHaveProperty('requireTLS');
   });
 });
 

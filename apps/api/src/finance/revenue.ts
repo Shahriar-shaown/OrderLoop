@@ -80,3 +80,29 @@ export async function deliveredTotals(
     cogsMinor: lines === costed ? num(r?.cogs) : null,
   };
 }
+
+/**
+ * Orders marked returned in the period with units that did NOT come back (a partial return: the customer kept some).
+ * They are not revenue (the order is returned, not delivered) and the kept units left stock for good, so the books
+ * understate both; the finance summary says so rather than guess a split.
+ */
+export async function partiallyReturnedCount(
+  tx: Tx,
+  tenantId: string,
+  tz: string,
+  from: string,
+  to: string,
+): Promise<number> {
+  const [r] = await tx.$queryRaw<{ n: number }[]>`
+    SELECT count(DISTINCT o.id)::int AS n
+    FROM orders o
+    JOIN order_items i ON i.tenant_id = o.tenant_id AND i.order_id = o.id
+    LEFT JOIN stock_movements m ON m.tenant_id = o.tenant_id AND m.idempotency_key = 'return:' || o.id || ':' || i.id
+    JOIN LATERAL (SELECT max(h.created_at) AS at FROM order_status_history h
+                  WHERE h.tenant_id = o.tenant_id AND h.order_id = o.id AND h.to_status = 'returned') rh ON true
+    WHERE o.tenant_id = ${tenantId}::uuid AND o.status = 'returned'
+      AND COALESCE(m.on_hand_delta + m.damaged_delta, 0) < i.quantity
+      AND rh.at >= (${from}::date)::timestamp AT TIME ZONE ${tz}
+      AND rh.at <  ((${to}::date) + 1)::timestamp AT TIME ZONE ${tz}`;
+  return num(r?.n);
+}

@@ -1,3 +1,4 @@
+import { httpsLink } from './link.js';
 import { CourierError } from './errors.js';
 import { Http, RateLimiter, type FetchLike } from './http.js';
 import { toLocalPhone, wholeTaka } from './money.js';
@@ -180,8 +181,8 @@ export class SteadfastAdapter implements CourierAdapter {
     return {
       consignmentId,
       trackingCode: str(c['tracking_code']),
-      // Only a link Steadfast itself returned: we do not build tracking addresses of our own.
-      trackingUrl: str(c['tracking_link']),
+      // Only a link Steadfast itself returned, and only if it is https: we do not build tracking addresses of our own.
+      trackingUrl: httpsLink(c['tracking_link']),
       providerStatus,
       status: mapSteadfastStatus(providerStatus),
       raw: reply,

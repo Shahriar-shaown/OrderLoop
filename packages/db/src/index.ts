@@ -1,4 +1,11 @@
-export { applyContext, Database, isUniqueViolation, UUID_RE } from './database.js';
+export {
+  applyContext,
+  Database,
+  isRetryableTxError,
+  isUniqueViolation,
+  TX_ATTEMPTS,
+  UUID_RE,
+} from './database.js';
 export type { DbContext, EnabledRule, GlobalDb, Tx, TxOptions } from './database.js';
 export { APPEND_ONLY_TABLES, GLOBAL_TABLES, SYSTEM_TABLES, TENANT_TABLES } from './tables.js';
 export {
@@ -12,6 +19,10 @@ export {
   PushPlatform,
   PushProviderKind,
   ProductStatus,
+  SocialConnectionStatus,
+  SocialDraftStatus,
+  SocialEventStatus,
+  SocialProvider,
   ReservationStatus,
   Role,
   StockMovementType,

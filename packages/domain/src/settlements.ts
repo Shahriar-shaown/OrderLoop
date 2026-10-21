@@ -239,19 +239,23 @@ export function parseSettlementCsv(input: string): ParsedSettlement {
 
 /**
  * The text that identifies a line, so the same line is never recorded twice. A courier's own transaction id is used when the
- * file has one; otherwise every field that matters is (including the phone and the note), so two lines are "the same" only
- * when they say exactly the same thing. Lines with a transaction id that repeat it, and id-less lines that repeat every
- * field, are flagged duplicate; put the reason in the note to tell two genuine identical fees apart.
+ * file has one, together with the parcel (consignment, tracking code, reference) and the kind of line: a payout id often
+ * covers many parcels, so the id alone must never make two parcels "the same". Without a transaction id every field that
+ * matters is used (including the phone and the note). Lines that repeat all of that are flagged duplicate; put the reason
+ * in the note to tell two genuine identical fees apart.
  */
 export function settlementItemKeyMaterial(provider: string, r: SettlementRow): string {
-  if (r.transactionId) return `tx|${provider}|${r.transactionId.toLowerCase()}`;
-  return [
-    'row',
-    provider,
+  const parcel = [
     (r.consignmentId ?? '').toLowerCase(),
     (r.trackingCode ?? '').toLowerCase(),
     (r.reference ?? '').toLowerCase(),
     r.kind,
+  ];
+  if (r.transactionId) return ['tx', provider, r.transactionId.toLowerCase(), ...parcel].join('|');
+  return [
+    'row',
+    provider,
+    ...parcel,
     r.date,
     r.collectedMinor,
     r.deliveryChargeMinor,

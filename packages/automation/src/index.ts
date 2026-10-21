@@ -6,3 +6,6 @@ export * from './deliver.js';
 export * from './tick.js';
 export * from './handlers.js';
 export * from './providers/index.js';
+export * from './secret-box.js';
+export * from './scrub.js';
+export * from './meta/index.js';
