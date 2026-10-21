@@ -36,7 +36,13 @@ import { ReasonDialog } from '../../forms/ReasonDialog';
 import { messageFor } from '../../forms/errors';
 import { dayBefore, formatShortDay } from '../../lib/format';
 import { useDebounced } from '../../lib/hooks';
-import { invalidateOrders, SOURCE_OPTIONS, STATUS_LABEL } from '../../lib/orders';
+import {
+  CLOSE_ONLY_HINT,
+  CLOSE_STATUSES,
+  invalidateOrders,
+  SOURCE_OPTIONS,
+  STATUS_LABEL,
+} from '../../lib/orders';
 import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
 import { saveTextFile } from '../../lib/saveFile';
@@ -61,6 +67,15 @@ const BULK: { status: OrderStatus; label: string; reason?: boolean }[] = [
   { status: 'shipped', label: 'Mark shipped' },
   { status: 'cancelled', label: 'Cancel…', reason: true },
 ];
+
+/** Why one row of a bulk change failed, in words a person can act on. */
+function bulkProblem(error: { code: string; message: string } | null, target: OrderStatus): string {
+  if (error?.code === 'forbidden')
+    return CLOSE_STATUSES.includes(target)
+      ? CLOSE_ONLY_HINT
+      : 'Your role is not allowed to do that to this order.';
+  return error?.message ?? 'could not be updated';
+}
 
 const DATE_PRESETS = () => [
   { label: 'Today', from: dayBefore(0), to: dayBefore(0) },
@@ -166,7 +181,7 @@ export function OrdersScreen({
         setBulkIssues(
           result.results
             .filter((r) => !r.ok)
-            .map((r) => `#${r.orderNumber ?? '?'}: ${r.error?.message ?? 'could not be updated'}`),
+            .map((r) => `#${r.orderNumber ?? '?'}: ${bulkProblem(r.error, target)}`),
         );
       if (result.succeeded > 0 && result.failed > 0)
         toast.info(`${result.succeeded} updated, ${result.failed} could not be`);
@@ -337,17 +352,19 @@ export function OrdersScreen({
                 tone="primary"
               >{`${selected.length} order${selected.length === 1 ? '' : 's'} selected`}</Text>
               <Row gap={1} wrap>
-                {BULK.map((b) => (
-                  <Button
-                    key={b.status}
-                    size="sm"
-                    variant={b.status === 'cancelled' ? 'danger' : 'tertiary'}
-                    loading={bulkBusy}
-                    onPress={() => (b.reason ? setCancelling('bulk') : bulkWithToast(b.status))}
-                  >
-                    {b.label}
-                  </Button>
-                ))}
+                {BULK.filter((b) => !CLOSE_STATUSES.includes(b.status) || can('orders:close')).map(
+                  (b) => (
+                    <Button
+                      key={b.status}
+                      size="sm"
+                      variant={b.status === 'cancelled' ? 'danger' : 'tertiary'}
+                      loading={bulkBusy}
+                      onPress={() => (b.reason ? setCancelling('bulk') : bulkWithToast(b.status))}
+                    >
+                      {b.label}
+                    </Button>
+                  ),
+                )}
                 <Button size="sm" variant="tertiary" onPress={exportCsv}>
                   Export CSV
                 </Button>

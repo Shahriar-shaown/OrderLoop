@@ -1,4 +1,4 @@
-import { useAuth, useCan } from '@orderloop/features';
+import { useAuth, useCan, useDraftCount } from '@orderloop/features';
 import {
   Avatar,
   Button,
@@ -27,6 +27,7 @@ export function MoreScreen({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const { session } = useAuth();
   const can = useCan();
   const t = useT();
+  const drafts = useDraftCount(can('orders:read'));
   if (!session) return null;
   const version = Constants.expoConfig?.version ?? '';
   return (
@@ -51,7 +52,13 @@ export function MoreScreen({ onSignOut }: { onSignOut: () => Promise<void> }) {
       <Card variant="outlined" padding="sm">
         <Stack gap={1}>
           {MORE_ITEMS.filter((i) => !i.needs || can(i.needs)).map((i) => (
-            <NavItem key={i.href} href={i.href} label={i.label} icon={i.icon} />
+            <NavItem
+              key={i.href}
+              href={i.href}
+              label={i.label}
+              icon={i.icon}
+              badge={i.href === '/social-orders' ? drafts.data : undefined}
+            />
           ))}
         </Stack>
       </Card>

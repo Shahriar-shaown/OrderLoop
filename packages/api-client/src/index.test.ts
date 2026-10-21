@@ -842,3 +842,185 @@ describe('automation and notifications', () => {
     ]);
   });
 });
+
+describe('Meta calls', () => {
+  const line = (s: Seen) => `${s.init.method} ${s.url}`;
+  const ID = '0197b0a0-0000-7000-8000-000000000001';
+  const NOW = '2026-10-21T00:00:00Z';
+  const connection = {
+    id: ID,
+    provider: 'facebook_page',
+    externalId: 'mock_page_1',
+    displayName: 'Demo Page',
+    username: null,
+    linkedPageId: null,
+    status: 'active',
+    mock: true,
+    scopes: [],
+    tokenExpiresAt: null,
+    lastCheckedAt: null,
+    lastErrorCode: null,
+    lastErrorMessage: null,
+    connectedAt: NOW,
+    disconnectedAt: null,
+  };
+  const draft = {
+    id: ID,
+    status: 'needs_review',
+    mock: true,
+    provider: 'facebook_page',
+    connectionId: ID,
+    connectionName: 'Demo Page',
+    senderId: 'mock-customer-1',
+    customerName: null,
+    phone: null,
+    snippet: null,
+    itemCount: 0,
+    unmatchedItemCount: 0,
+    messageCount: 1,
+    firstMessageAt: NOW,
+    lastMessageAt: NOW,
+    orderId: null,
+    orderNumber: null,
+  };
+  const fullDraft = {
+    ...draft,
+    mode: 'mock',
+    fields: { items: [] },
+    suggestedDivision: null,
+    warnings: [],
+    messages: [],
+    duplicates: [],
+    dismissedReason: null,
+    reviewedAt: null,
+    createdAt: NOW,
+  };
+  const make = (status: number, body: unknown, seen: Seen[]) =>
+    createApiClient({
+      baseUrl: 'http://x',
+      fetch: stub(status, body, seen).fetchImpl,
+      getAccessToken: () => 't',
+    });
+
+  it('reads the overview and the sign-in session, and starts the sign-in and a reconnect', async () => {
+    const seen: Seen[] = [];
+    const overview = {
+      mode: 'mock',
+      liveConfigured: false,
+      webhookUrl: null,
+      scopes: [],
+      connections: [connection],
+      openDrafts: 2,
+    };
+    expect((await make(200, overview, seen).meta.overview()).openDrafts).toBe(2);
+    const start = { mode: 'live', authorizeUrl: 'https://facebook.test/dialog', state: 's' };
+    await make(200, start, seen).meta.startOauth();
+    await make(200, start, seen).meta.reconnect(ID);
+    const session = {
+      mode: 'live',
+      id: ID,
+      expiresAt: NOW,
+      pages: [],
+      reconnectConnectionId: null,
+    };
+    await make(200, session, seen).meta.session(ID);
+    expect(seen.map(line)).toEqual([
+      'GET http://x/v1/integrations/meta',
+      'POST http://x/v1/integrations/meta/oauth/start',
+      `POST http://x/v1/integrations/meta/connections/${ID}/reconnect`,
+      `GET http://x/v1/integrations/meta/oauth/sessions/${ID}`,
+    ]);
+  });
+
+  it('connects chosen pages, and refuses an empty choice before sending', async () => {
+    const seen: Seen[] = [];
+    const result = { mode: 'live', connections: [connection], failures: [] };
+    const api = make(201, result, seen);
+    await api.meta.connect({ sessionId: ID, pageIds: ['p1'] });
+    await expect(api.meta.connect({ sessionId: ID, pageIds: [] })).rejects.toMatchObject({
+      code: 'validation_failed',
+    });
+    expect(seen.map(line)).toEqual(['POST http://x/v1/integrations/meta/connections']);
+  });
+
+  it('disconnects, adds a mock account and injects a mock message', async () => {
+    const seen: Seen[] = [];
+    await make(200, connection, seen).meta.disconnect(ID);
+    await make(201, connection, seen).meta.mockConnection({ displayName: 'Demo Page' });
+    const event = {
+      mode: 'mock',
+      mock: true,
+      eventId: ID,
+      messageId: 'm1',
+      duplicate: false,
+      status: 'processed',
+      draftId: ID,
+    };
+    const result = await make(200, event, seen).meta.mockEvent({
+      connectionId: ID,
+      senderId: 'rina',
+      text: 'order',
+    });
+    expect(result.draftId).toBe(ID);
+    expect(seen.map(line)).toEqual([
+      `DELETE http://x/v1/integrations/meta/connections/${ID}`,
+      'POST http://x/v1/integrations/meta/mock/connection',
+      'POST http://x/v1/integrations/meta/mock/events',
+    ]);
+    expect(JSON.parse(seen[2]!.init.body as string)).toMatchObject({ senderId: 'rina' });
+  });
+
+  it('lists drafts with filters, reads one, edits it and dismisses it with a reason', async () => {
+    const seen: Seen[] = [];
+    const page = {
+      mode: 'mock',
+      items: [draft],
+      nextCursor: null,
+      counts: { needs_review: 1, confirmed: 0, dismissed: 0 },
+    };
+    await make(200, page, seen).socialDrafts.list({
+      status: 'needs_review',
+      cursor: 'c1',
+      limit: 10,
+    });
+    await make(200, fullDraft, seen).socialDrafts.get(ID);
+    await make(200, fullDraft, seen).socialDrafts.update(ID, { phone: '01712345678', note: null });
+    await make(200, fullDraft, seen).socialDrafts.dismiss(ID, 'spam');
+    expect(seen.map(line)).toEqual([
+      'GET http://x/v1/social-drafts?status=needs_review&cursor=c1&limit=10',
+      `GET http://x/v1/social-drafts/${ID}`,
+      `PATCH http://x/v1/social-drafts/${ID}`,
+      `POST http://x/v1/social-drafts/${ID}/dismiss`,
+    ]);
+    expect(JSON.parse(seen[3]!.init.body as string)).toEqual({ reason: 'spam' });
+    await expect(make(200, fullDraft, seen).socialDrafts.update(ID, {})).rejects.toBeTruthy();
+  });
+
+  it('confirms with the order body and its key, and hands a closed draft back as an error code', async () => {
+    const seen: Seen[] = [];
+    const body = {
+      customer: { name: 'Rina', phone: '01712345678' },
+      address: {
+        recipientName: 'Rina',
+        phone: '01712345678',
+        line1: 'Road 3',
+        area: 'Sadar',
+        district: 'Dhaka',
+        division: 'Dhaka',
+      },
+      items: [{ variantId: ID, quantity: 1 }],
+      idempotencyKey: 'confirm-key-0001',
+    };
+    await expect(
+      make(
+        409,
+        { type: 'x', title: 'Closed', status: 409, code: 'draft_closed' },
+        seen,
+      ).socialDrafts.confirm(ID, body),
+    ).rejects.toMatchObject({ status: 409, code: 'draft_closed' });
+    expect(JSON.parse(seen[0]!.init.body as string).idempotencyKey).toBe('confirm-key-0001');
+    await expect(
+      make(200, {}, seen).socialDrafts.confirm(ID, { ...body, idempotencyKey: undefined } as never),
+    ).rejects.toBeTruthy();
+  });
+});

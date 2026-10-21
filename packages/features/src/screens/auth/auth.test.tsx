@@ -1,4 +1,5 @@
-import { act, screen, waitFor } from '@testing-library/react';
+import { ApiError } from '@orderloop/api-client';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '../../../test/mount';
@@ -38,6 +39,24 @@ describe('sign-in and sign-up screens', () => {
       expect(screen.getByLabelText(new RegExp(`^${label}`))).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Create account' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy();
+  });
+
+  it('sign-up shows a closed sign-up as a clear alert with a way to sign in', async () => {
+    mount(<SignupScreen />, {
+      auth: {
+        register: async () => {
+          throw new ApiError('closed', 403, 'registration_closed');
+        },
+      },
+    });
+    await userEvent.type(screen.getByLabelText(/^Your name/), 'Rina');
+    await userEvent.type(screen.getByLabelText(/^Business name/), 'Rina Shop');
+    await userEvent.type(screen.getByLabelText(/^Email/), 'rina@example.com');
+    await userEvent.type(screen.getByLabelText(/^Password/), 'Str0ng!pass');
+    await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/Sign-up is closed for now/);
+    expect(within(alert).getByRole('link', { name: 'Sign in' })).toBeTruthy();
   });
 
   it('an incomplete reset link says so and offers a new one', () => {

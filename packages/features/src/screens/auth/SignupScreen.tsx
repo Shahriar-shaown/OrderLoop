@@ -1,9 +1,10 @@
 import { RegisterBody } from '@orderloop/contracts';
-import { Button, Form, Link, Text, useNavigation } from '@orderloop/ui';
+import { Alert, Button, Form, Link, Stack, Text, useNavigation } from '@orderloop/ui';
 import { useEffect } from 'react';
 import { useAuth } from '../../core/auth';
 import { useRuntime } from '../../core/runtime';
 import { AuthLayout } from '../../shell/AuthLayout';
+import { REGISTRATION_CLOSED } from '../../forms/errors';
 import { FormError } from '../../forms/FormError';
 import { FormPasswordField } from '../../forms/FormPasswordField';
 import { FormTextField } from '../../forms/FormTextField';
@@ -35,7 +36,19 @@ export function SignupScreen() {
       }
     >
       <Form onSubmit={submit}>
-        <FormError message={form.formError} />
+        {form.formError === REGISTRATION_CLOSED ? (
+          // Not a mistake in the form: nothing typed here will help, so say what to do and point at sign-in.
+          <Alert tone="error">
+            <Stack gap={1}>
+              <Text>{REGISTRATION_CLOSED}</Text>
+              <Text>
+                Already have an account? <Link href="/login">Sign in</Link>
+              </Text>
+            </Stack>
+          </Alert>
+        ) : (
+          <FormError message={form.formError} />
+        )}
         <FormTextField
           control={form.control}
           name="name"

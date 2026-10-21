@@ -4,6 +4,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { mount } from '../../../test/mount';
+import { expectNamedControls } from '../../../test/a11y';
 import { CustomerDetailScreen } from './CustomerDetailScreen';
 import { CustomersScreen } from './CustomersScreen';
 import { NewOrderScreen } from './NewOrderScreen';
@@ -230,6 +231,34 @@ describe('orders list', () => {
     });
     expect(await screen.findByText(/only 1 available, 4 needed/)).toBeTruthy();
     expect(screen.getByText('1 order selected')).toBeTruthy(); // only the failed one stays selected
+  });
+
+  it('says plainly when a bulk change is refused for a row the role may not touch', async () => {
+    const bulk = vi.fn(async (body: { orderIds: string[] }) => ({
+      results: body.orderIds.map((orderId) => ({
+        orderId,
+        orderNumber: 1001,
+        ok: false,
+        status: null,
+        error: { code: 'forbidden', message: 'Forbidden' },
+      })),
+      succeeded: 0,
+      failed: body.orderIds.length,
+    }));
+    mount(<OrdersScreen />, {
+      orders: { list: list([summary(1, 'confirmed')]), bulkChangeStatus: bulk },
+    });
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Select order 1001' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(
+      await screen.findByText('#1001: Your role is not allowed to do that to this order.'),
+    ).toBeTruthy();
+  });
+
+  it('offers no bulk Delivered or Returned (those need orders:close)', async () => {
+    mount(<OrdersScreen />, { orders: { list: list([summary(1, 'in_transit')]) } }, 'STAFF');
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Select order 1001' }));
+    expect(screen.queryByRole('button', { name: /delivered|returned/i })).toBeNull();
   });
 
   it('the selection bar clears the selection', async () => {
@@ -547,24 +576,222 @@ describe('order page', () => {
     );
   });
 
-  it('a return asks for each line’s condition', async () => {
-    const order = detail('return_requested', ['returned', 'delivered']);
+  /** A returned order with two lines: 2 × Red / M and 1 × Blue / L. */
+  const twoLines = () => {
+    const base = detail('return_requested', ['returned', 'delivered']);
+    const blue = {
+      ...base.items[0]!,
+      id: '0197b0a0-0000-7000-8000-0000000000a2',
+      variantId: '0197b0a0-0000-7000-8000-0000000000b2',
+      sku: 'TEE-2',
+      variantName: 'Blue / L',
+      quantity: 1,
+    };
+    return { ...base, items: [base.items[0]!, blue] };
+  };
+  const confirmReturn = async (dialog: HTMLElement) => {
+    await userEvent.type(within(dialog).getByLabelText(/Reason/), 'Arrived torn');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark as returned' }));
+  };
+
+  it('a return starts with every line fully back and resaleable, and sends no list for that', async () => {
+    const order = twoLines();
     const o = api(order);
     mount(<OrderDetailScreen id={order.id} />, o);
     await userEvent.click(await screen.findByRole('button', { name: 'Mark as returned' }));
     const dialog = await screen.findByRole('dialog');
-    await userEvent.selectOptions(within(dialog).getByLabelText('Condition: TEE-1 × 2'), 'DAMAGED');
-    await userEvent.type(within(dialog).getByLabelText(/Reason/), 'Arrived torn');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark as returned' }));
+    expect(within(dialog).getByLabelText('Returned: TEE-1')).toHaveValue('2');
+    expect(within(dialog).getByLabelText('Returned: TEE-2')).toHaveValue('1');
+    expect(within(dialog).getByText('Returning 2 of 2 Red / M; 1 of 1 Blue / L')).toBeTruthy();
+    expectNamedControls();
+    await confirmReturn(dialog);
+    await waitFor(() =>
+      expect(o.orders.changeStatus).toHaveBeenCalledWith(order.id, {
+        status: 'returned',
+        reason: 'Arrived torn',
+        ifVersion: 3,
+      }),
+    );
+  });
+
+  it('a partial return lists each returned line, with a quantity only where it is partial', async () => {
+    const order = twoLines();
+    const o = api(order);
+    mount(<OrderDetailScreen id={order.id} />, o);
+    await userEvent.click(await screen.findByRole('button', { name: 'Mark as returned' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByLabelText('Decrease Returned: TEE-1'));
+    await userEvent.click(within(dialog).getByLabelText('Decrease Returned: TEE-2'));
+    expect(within(dialog).getByText('Returning 1 of 2 Red / M; 0 of 1 Blue / L')).toBeTruthy();
+    await userEvent.selectOptions(within(dialog).getByLabelText('Condition: TEE-1'), 'DAMAGED');
+    expect(within(dialog).queryByLabelText('Condition: TEE-2')).toBeNull();
+    await confirmReturn(dialog);
     await waitFor(() =>
       expect(o.orders.changeStatus).toHaveBeenCalledWith(
         order.id,
         expect.objectContaining({
           status: 'returned',
-          returnedItems: [{ itemId: order.items[0]!.id, condition: 'DAMAGED' }],
+          returnedItems: [{ itemId: order.items[0]!.id, condition: 'DAMAGED', quantity: 1 }],
         }),
       ),
     );
+  });
+
+  it('a full return with one damaged line lists every line, because an omitted line would add nothing', async () => {
+    const order = twoLines();
+    const o = api(order);
+    mount(<OrderDetailScreen id={order.id} />, o);
+    await userEvent.click(await screen.findByRole('button', { name: 'Mark as returned' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Condition: TEE-2'), 'DAMAGED');
+    await confirmReturn(dialog);
+    await waitFor(() =>
+      expect(o.orders.changeStatus).toHaveBeenCalledWith(
+        order.id,
+        expect.objectContaining({
+          returnedItems: [
+            { itemId: order.items[0]!.id, condition: 'RESALEABLE' },
+            { itemId: order.items[1]!.id, condition: 'DAMAGED' },
+          ],
+        }),
+      ),
+    );
+  });
+
+  it('will not mark a return with nothing back', async () => {
+    const order = twoLines();
+    const o = api(order);
+    mount(<OrderDetailScreen id={order.id} />, o);
+    await userEvent.click(await screen.findByRole('button', { name: 'Mark as returned' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByLabelText('Decrease Returned: TEE-1'));
+    await userEvent.click(within(dialog).getByLabelText('Decrease Returned: TEE-1'));
+    await userEvent.click(within(dialog).getByLabelText('Decrease Returned: TEE-2'));
+    await confirmReturn(dialog);
+    expect(await within(dialog).findByText(/at least one item came back/)).toBeTruthy();
+    expect(o.orders.changeStatus).not.toHaveBeenCalled();
+  });
+
+  it('shows a server error on a returned entry beside the line it belongs to', async () => {
+    const order = twoLines();
+    const o = api(order);
+    // Only TEE-2 is listed, so entry 0 of the list is TEE-2, not the first line of the order.
+    o.orders.changeStatus.mockRejectedValueOnce(
+      new ApiError('bad', 400, 'validation_failed', [
+        { path: 'body.returnedItems.0.quantity', message: 'More than was sent' },
+      ]),
+    );
+    mount(<OrderDetailScreen id={order.id} />, o);
+    await userEvent.click(await screen.findByRole('button', { name: 'Mark as returned' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByLabelText('Decrease Returned: TEE-1'));
+    await userEvent.click(within(dialog).getByLabelText('Decrease Returned: TEE-1'));
+    await confirmReturn(dialog);
+    const message = await within(dialog).findByText('More than was sent');
+    expect(message.closest('[role="alert"]')).toBeTruthy();
+    const line = message.parentElement!;
+    expect(within(line).getByLabelText('Returned: TEE-2')).toBeTruthy();
+  });
+
+  it('tells a person what to do when the courier says only part was delivered', async () => {
+    const order = detail('in_transit', ['delivered', 'delivery_failed']);
+    const o = api(order);
+    (o as Record<string, unknown>).shipments = {
+      forOrder: async () => [
+        {
+          id: 's1',
+          status: 'partial_delivered',
+          provider: 'steadfast',
+          createdAt: '2026-10-18T06:00:00.000Z',
+        },
+      ],
+      get: async () => null,
+    };
+    mount(<OrderDetailScreen id={order.id} />, o);
+    expect(await screen.findByText('The courier delivered only part of the parcel')).toBeTruthy();
+    expect(screen.getByText(/enter only the units that came back/)).toBeTruthy();
+  });
+
+  describe('closing an order by hand needs orders:close', () => {
+    const closable = () => detail('shipped', ['in_transit', 'delivered', 'return_requested']);
+    it('hides Mark delivered from staff and says why', async () => {
+      const order = closable();
+      mount(<OrderDetailScreen id={order.id} />, api(order), 'STAFF');
+      await screen.findByRole('heading', { name: '#1001' });
+      expect(screen.queryByRole('button', { name: 'Mark delivered' })).toBeNull();
+      expect(
+        screen.getByText(
+          'Only an owner, admin or manager can mark an order delivered or returned by hand.',
+        ),
+      ).toBeTruthy();
+    });
+
+    it('hides Mark as returned from staff', async () => {
+      const order = detail('return_requested', ['returned', 'delivered']);
+      mount(<OrderDetailScreen id={order.id} />, api(order), 'STAFF');
+      await screen.findByRole('heading', { name: '#1001' });
+      expect(screen.queryByRole('button', { name: 'Mark as returned' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Mark delivered' })).toBeNull();
+      expect(screen.getByText(/Only an owner, admin or manager can mark/)).toBeTruthy();
+    });
+
+    it('offers both to a manager, and gives no hint', async () => {
+      const order = detail('return_requested', ['returned', 'delivered']);
+      mount(<OrderDetailScreen id={order.id} />, api(order), 'MANAGER');
+      expect(await screen.findByRole('button', { name: 'Mark as returned' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Mark delivered' })).toBeTruthy();
+      expect(screen.queryByText(/Only an owner, admin or manager can mark/)).toBeNull();
+    });
+
+    it('still lets staff do the moves that are theirs', async () => {
+      const order = closable();
+      mount(<OrderDetailScreen id={order.id} />, api(order), 'STAFF');
+      expect(await screen.findByRole('button', { name: 'Mark in transit' })).toBeTruthy();
+    });
+  });
+
+  it('warns that a cash amount with paisa cannot be booked, and disables Book', async () => {
+    const order = { ...detail('ready_to_ship', ['shipped', 'cancelled']), codHasPaisa: true };
+    const o = api(order);
+    (o as Record<string, unknown>).couriers = {
+      list: async () => [
+        {
+          provider: 'mock',
+          name: 'Simulated courier',
+          simulated: true,
+          available: true,
+          capabilities: { locations: false, quote: false },
+          connection: { enabled: true, hasCredentials: false },
+        },
+      ],
+    };
+    mount(<OrderDetailScreen id={order.id} />, o);
+    expect(await screen.findByText('This order cannot be booked with a courier')).toBeTruthy();
+    expect(screen.getByText(/Cancel the order and enter it again/)).toBeTruthy();
+    const book = screen.getByRole('button', { name: 'Book simulated parcel' });
+    expect(book.hasAttribute('disabled') || book.getAttribute('aria-disabled') === 'true').toBe(
+      true,
+    );
+  });
+
+  it('gives a soft heads-up before confirming when a courier is on and the cash has paisa', async () => {
+    const order = { ...detail('pending_confirmation', ['confirmed']), codHasPaisa: true };
+    const o = api(order);
+    (o as Record<string, unknown>).couriers = {
+      list: async () => [
+        {
+          provider: 'mock',
+          name: 'Simulated courier',
+          simulated: true,
+          available: true,
+          capabilities: { locations: false, quote: false },
+          connection: { enabled: true, hasCredentials: false },
+        },
+      ],
+    };
+    mount(<OrderDetailScreen id={order.id} />, o);
+    expect(await screen.findByText('Cash to collect has paisa')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Confirm order' })).toBeTruthy();
   });
 
   it('says to book a courier when the order is ready to ship, and shows the booking form', async () => {

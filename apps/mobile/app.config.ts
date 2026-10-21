@@ -20,6 +20,12 @@ if (variant !== 'development' && /(^|\.)example\.com\b/.test(process.env.EXPO_PU
     `EXPO_PUBLIC_API_URL is still the placeholder (${process.env.EXPO_PUBLIC_API_URL}): set your server's address in eas.json`,
   );
 
+// Preview and store builds carry customers' data: they must talk to the server over TLS.
+if (variant !== 'development' && !/^https:\/\//.test(process.env.EXPO_PUBLIC_API_URL ?? ''))
+  throw new Error(
+    `EXPO_PUBLIC_API_URL must be an https address for the ${variant} build (got "${process.env.EXPO_PUBLIC_API_URL ?? ''}")`,
+  );
+
 const IDS: Record<Variant, { name: string; id: string; scheme: string }> = {
   development: { name: 'OrderLoop (Dev)', id: 'com.orderloop.app.dev', scheme: 'orderloop-dev' },
   preview: {
@@ -66,6 +72,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: id,
+    // The refresh token lives in the Keystore and cannot be restored on another phone anyway: keep the rest of the app's data out
+    // of cloud backups too.
+    allowBackup: false,
     adaptiveIcon: {
       backgroundColor: INDIGO,
       foregroundImage: './assets/images/android-icon-foreground.png',

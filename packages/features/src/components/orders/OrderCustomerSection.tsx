@@ -83,6 +83,8 @@ export function OrderCustomerSection({
   name,
   phoneError,
   nameError,
+  phoneHint,
+  nameHint,
 }: {
   /** An order being edited: its customer, not changeable here. */
   fixed?: { name: string; phone: string } | undefined;
@@ -96,6 +98,9 @@ export function OrderCustomerSection({
   name: FieldProps;
   phoneError?: string | undefined;
   nameError?: string | undefined;
+  /** Replaces the phone box's usual hint (a draft says "check this"). */
+  phoneHint?: string | undefined;
+  nameHint?: string | undefined;
 }) {
   const api = useApi();
   const { colors } = useTheme();
@@ -192,11 +197,17 @@ export function OrderCustomerSection({
             kind="text"
             keyboardType="phone-pad"
             placeholder="01712-345678"
-            hint="A number already on file is matched to that customer."
+            hint={phoneHint ?? 'A number already on file is matched to that customer.'}
             {...phone}
             error={phoneError}
           />
-          <TextField label="Customer name" required {...name} error={nameError} />
+          <TextField
+            label="Customer name"
+            required
+            {...name}
+            error={nameError}
+            {...(nameHint ? { hint: nameHint } : {})}
+          />
         </FieldGrid>
       )}
     </Section>

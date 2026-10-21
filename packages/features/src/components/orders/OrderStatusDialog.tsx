@@ -1,17 +1,22 @@
 import type { OrderDetail, OrderStatus } from '@orderloop/contracts';
 import { REASON_REQUIRED } from '@orderloop/domain';
-import { FormDialog, SelectField, Stack, Text, TextField, useToast } from '@orderloop/ui';
+import { Alert, FormDialog, Stack, Text, TextField, useT, useToast } from '@orderloop/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useFormState } from '../../forms/forms';
 import { hasReason, REASON_ERROR } from '../../forms/ReasonDialog';
-import { invalidateOrders, STATUS_ACTION, STATUS_LABEL } from '../../lib/orders';
+import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
-
-const CONDITIONS = [
-  { value: 'RESALEABLE', label: 'Resaleable: back on the shelf' },
-  { value: 'DAMAGED', label: 'Damaged: to the damaged bucket' },
-];
+import { CLOSE_STATUSES, invalidateOrders, STATUS_ACTION, STATUS_LABEL } from '../../lib/orders';
+import {
+  lineName,
+  returnedQuantity,
+  returnLineErrors,
+  returnPlan,
+  startingPicks,
+  type ReturnPick,
+} from '../../lib/returns';
+import { ReturnLines } from './ReturnLines';
 
 const EFFECT: Partial<Record<OrderStatus, string>> = {
   confirmed: 'The stock for these items is set aside for this order.',
@@ -34,23 +39,32 @@ function StatusForm({
   const queryClient = useQueryClient();
   const needsReason = REASON_REQUIRED.includes(status);
   const form = useFormState({ reason: '' });
-  const [conditions, setConditions] = useState<Record<string, string>>({});
+  const t = useT();
+  const [picks, setPicks] = useState(() => startingPicks(order.items));
+  const plan = returnPlan(order.items, picks);
+  const lineErrors = returnLineErrors(form.errors, plan.entries);
+
+  /** "Returning 1 of 2 Red / M; 0 of 1 Blue / L": what the person is about to tell the server. */
+  const summary = `${t('Returning')} ${order.items
+    .map(
+      (i) =>
+        `${t('{a} of {b}', { a: returnedQuantity(i, picks[i.id]), b: i.quantity })} ${lineName(i)}`,
+    )
+    .join('; ')}`;
 
   async function submit() {
     const reason = form.values.reason.trim();
     if (needsReason && !hasReason(reason)) return form.setErrors({ reason: REASON_ERROR });
+    if (status === 'returned' && plan.nothing) {
+      return form.setFormError('Say how many of at least one item came back.');
+    }
     const ok = await form.run(async () => {
       await api.orders.changeStatus(order.id, {
         status,
         ...(reason ? { reason } : {}),
         ifVersion: order.version,
-        ...(status === 'returned'
-          ? {
-              returnedItems: Object.entries(conditions).map(([itemId, condition]) => ({
-                itemId,
-                condition: condition as 'RESALEABLE' | 'DAMAGED',
-              })),
-            }
+        ...(status === 'returned' && plan.returnedItems
+          ? { returnedItems: plan.returnedItems }
           : {}),
       });
       await invalidateOrders(queryClient);
@@ -74,23 +88,24 @@ function StatusForm({
     >
       {EFFECT[status] && <Text>{EFFECT[status]}</Text>}
       {status === 'returned' && (
-        <Stack gap={2}>
-          {order.items.map((i) => (
-            <SelectField
-              key={i.id}
-              label={`Condition: ${i.sku} × ${i.quantity}`}
-              options={CONDITIONS}
-              value={conditions[i.id] ?? 'RESALEABLE'}
-              onChange={(v) => setConditions((c) => ({ ...c, [i.id]: v }))}
-            />
-          ))}
+        <Stack gap={3}>
+          <Text variant="caption" tone="muted">
+            Say how many of each item came back. Items you set to 0 add nothing to your stock.
+          </Text>
+          <ReturnLines
+            items={order.items}
+            picks={picks}
+            errors={lineErrors}
+            onChange={(id: string, pick: ReturnPick) => setPicks((p) => ({ ...p, [id]: pick }))}
+          />
+          <Alert tone="info">{summary}</Alert>
         </Stack>
       )}
       {(needsReason || status === 'confirmed') && (
         <TextField
           label={needsReason ? 'Reason' : 'Note (optional)'}
           required={needsReason}
-          autoFocus
+          autoFocus={status !== 'returned'}
           placeholder={
             status === 'cancelled'
               ? 'Customer cancelled, no answer, out of stock…'
@@ -113,6 +128,9 @@ export function OrderStatusDialog({
   status: OrderStatus | null;
   onClose: () => void;
 }) {
+  const can = useCan();
+  // Delivered and Returned need `orders:close`. Their buttons are hidden without it; this is the last line of defence.
+  if (status && CLOSE_STATUSES.includes(status) && !can('orders:close')) return null;
   return status ? (
     <StatusForm key={`${order.id}:${status}`} order={order} status={status} onClose={onClose} />
   ) : null;

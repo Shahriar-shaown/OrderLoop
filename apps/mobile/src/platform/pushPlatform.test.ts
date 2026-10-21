@@ -74,6 +74,7 @@ describe('push on a phone that cannot do it', () => {
   it.each([
     ['a simulator', { isDevice: false }],
     ['Expo Go', { isExpoGo: true }],
+    ['a build made before the notification module was added', { nativeModulesMissing: true }],
     ['a build with no project id', { projectId: undefined }],
     ['the web', { os: 'web' }],
   ])(

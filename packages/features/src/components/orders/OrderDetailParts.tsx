@@ -30,6 +30,15 @@ import { PaymentBadge } from './PaymentBadge';
 
 /** What the Next banner says for each status, in plain words. It never promises a date. */
 function nextText(order: OrderDetail, live: Shipment | undefined): { title: string; text: string } {
+  // The courier does not say which units came back, and the order does not move by itself: a person records it.
+  if (
+    live?.status === 'partial_delivered' &&
+    ['shipped', 'in_transit', 'delivery_failed', 'return_requested'].includes(order.status)
+  )
+    return {
+      title: 'The courier delivered only part of the parcel',
+      text: 'Check what came back. Mark the order returned and enter only the units that came back (0 for the rest), or mark it delivered if the customer kept everything.',
+    };
   switch (order.status) {
     case 'pending_confirmation':
       return {

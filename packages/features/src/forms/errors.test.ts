@@ -11,6 +11,22 @@ describe('messageFor', () => {
     expect(messageFor(new ApiError('x', 0, 'network_error'))).toMatch(/Cannot reach the server/);
     expect(messageFor(new ApiError('x', 400, 'token_invalid'))).toMatch(/invalid or has expired/);
     expect(messageFor(new ApiError('x', 403, 'forbidden'))).toMatch(/permission/);
+    expect(messageFor(new ApiError('x', 403, 'registration_closed'))).toBe(
+      'Sign-up is closed for now. Ask the person who invited you to send an invitation, or contact support.',
+    );
+    // The booking refusal for paisa is worded for the person; other courier refusals keep the server's words.
+    expect(
+      messageFor(
+        new ApiError(
+          'The cash to collect is ৳10.50, which has paisa. …',
+          422,
+          'courier_unsupported',
+        ),
+      ),
+    ).toMatch(/Cancel the order and enter it again/);
+    expect(
+      messageFor(new ApiError('Pathao has no way to cancel.', 422, 'courier_unsupported')),
+    ).toBe('Pathao has no way to cancel.');
   });
 
   it('passes through the API message for conflicts and stock problems', () => {

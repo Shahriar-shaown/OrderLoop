@@ -11,6 +11,8 @@ export interface PushSystem {
   isDevice: boolean;
   /** Expo Go cannot receive push; a development or store build can. */
   isExpoGo: boolean;
+  /** The app binary has no notification module (built before push was added): rebuild it. */
+  nativeModulesMissing?: boolean;
   /** The EAS project the push token belongs to (`extra.eas.projectId`); absent until the project is created. */
   projectId: string | undefined;
   getPermission(): Promise<{ status: PushPermission; canAskAgain: boolean }>;
@@ -43,11 +45,13 @@ export function createPushPlatform(system: PushSystem): PushPlatform {
     ? 'this is not a phone'
     : system.isExpoGo
       ? 'Expo Go cannot receive push notifications (use a development build)'
-      : !system.isDevice
-        ? 'push needs a real phone, not a simulator'
-        : !system.projectId
-          ? 'there is no EAS project id in the app config (set EAS_PROJECT_ID)'
-          : null;
+      : system.nativeModulesMissing
+        ? 'this build of the app has no notification module (rebuild the development client)'
+        : !system.isDevice
+          ? 'push needs a real phone, not a simulator'
+          : !system.projectId
+            ? 'there is no EAS project id in the app config (set EAS_PROJECT_ID)'
+            : null;
   const supported = reason === null;
   const warned = new Set<string>();
   const logOnce = (message: string) => {

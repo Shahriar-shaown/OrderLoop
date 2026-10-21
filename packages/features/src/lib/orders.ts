@@ -51,6 +51,11 @@ export const STATUS_ACTION: Record<OrderStatus, string> = {
   returned: 'Mark as returned',
 };
 
+/** Moving an order to one of these by hand needs `orders:close`: it ends the order and settles its stock and cash. */
+export const CLOSE_STATUSES: readonly OrderStatus[] = ['delivered', 'returned'];
+export const CLOSE_ONLY_HINT =
+  'Only an owner, admin or manager can mark an order delivered or returned by hand.';
+
 export const SOURCE_LABEL: Record<OrderSource, string> = {
   facebook: 'Facebook',
   instagram: 'Instagram',

@@ -75,6 +75,12 @@ export const MOCK_OUTCOME_OPTIONS: SelectOption[] = [
 export const providerName = (provider: CourierProvider, names?: Record<string, string>) =>
   names?.[provider] ?? provider;
 
+/** A courier a parcel can be booked with right now: connected, turned on, and (unless simulated) with credentials. */
+export const usable = (c: CourierEntry) =>
+  c.available &&
+  !!c.connection?.enabled &&
+  (c.provider === 'mock' || !!c.connection.hasCredentials);
+
 export function useCouriers() {
   const api = useApi();
   return useQuery({ queryKey: ['couriers'], queryFn: () => api.couriers.list() });

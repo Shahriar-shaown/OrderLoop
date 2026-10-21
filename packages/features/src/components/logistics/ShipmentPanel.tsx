@@ -31,8 +31,9 @@ import {
   useCouriers,
   useOrderShipments,
   useShipment,
+  usable,
 } from '../../lib/couriers';
-import { messageFor } from '../../forms/errors';
+import { COD_PAISA_ADVICE, hasPaisa, messageFor } from '../../forms/errors';
 import { formatDayTime, formatWhen } from '../../lib/format';
 import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
 import { useFormState } from '../../forms/forms';
@@ -308,11 +309,6 @@ function ShipmentCard({
   );
 }
 
-const usable = (c: CourierEntry) =>
-  c.available &&
-  !!c.connection?.enabled &&
-  (c.provider === 'mock' || !!c.connection.hasCredentials);
-
 function BookForm({ order, couriers }: { order: OrderDetail; couriers: CourierEntry[] }) {
   const api = useApi();
   const toast = useToast();
@@ -356,6 +352,8 @@ function BookForm({ order, couriers }: { order: OrderDetail; couriers: CourierEn
   const cities = place('cities', '');
   const zones = place('zones', form.values.cityId);
   const areas = place('areas', form.values.zoneId);
+
+  const paisa = hasPaisa(order);
 
   if (!options.length)
     return (
@@ -426,6 +424,11 @@ function BookForm({ order, couriers }: { order: OrderDetail; couriers: CourierEn
   return (
     <Stack gap={3}>
       {form.formError ? <Alert tone="error">{form.formError}</Alert> : null}
+      {paisa && (
+        <Alert tone="warning" title="This order cannot be booked with a courier">
+          {COD_PAISA_ADVICE}
+        </Alert>
+      )}
       <SelectField
         label="Courier"
         value={form.values.provider}
@@ -494,7 +497,7 @@ function BookForm({ order, couriers }: { order: OrderDetail; couriers: CourierEn
             Get estimate
           </Button>
         )}
-        <Button loading={busy === 'book'} onPress={submit}>
+        <Button loading={busy === 'book'} disabled={paisa} onPress={submit}>
           {courier?.simulated ? 'Book simulated parcel' : 'Book courier'}
         </Button>
       </Row>

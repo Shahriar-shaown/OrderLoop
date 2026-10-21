@@ -46,6 +46,8 @@ export const stackEnv = {
   SMTP_SECURE: 'false',
   COURIER_CREDENTIALS_KEY: Buffer.from('orderloop-e2e-courier-key-000000').toString('base64'),
   COURIER_MOCK_ENABLED: 'true',
+  // Facebook and Instagram messages are simulated: the suite never talks to Meta, whatever a developer's .env says.
+  META_MODE: 'mock',
   NEXT_PUBLIC_API_URL: `http://localhost:${PORTS.api}`,
   NEXT_PUBLIC_APP_ENV: 'development',
 } as const;

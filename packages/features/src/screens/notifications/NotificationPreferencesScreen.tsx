@@ -43,7 +43,7 @@ function KindPreferences({ preference }: { preference: NotificationPreference })
             Your role does not receive this alert, so these choices have no effect.
           </Text>
         )}
-        <Stack direction="row" gap={5} wrap>
+        <Stack direction="row" gap={3} wrap>
           {CHANNELS.map((c) => (
             <Switch
               key={c.field}

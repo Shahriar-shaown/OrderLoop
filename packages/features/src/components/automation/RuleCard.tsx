@@ -184,7 +184,7 @@ export function RuleCard({
         ) : null}
         <Stack gap={2}>
           <Text variant="label">Send through</Text>
-          <Row gap={5} wrap>
+          <Row gap={3} wrap>
             {channels.map((c) => (
               <Switch
                 key={c.key}

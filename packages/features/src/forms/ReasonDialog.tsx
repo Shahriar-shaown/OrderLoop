@@ -7,7 +7,7 @@ export const REASON_ERROR = 'Say why (at least 3 characters)';
 export const hasReason = (text: string): boolean => text.trim().length >= 3;
 
 /**
- * Ask for a reason (at least 3 characters), then run `onSubmit`. If `onSubmit` throws, the dialog stays open and shows the
+ * Ask for a reason (at least 3 characters, or any text when `optional`), then run `onSubmit`. If `onSubmit` throws, the dialog stays open and shows the
  * error with the reason still typed; on success it closes (and shows `success`, if given). Starts empty each time it opens.
  */
 export function ReasonDialog({
@@ -17,6 +17,7 @@ export function ReasonDialog({
   label = 'Reason',
   success,
   danger,
+  optional = false,
   onSubmit,
   onClose,
 }: {
@@ -26,6 +27,8 @@ export function ReasonDialog({
   label?: string;
   success?: string;
   danger?: boolean;
+  /** The reason may be left empty (a dismissal): `onSubmit` then receives ''. */
+  optional?: boolean;
   onSubmit: (reason: string) => Promise<unknown>;
   onClose: () => void;
 }) {
@@ -41,7 +44,7 @@ export function ReasonDialog({
   if (!open) return null;
   async function submit() {
     const reason = form.values.reason.trim();
-    if (!hasReason(reason)) return form.setErrors({ reason: REASON_ERROR });
+    if (!optional && !hasReason(reason)) return form.setErrors({ reason: REASON_ERROR });
     const ok = await form.run(() => onSubmit(reason));
     if (ok) {
       if (success) toast.success(success);
@@ -60,7 +63,7 @@ export function ReasonDialog({
       error={form.formError}
       size="sm"
     >
-      <TextField label={label} required autoFocus {...form.field('reason')} />
+      <TextField label={label} required={!optional} autoFocus {...form.field('reason')} />
     </FormDialog>
   );
 }

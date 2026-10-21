@@ -432,6 +432,40 @@ export function createApiClient(options: ApiClientOptions) {
         call(routes.listAutomationDeliveries, { query }),
       retryDelivery: (id: string) => call(routes.retryAutomationDelivery, { params: { id } }),
     },
+    /**
+     * Facebook Page and Instagram messages (`integrations:read` to look, `integrations:manage` to change). Receive-only: there is
+     * no call that sends a message. The mock calls exist only in mock mode and are 404 in live mode.
+     */
+    meta: {
+      overview: () => call(routes.getMetaOverview),
+      /** Live: returns the Meta sign-in address to send the browser to. 409 `meta_not_configured` in mock mode. */
+      startOauth: () => call(routes.startMetaOauth, { body: {} }),
+      session: (id: string) => call(routes.getMetaOauthSession, { params: { id } }),
+      connect: (body: RouteInput<typeof routes.connectMetaPages>['body']) =>
+        call(routes.connectMetaPages, { body }),
+      /** Disconnecting twice is not an error. */
+      disconnect: (id: string) => call(routes.disconnectMetaConnection, { params: { id } }),
+      reconnect: (id: string) => call(routes.reconnectMetaConnection, { params: { id } }),
+      mockConnection: (body: RouteInput<typeof routes.createMockMetaConnection>['body'] = {}) =>
+        call(routes.createMockMetaConnection, { body }),
+      /** Repeating a `messageId` (or the same text from the same sender) creates nothing new. */
+      mockEvent: (body: RouteInput<typeof routes.injectMockMetaEvent>['body']) =>
+        call(routes.injectMockMetaEvent, { body }),
+    },
+    /** Draft orders made from customer messages (`orders:read` to look, `orders:write` to change). */
+    socialDrafts: {
+      list: (query: RouteInput<typeof routes.listSocialDrafts>['query'] = {}) =>
+        call(routes.listSocialDrafts, { query }),
+      get: (id: string) => call(routes.getSocialDraft, { params: { id } }),
+      /** Edits survive new messages; `null` removes an edit. 409 `draft_closed` once confirmed or dismissed. */
+      update: (id: string, body: RouteInput<typeof routes.updateSocialDraft>['body']) =>
+        call(routes.updateSocialDraft, { params: { id }, body }),
+      /** The same body as creating an order. Reuse its `idempotencyKey` on retry: confirming twice returns the same order. */
+      confirm: (id: string, body: RouteInput<typeof routes.confirmSocialDraft>['body']) =>
+        call(routes.confirmSocialDraft, { params: { id }, body }),
+      dismiss: (id: string, reason?: string) =>
+        call(routes.dismissSocialDraft, { params: { id }, body: { reason } }),
+    },
     /** The signed-in person's own notifications, channel choices, phones and messaging consent. */
     notifications: {
       list: (query: RouteInput<typeof routes.listNotifications>['query'] = {}) =>

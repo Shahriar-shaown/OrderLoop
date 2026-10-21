@@ -68,6 +68,10 @@ export { CodReconciliationScreen } from './screens/logistics/CodReconciliationSc
 export { NotificationsScreen } from './screens/notifications/NotificationsScreen';
 export { NotificationPreferencesScreen } from './screens/notifications/NotificationPreferencesScreen';
 export { AutomationSettingsScreen } from './screens/automation/AutomationSettingsScreen';
+export { MetaIntegrationsScreen } from './screens/meta/MetaIntegrationsScreen';
+export { SocialOrdersScreen } from './screens/meta/SocialOrdersScreen';
+export { SocialDraftScreen } from './screens/meta/SocialDraftScreen';
+export { useDraftCount } from './lib/meta';
 export { NotificationBell } from './components/notifications/NotificationBell';
 export { notificationTarget } from './lib/notifications';
 export {

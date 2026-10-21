@@ -1,3 +1,4 @@
+import { ApiError } from '@orderloop/api-client';
 import {
   CreateOrderBody,
   normalizeBdPhone,
@@ -5,6 +6,7 @@ import {
   type CustomerDetail,
   type OrderDetail,
   type OrderSource,
+  type SocialDraft,
 } from '@orderloop/contracts';
 import {
   calculateOrderTotals,
@@ -31,15 +33,26 @@ import {
 } from '@orderloop/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { View } from 'react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { validate, type FormErrors } from '../../forms/errors';
 import { useFormState } from '../../forms/forms';
 import { useIdempotencyKey } from '../../forms/useIdempotencyKey';
 import { useDebounced } from '../../lib/hooks';
+import { CHECK_THIS, invalidateDrafts } from '../../lib/meta';
+import {
+  draftFormValues,
+  draftLines,
+  draftPatch,
+  draftPending,
+  uncertainFields,
+  type PendingItem,
+} from '../../lib/socialDraftForm';
 import { parsePrice, priceToInput } from '../../lib/money';
 import { DIVISION_OPTIONS, invalidateOrders, SOURCE_OPTIONS } from '../../lib/orders';
 import { useApi } from '../../core/runtime';
 import { FormError } from '../../forms/FormError';
+import { DraftDuplicates } from '../meta/DraftDuplicates';
+import { DraftItemsPanel } from '../meta/DraftItemsPanel';
 import { OrderCustomerSection } from './OrderCustomerSection';
 import { first, lineFromVariant, OrderLines, stockIssues, type Line } from './OrderLines';
 import { OrderSummaryCard, type ChecklistItem } from './OrderSummaryCard';
@@ -67,12 +80,25 @@ const amount = (text: string): number | undefined | null =>
   text.trim() === '' ? undefined : parsePrice(text);
 
 /**
- * The order form, used to make an order and to edit one: four numbered cards (customer, delivery address, products,
+ * The order form, used to make an order, to edit one, and to review a draft from a customer's message (the same fields,
+ * rules and totals; Confirm goes to the draft's own endpoint, which creates the order through the same code): four numbered cards (customer, delivery address, products,
  * payment and source) and a sticky summary. The summary uses the same totals function as the server and is labelled as an
  * estimate: the server's figures win. One idempotency key per form, so pressing Confirm twice, or retrying after a dropped
  * connection, can only ever make one order.
  */
-export function OrderForm({ order, customerId }: { order?: OrderDetail; customerId?: string }) {
+export function OrderForm({
+  order,
+  customerId,
+  draft,
+  extraActions,
+}: {
+  order?: OrderDetail;
+  customerId?: string;
+  /** Review a draft made from a customer's message: the form starts from it, Confirm creates the order from it. */
+  draft?: SocialDraft;
+  /** More buttons under the form's own (the draft screen's Dismiss). */
+  extraActions?: ReactNode;
+}) {
   const api = useApi();
   const navigation = useNavigation();
   const toast = useToast();
@@ -83,26 +109,28 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
   const { key } = useIdempotencyKey();
 
   const form = useFormState(
-    order
-      ? {
-          ...EMPTY,
-          phone: order.customer.phone,
-          customerName: order.customer.name,
-          recipientName: order.shipping.recipientName,
-          addrPhone: formatBdPhone(order.shipping.phone),
-          line1: order.shipping.line1,
-          area: order.shipping.area,
-          district: order.shipping.district,
-          division: order.shipping.division,
-          postalCode: order.shipping.postalCode ?? '',
-          discount: order.discountMinor ? priceToInput(order.discountMinor) : '',
-          delivery: order.deliveryChargeMinor ? priceToInput(order.deliveryChargeMinor) : '',
-          advance: order.advancePaidMinor ? priceToInput(order.advancePaidMinor) : '',
-          source: order.source,
-          sourceReference: order.sourceReference ?? '',
-          notes: order.notes ?? '',
-        }
-      : EMPTY,
+    draft
+      ? draftFormValues(draft)
+      : order
+        ? {
+            ...EMPTY,
+            phone: order.customer.phone,
+            customerName: order.customer.name,
+            recipientName: order.shipping.recipientName,
+            addrPhone: formatBdPhone(order.shipping.phone),
+            line1: order.shipping.line1,
+            area: order.shipping.area,
+            district: order.shipping.district,
+            division: order.shipping.division,
+            postalCode: order.shipping.postalCode ?? '',
+            discount: order.discountMinor ? priceToInput(order.discountMinor) : '',
+            delivery: order.deliveryChargeMinor ? priceToInput(order.deliveryChargeMinor) : '',
+            advance: order.advancePaidMinor ? priceToInput(order.advancePaidMinor) : '',
+            source: order.source,
+            sourceReference: order.sourceReference ?? '',
+            notes: order.notes ?? '',
+          }
+        : EMPTY,
     {
       phone: ['customer.phone', 'customerId', 'customer'],
       customerName: ['customer.name'],
@@ -113,23 +141,35 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
     },
   );
   const [lines, setLines] = useState<Line[]>(() =>
-    (order?.items ?? []).map((i) => ({
-      variantId: i.variantId,
-      sku: i.sku,
-      label: i.variantName ? `${i.productName} — ${i.variantName}` : i.productName,
-      catalogPriceMinor: i.unitPriceMinor,
-      available: null,
-      reorderPoint: 0,
-      costMinor: null,
-      quantity: String(i.quantity),
-      unitPrice: priceToInput(i.unitPriceMinor),
-      discount: i.discountMinor ? priceToInput(i.discountMinor) : '',
-    })),
+    draft
+      ? draftLines(draft)
+      : (order?.items ?? []).map((i) => ({
+          variantId: i.variantId,
+          sku: i.sku,
+          label: i.variantName ? `${i.productName} — ${i.variantName}` : i.productName,
+          catalogPriceMinor: i.unitPriceMinor,
+          available: null,
+          reorderPoint: 0,
+          costMinor: null,
+          quantity: String(i.quantity),
+          unitPrice: priceToInput(i.unitPriceMinor),
+          discount: i.discountMinor ? priceToInput(i.discountMinor) : '',
+        })),
   );
 
   // ---- customer (a new order only) -----------------------------------------------------------------------------------
   const [pickedId, setPickedId] = useState<string | null>(customerId ?? null);
-  const [mode, setMode] = useState<'search' | 'new'>('search');
+  const [mode, setMode] = useState<'search' | 'new'>(draft ? 'new' : 'search');
+  // A draft's items that no product was matched to: a person picks the product before the order can be made.
+  const [pending, setPending] = useState<PendingItem[]>(() => (draft ? draftPending(draft) : []));
+  const [acknowledged, setAcknowledged] = useState(false);
+  const suspect = useMemo(() => (draft ? uncertainFields(draft) : new Set<string>()), [draft]);
+  const startValues = useMemo(() => (draft ? draftFormValues(draft) : null), [draft]);
+  /** "Check this" while a field still holds what was read from the chat with low confidence. */
+  const checkHint = (key: string, name: keyof ReturnType<typeof draftFormValues>) =>
+    suspect.has(key) && startValues && form.values[name] === startValues[name]
+      ? CHECK_THIS
+      : undefined;
   const picked = useQuery({
     queryKey: ['customer', pickedId],
     enabled: !editing && !!pickedId,
@@ -151,7 +191,8 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
     set('phone', c.phone);
     set('customerName', c.name);
     const a = c.addresses.find((x) => x.isDefault) ?? c.addresses[0];
-    if (a) fillAddress(a);
+    // A draft's address is what the customer just wrote: it stays, whatever address is saved for them.
+    if (a && !draft) fillAddress(a);
   }, [picked.data?.id]);
 
   // A phone number typed for a new customer that is already on file is that customer: pick them instead of adding twice.
@@ -227,7 +268,7 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
   const dupPhone = useDebounced(normalized);
   const duplicates = useQuery({
     queryKey: ['orderDuplicates', 'form', dupPhone, variantKey, order?.id],
-    enabled: dupPhone !== null,
+    enabled: dupPhone !== null && !draft,
     queryFn: () =>
       api.orders.checkDuplicates({
         phone: dupPhone!,
@@ -261,6 +302,13 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
     });
     return { items, errors };
   }
+
+  /** Someone else closed the draft meanwhile: reload it (the screen turns read-only) and still show the error. */
+  const closedDraft = async (error: unknown): Promise<never> => {
+    if (error instanceof ApiError && error.code === 'draft_closed')
+      await invalidateDrafts(queryClient);
+    throw error;
+  };
 
   async function submit(confirm: boolean) {
     const v = form.values;
@@ -346,6 +394,9 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
       if (!normalizeBdPhone(v.phone))
         customerErrors['customer.phone'] = 'Enter a Bangladeshi mobile number like 01712-345678';
     }
+    if (pending.length > 0)
+      customerErrors.items =
+        'Pick the product for every item the customer asked for, or remove it.';
     const checked = validate(CreateOrderBody, payload);
     const local = { ...lineErrors, ...money, ...customerErrors };
     if (Object.keys(local).length || !checked.data)
@@ -353,12 +404,32 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
     const body = checked.data;
     let createdId = '';
     const ok = await form.run(async () => {
-      const created = await api.orders.create(body as never);
+      const created = draft
+        ? (await api.socialDrafts.confirm(draft.id, body as never).catch(closedDraft)).order
+        : await api.orders.create(body as never);
       createdId = created.id;
-      await invalidateOrders(queryClient);
+      await Promise.all([invalidateOrders(queryClient), invalidateDrafts(queryClient)]);
       toast.success(`Order #${created.orderNumber} created`);
     });
     if (ok) navigation.replace(`/orders/${createdId}`);
+  }
+
+  /** Keep what the person corrected on the draft (it survives new messages from the customer). */
+  async function saveDraft() {
+    if (!draft) return;
+    const patch = draftPatch(
+      draft,
+      form.values as ReturnType<typeof draftFormValues>,
+      lines,
+      pending,
+    );
+    if (Object.keys(patch).length === 0) return toast.success('Nothing new to save');
+    const ok = await form.run(async () => {
+      const saved = await api.socialDrafts.update(draft.id, patch).catch(closedDraft);
+      queryClient.setQueryData(['socialDraft', draft.id], saved);
+      await invalidateDrafts(queryClient);
+    });
+    if (ok) toast.success('Draft saved');
   }
 
   const e = form.errors;
@@ -387,7 +458,31 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
               },
       ];
 
-  const actions = editing ? (
+  const needsAcknowledgement = !!draft && draft.duplicates.length > 0 && !acknowledged;
+  const actions = draft ? (
+    <Stack gap={2}>
+      <Button
+        loading={form.busy}
+        disabled={needsAcknowledgement}
+        fullWidth
+        onPress={() => submit(true)}
+      >
+        Confirm order
+      </Button>
+      {needsAcknowledgement && (
+        <Text variant="caption" tone="muted">
+          Tick “This is a different order” above to confirm.
+        </Text>
+      )}
+      <Button variant="secondary" type="submit" loading={form.busy} fullWidth>
+        Save draft
+      </Button>
+      {extraActions}
+      <Text variant="caption" tone="muted">
+        Confirming creates the order and holds its stock. Nothing is ordered until you confirm.
+      </Text>
+    </Stack>
+  ) : editing ? (
     <Stack gap={2}>
       <Button type="submit" loading={form.busy} fullWidth>
         Save changes
@@ -434,6 +529,8 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
         name={field('customerName')}
         phoneError={first(e, 'customer.phone', 'customerId', 'phone')}
         nameError={first(e, 'customer.name')}
+        phoneHint={checkHint('phone', 'phone')}
+        nameHint={checkHint('customerName', 'customerName')}
       />
       {!editing && !pickedId && mode === 'search' && first(e, 'customer') && (
         <Text variant="small" tone="danger" role="alert">
@@ -441,7 +538,14 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
         </Text>
       )}
 
-      {duplicates.data && duplicates.data.length > 0 && (
+      {draft && draft.duplicates.length > 0 && (
+        <DraftDuplicates
+          duplicates={draft.duplicates}
+          acknowledged={acknowledged}
+          onAcknowledge={setAcknowledged}
+        />
+      )}
+      {!draft && duplicates.data && duplicates.data.length > 0 && (
         <Alert tone="warning" title="These recent orders look similar">
           <Stack gap={2}>
             {duplicates.data.map((d) => (
@@ -489,7 +593,7 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
             label="Address"
             required
             placeholder="House / flat, road, village"
-            hint="Used on the courier label."
+            hint={checkHint('address', 'line1') ?? 'Used on the courier label.'}
             {...field('line1')}
             error={first(e, 'address.line1')}
           />
@@ -497,13 +601,16 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
             <TextField
               label="Thana / upazila"
               required
-              hint="Required for courier routing."
+              hint={checkHint('area', 'area') ?? 'Required for courier routing.'}
               {...field('area')}
               error={first(e, 'address.area')}
             />
             <TextField
               label="District"
               required
+              {...(checkHint('district', 'district')
+                ? { hint: checkHint('district', 'district')! }
+                : {})}
               {...field('district')}
               error={first(e, 'address.district')}
             />
@@ -517,6 +624,9 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
             <TextField
               label="Postal code"
               keyboardType="number-pad"
+              {...(checkHint('postalCode', 'postalCode')
+                ? { hint: checkHint('postalCode', 'postalCode')! }
+                : {})}
               {...field('postalCode')}
               error={first(e, 'address.postalCode')}
             />
@@ -529,6 +639,33 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
           title="3 · Products"
           description="Prices come from the catalog. Change one only for a negotiated price."
         >
+          {draft && (
+            <DraftItemsPanel
+              pending={pending}
+              onPick={(index, variant) => {
+                const item = pending[index]!;
+                setPending((all) => all.filter((_, j) => j !== index));
+                setLines((all) =>
+                  all.some((l) => l.variantId === variant.id)
+                    ? all.map((l) =>
+                        l.variantId === variant.id
+                          ? { ...l, quantity: String(Number(l.quantity) + item.quantity) }
+                          : l,
+                      )
+                    : [
+                        ...all,
+                        {
+                          ...lineFromVariant(variant),
+                          quantity: String(item.quantity),
+                          fromChat: { text: item.text, check: false },
+                        },
+                      ],
+                );
+                form.clearFor('items', 'lines');
+              }}
+              onRemove={(index) => setPending((all) => all.filter((_, j) => j !== index))}
+            />
+          )}
           <OrderLines
             lines={lines}
             lineTotals={okTotals?.lineTotalsMinor}
@@ -602,7 +739,7 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
           <TextField
             label="Internal notes"
             multiline
-            hint="Only your team can see this."
+            hint={checkHint('note', 'notes') ?? 'Only your team can see this.'}
             {...field('notes')}
             error={first(e, 'notes')}
           />
@@ -626,7 +763,7 @@ export function OrderForm({ order, customerId }: { order?: OrderDetail; customer
   );
 
   return (
-    <Form onSubmit={() => submit(false)} gap={5}>
+    <Form onSubmit={() => (draft ? saveDraft() : submit(false))} gap={5}>
       <Split sticky asideWidth={360} main={<>{main}</>} aside={aside} />
       {isMobile && (
         <StickyActions>

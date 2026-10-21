@@ -21,6 +21,16 @@ describe('ReasonDialog', () => {
     expect(hasReason('abc')).toBe(true);
   });
 
+  it('lets an optional reason be empty, or any length', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    mount(<ReasonDialog optional title="Why?" onSubmit={onSubmit} onClose={() => undefined} />, {});
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(onSubmit).toHaveBeenLastCalledWith('');
+    await userEvent.type(screen.getByLabelText(/Reason/), 'no');
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(onSubmit).toHaveBeenLastCalledWith('no');
+  });
+
   it('starts empty each time it opens', async () => {
     function Host() {
       const [open, setOpen] = useState(true);

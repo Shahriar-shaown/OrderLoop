@@ -19,6 +19,7 @@ export const TABS = [
 /** What sits under "More": everything the tab bar has no room for. A role only sees what it may use. */
 export const MORE_ITEMS: MoreItem[] = [
   { href: '/products', label: 'Products & inventory', icon: 'layers' },
+  { href: '/social-orders', label: 'Social orders', icon: 'message', needs: 'orders:read' },
   { href: '/customers', label: 'Customers', icon: 'users' },
   { href: '/cod', label: 'COD reconciliation', icon: 'wallet', needs: 'finance:read' },
   { href: '/analytics', label: 'Analytics & profit', icon: 'bar-chart', needs: 'finance:read' },
@@ -27,6 +28,12 @@ export const MORE_ITEMS: MoreItem[] = [
     label: 'Courier connections',
     icon: 'plug',
     needs: 'couriers:read',
+  },
+  {
+    href: '/settings/integrations/meta',
+    label: 'Integrations',
+    icon: 'plug',
+    needs: 'integrations:read',
   },
   { href: '/team', label: 'Team & staff', icon: 'users', needs: 'members:read' },
   { href: '/notifications', label: 'Notifications', icon: 'bell' },

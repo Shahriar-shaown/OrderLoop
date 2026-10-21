@@ -24,33 +24,45 @@ const TEMPLATE =
 function Result({ r }: { r: SettlementImportResult }) {
   const c = r.counts;
   const failed = !!r.fatal || r.errors.length > 0;
+  const warnings = r.warnings ?? [];
   return (
-    <Alert
-      tone={r.alreadyImported ? 'info' : failed ? 'error' : 'success'}
-      title={
-        r.alreadyImported
-          ? 'This exact file was already imported. Nothing was added.'
-          : failed
-            ? 'The file has problems. Nothing was recorded.'
-            : r.dryRun
-              ? 'Check only. Nothing was recorded.'
-              : 'Imported'
-      }
-    >
-      <Stack gap={1}>
-        {r.fatal && <Text>{r.fatal}</Text>}
-        {r.errors.map((e) => (
-          <Text key={e.line}>{`Line ${e.line}: ${e.message}`}</Text>
-        ))}
-        {!failed && (
-          <>
-            <Text>{`${r.rows} line(s): ${c.matched} matched, ${c.unmatched} not matched, ${c.ambiguous} need a person, ${c.unallocated} charge(s) with no parcel, ${c.duplicate} duplicate(s) not counted.`}</Text>
-            <Text>{`Cash reported ${formatPrice(r.totals.collectedMinor)} · courier kept ${formatPrice(r.totals.chargesMinor)} · pays out ${formatPrice(r.totals.netMinor)}`}</Text>
-            {r.batchId && <Link href={`/cod/${r.batchId}`}>Open this settlement</Link>}
-          </>
-        )}
-      </Stack>
-    </Alert>
+    <Stack gap={2}>
+      <Alert
+        tone={r.alreadyImported ? 'info' : failed ? 'error' : 'success'}
+        title={
+          r.alreadyImported
+            ? 'This exact file was already imported. Nothing was added.'
+            : failed
+              ? 'The file has problems. Nothing was recorded.'
+              : r.dryRun
+                ? 'Check only. Nothing was recorded.'
+                : 'Imported'
+        }
+      >
+        <Stack gap={1}>
+          {r.fatal && <Text>{r.fatal}</Text>}
+          {r.errors.map((e) => (
+            <Text key={e.line}>{`Line ${e.line}: ${e.message}`}</Text>
+          ))}
+          {!failed && (
+            <>
+              <Text>{`${r.rows} line(s): ${c.matched} matched, ${c.unmatched} not matched, ${c.ambiguous} need a person, ${c.unallocated} charge(s) with no parcel, ${c.duplicate} duplicate(s) not counted.`}</Text>
+              <Text>{`Cash reported ${formatPrice(r.totals.collectedMinor)} · courier kept ${formatPrice(r.totals.chargesMinor)} · pays out ${formatPrice(r.totals.netMinor)}`}</Text>
+              {r.batchId && <Link href={`/cod/${r.batchId}`}>Open this settlement</Link>}
+            </>
+          )}
+        </Stack>
+      </Alert>
+      {warnings.length > 0 && (
+        <Alert tone="warning" title="Worth a look">
+          <Stack gap={1}>
+            {warnings.map((w) => (
+              <Text key={w}>{w}</Text>
+            ))}
+          </Stack>
+        </Alert>
+      )}
+    </Stack>
   );
 }
 

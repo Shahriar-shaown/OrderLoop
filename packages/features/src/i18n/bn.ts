@@ -1508,4 +1508,38 @@ export const bn: Record<string, string> = {
   '· {line_available} in stock': '· স্টকে আছে {line_available}',
   '…and {current_errorCount_20} more.': '…আরও {current_errorCount_20}টি।',
   '…and {total_Math_min_errors_le} more.': '…আরও {total_Math_min_errors_le}টি।',
+  // Returns, closing an order by hand, courier booking with paisa, import warnings, closed sign-up, finance caveats.
+  'Returned: {a}': 'ফেরত এসেছে: {a}',
+  'Condition: {a}': 'শর্ত: {a}',
+  '{a} sent': '{a}টি পাঠানো হয়েছিল',
+  'Say how many of each item came back. Items you set to 0 add nothing to your stock.':
+    'প্রতিটি পণ্যের কতগুলো ফেরত এসেছে তা জানান। যেগুলো ০ রাখবেন, সেগুলো স্টকে যোগ হবে না।',
+  'Say how many of at least one item came back.': 'অন্তত একটি পণ্যের কতগুলো ফেরত এসেছে তা জানান।',
+  'The courier delivered only part of the parcel':
+    'কুরিয়ার পার্সেলের একটি অংশ মাত্র ডেলিভারি দিয়েছে',
+  'Check what came back. Mark the order returned and enter only the units that came back (0 for the rest), or mark it delivered if the customer kept everything.':
+    'কী কী ফেরত এসেছে দেখে নিন। অর্ডারটি ফেরত হিসেবে চিহ্নিত করে শুধু যেগুলো ফেরত এসেছে তার সংখ্যা দিন (বাকিগুলোর জন্য ০), অথবা গ্রাহক সব রেখে দিলে ডেলিভারি হয়েছে হিসেবে চিহ্নিত করুন।',
+  'Only an owner, admin or manager can mark an order delivered or returned by hand.':
+    'শুধু মালিক, অ্যাডমিন বা ম্যানেজার হাতে অর্ডারকে ডেলিভারি হয়েছে বা ফেরত হিসেবে চিহ্নিত করতে পারেন।',
+  'Your role is not allowed to do that to this order.':
+    'আপনার ভূমিকা দিয়ে এই অর্ডারে এটি করা যায় না।',
+  'Couriers take whole taka only, so this order cannot be booked with a courier: its cash to collect has paisa. Cancel the order and enter it again with prices, discount and delivery charge that make the cash to collect a whole number of taka.':
+    'কুরিয়ার শুধু পূর্ণ টাকা নেয়, তাই এই অর্ডার কুরিয়ারে বুক করা যাবে না: এর আদায়যোগ্য নগদে পয়সা আছে। অর্ডারটি বাতিল করে নতুন করে লিখুন, এমন দাম, ছাড় ও ডেলিভারি চার্জ দিয়ে যাতে আদায়যোগ্য নগদ পূর্ণ টাকা হয়।',
+  'This order cannot be booked with a courier': 'এই অর্ডার কুরিয়ারে বুক করা যাবে না',
+  'Cash to collect has paisa': 'আদায়যোগ্য নগদে পয়সা আছে',
+  'Worth a look': 'একবার দেখে নিন',
+  'Sign-up is closed for now. Ask the person who invited you to send an invitation, or contact support.':
+    'সাইন আপ এখন বন্ধ আছে। যিনি আপনাকে আমন্ত্রণ জানিয়েছেন তাঁকে আমন্ত্রণ পাঠাতে বলুন, অথবা সহায়তার সঙ্গে যোগাযোগ করুন।',
+  'Sales, revenue, cash collected, outstanding COD, expenses and profit are different things and are never added together.':
+    'বিক্রি, আয়, আদায় হওয়া নগদ, বাকি COD, খরচ ও মুনাফা আলাদা বিষয়, এগুলো কখনো যোগ করা হয় না।',
+  'Revenue is dated by delivery; courier charges and recorded costs by the date on the statement or cost. Their periods can differ at the edges.':
+    'আয় ডেলিভারির তারিখ ধরে গোনা হয়; কুরিয়ার চার্জ ও লিখে রাখা খরচ স্টেটমেন্ট বা খরচের তারিখ ধরে। সময়ের প্রান্তে এগুলোর হিসাব আলাদা হতে পারে।',
+  '{a} delivered order(s) with COD have no real courier shipment, so no statement can ever confirm their cash. They are not in outstanding COD.':
+    'COD সহ {a}টি ডেলিভারি হওয়া অর্ডারের কোনো আসল কুরিয়ার শিপমেন্ট নেই, তাই কোনো স্টেটমেন্টই এদের নগদ নিশ্চিত করতে পারবে না। এগুলো বাকি COD-তে ধরা হয়নি।',
+  '{a} order(s) returned in this period came back only in part. They are not revenue, and the units the customer kept are in neither revenue nor cost of goods, so profit may be overstated by their cost.':
+    'এই সময়ে ফেরত আসা {a}টি অর্ডারের মাল আংশিক ফেরত এসেছে। এগুলো আয় নয়, আর গ্রাহক যে পণ্যগুলো রেখেছেন তা আয় বা পণ্যের খরচ কোনোটিতেই নেই, তাই এদের খরচের পরিমাণ মুনাফা বেশি দেখাতে পারে।',
+  'Courier charges recorded by hand before statements were imported are not counted for this period, because statements already report courier charges for it.':
+    'স্টেটমেন্ট আমদানির আগে হাতে লেখা কুরিয়ার চার্জ এই সময়ে ধরা হয়নি, কারণ স্টেটমেন্টেই এই সময়ের কুরিয়ার চার্জ আছে।',
+  'No costs are recorded for this period, so profit before costs is shown as-is.':
+    'এই সময়ের কোনো খরচ লেখা নেই, তাই খরচের আগের মুনাফা যেমন আছে তেমনই দেখানো হচ্ছে।',
 };

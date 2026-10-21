@@ -23,9 +23,12 @@ export interface PickedVariant {
 export function VariantPicker({
   onPick,
   disabledIds = [],
+  label = 'Add an item',
 }: {
   onPick: (v: PickedVariant) => void;
   disabledIds?: string[];
+  /** Names the search box (a second picker on the same page needs its own name). */
+  label?: string;
 }) {
   const api = useApi();
   const [search, setSearch] = useState('');
@@ -41,7 +44,7 @@ export function VariantPicker({
   return (
     <Stack gap={2}>
       <SearchField
-        label="Add an item"
+        label={label}
         placeholder="Search product name or SKU"
         value={search}
         onChangeText={setSearch}

@@ -12,6 +12,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { mount } from '../../../test/mount';
+import { expectNamedControls } from '../../../test/a11y';
 import { AutomationSettingsScreen } from './AutomationSettingsScreen';
 
 const uuid = (n: number) => `0197b0a0-0000-7000-8000-${String(n).padStart(12, '0')}`;
@@ -121,6 +122,7 @@ describe('the automation settings', () => {
     expect(switchOf(low, 'Switched on')).toHaveAttribute('aria-checked', 'false');
     expect(low.getByText('Not set up yet')).toBeTruthy();
     expect(low.getByLabelText('Alert when stock is at or below')).toBeTruthy();
+    expectNamedControls();
   });
 
   it('shows the report time with the business time zone, and the weekday', async () => {

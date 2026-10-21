@@ -5,6 +5,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '../../../test/mount';
+import { expectNamedControls } from '../../../test/a11y';
 import { NotificationBell } from '../../components/notifications/NotificationBell';
 import { createConnectivityStore } from '../../core/connectivity';
 import type { PushPermission, PushPlatform } from '../../core/push';
@@ -119,6 +120,7 @@ describe('the notifications screen', () => {
     expect(screen.getAllByText('New')).toHaveLength(2);
     const readRow = screen.getByRole('button', { name: /New order #1042/ });
     expect(within(readRow).queryByText('New')).toBeNull();
+    expectNamedControls();
   });
 
   it('marks one read and opens what it is about when tapped', async () => {
@@ -357,6 +359,7 @@ describe('notification preferences', () => {
     const api = setup();
     mount(<NotificationPreferencesScreen />, api);
     const group = await screen.findByRole('group', { name: 'Low stock' });
+    expectNamedControls();
     const push = within(group).getByRole('switch', { name: 'Push to my phone' });
     expect(within(group).getByRole('switch', { name: 'In the app' })).toHaveAttribute(
       'aria-checked',

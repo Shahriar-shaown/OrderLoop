@@ -67,7 +67,7 @@ export function RadioGroup({
               }}
             />
             <View>
-              <Text>{o.label}</Text>
+              <Text style={{ flexShrink: 1 }}>{o.label}</Text>
               {o.hint ? (
                 <Text variant="caption" tone="muted">
                   {o.hint}
@@ -130,7 +130,7 @@ export function Switch({
           }}
         />
       </View>
-      <Text>{label}</Text>
+      <Text style={{ flexShrink: 1 }}>{label}</Text>
     </Pressable>
   );
 }

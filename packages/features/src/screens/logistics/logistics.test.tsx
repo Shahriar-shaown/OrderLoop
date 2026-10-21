@@ -464,6 +464,30 @@ describe('COD reconciliation', () => {
     );
   });
 
+  it('shows the import warnings in the result, not only in a toast', async () => {
+    const importSettlement = vi.fn(async () => ({
+      dryRun: false,
+      alreadyImported: false,
+      batchId: uuid(301),
+      rows: 2,
+      errors: [],
+      fatal: null,
+      warnings: ['1 line was left out as a duplicate of an earlier statement.'],
+      counts: { matched: 2, unmatched: 0, ambiguous: 0, unallocated: 0, duplicate: 1, ignored: 0 },
+      totals: { collectedMinor: 100_000, chargesMinor: 10_000, netMinor: 90_000 },
+      discrepancies: 0,
+    }));
+    mount(<CodReconciliationScreen />, codApi({ importSettlement }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Import courier statement' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Import courier statement' });
+    await userEvent.type(within(sheet).getByLabelText('Statement CSV'), 'a,b');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Import' }));
+    expect(await within(sheet).findByText('Worth a look')).toBeTruthy();
+    expect(
+      within(sheet).getByText('1 line was left out as a duplicate of an earlier statement.'),
+    ).toBeTruthy();
+  });
+
   it('shows an alert when the import fails', async () => {
     const importSettlement = vi.fn(async () => {
       throw new Error('The file could not be read');

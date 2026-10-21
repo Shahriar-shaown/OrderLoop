@@ -69,6 +69,9 @@ describe('mobile routes', () => {
       '/workspaces',
       '/workspaces/new',
       '/settings',
+      '/social-orders',
+      '/social-orders/123',
+      '/settings/integrations/meta',
     ])
       expect(hasRoute(href), href).toBe(true);
   });

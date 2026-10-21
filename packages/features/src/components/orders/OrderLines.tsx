@@ -1,4 +1,5 @@
 import {
+  Badge,
   Button,
   Card,
   Icon,
@@ -30,6 +31,8 @@ export interface Line {
   quantity: string;
   unitPrice: string;
   discount: string;
+  /** A line made from a customer's message (a social draft): what they wrote, and whether it was read with low confidence. */
+  fromChat?: { text: string; check: boolean };
 }
 
 export const lineFromVariant = (v: PickedVariant): Line => ({
@@ -117,6 +120,15 @@ function LineRow({
               {line.sku}
               {line.available !== null ? ` · ${line.available} in stock` : ''}
             </Text>
+            {line.fromChat && (
+              <Row gap={2} wrap>
+                <Text variant="caption" tone="muted">
+                  Customer wrote
+                </Text>
+                <Text variant="caption">{`“${line.fromChat.text}”`}</Text>
+                {line.fromChat.check && <Badge tone="warning">Check this</Badge>}
+              </Row>
+            )}
           </Stack>
         </Row>
         <Row gap={3} wrap>

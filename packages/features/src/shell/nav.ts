@@ -14,6 +14,13 @@ export interface ShellNavItem {
 export const WEB_NAV: ShellNavItem[] = [
   { href: '/dashboard', label: 'Overview', icon: 'home', group: 'Operations' },
   { href: '/orders', label: 'Orders', icon: 'box', group: 'Operations' },
+  {
+    href: '/social-orders',
+    label: 'Social orders',
+    icon: 'message',
+    needs: 'orders:read',
+    group: 'Operations',
+  },
   { href: '/products', label: 'Products & inventory', icon: 'layers', group: 'Operations' },
   { href: '/customers', label: 'Customers', icon: 'users', group: 'Operations' },
   {
@@ -49,6 +56,13 @@ export const WEB_NAV: ShellNavItem[] = [
     label: 'Automation',
     icon: 'zap',
     needs: 'automation:read',
+    group: 'Workspace',
+  },
+  {
+    href: '/settings/integrations/meta',
+    label: 'Integrations',
+    icon: 'plug',
+    needs: 'integrations:read',
     group: 'Workspace',
   },
   { href: '/settings', label: 'Settings', icon: 'sliders', group: 'Workspace' },

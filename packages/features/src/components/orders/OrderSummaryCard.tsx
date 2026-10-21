@@ -13,6 +13,7 @@ import {
 import type { ReactNode } from 'react';
 import { Row } from '@orderloop/ui';
 import { formatPrice } from '../../lib/money';
+import { CodPaisaHint } from './CodPaisaHint';
 
 export interface SummaryLine {
   label: string;
@@ -115,6 +116,7 @@ export function OrderSummaryCard({
             <Text variant="caption" tone="muted">
               An estimate. The final figures are worked out when you save.
             </Text>
+            {ok.codAmountMinor % 100 !== 0 && <CodPaisaHint />}
           </Stack>
         ) : (
           <Text tone="muted">

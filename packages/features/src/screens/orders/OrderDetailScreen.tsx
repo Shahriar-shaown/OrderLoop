@@ -26,14 +26,17 @@ import {
   PriceBreakdown,
 } from '../../components/orders/OrderDetailParts';
 import { OrderStatusBadge } from '../../components/orders/OrderStatusBadge';
+import { CodPaisaHint } from '../../components/orders/CodPaisaHint';
 import { OrderStatusDialog } from '../../components/orders/OrderStatusDialog';
 import { OrderTimeline } from '../../components/orders/OrderTimeline';
 import { PaymentBadge } from '../../components/orders/PaymentBadge';
 import { QueryBoundary } from '../../shell/QueryBoundary';
 import { ShipmentPanel } from '../../components/logistics/ShipmentPanel';
-import { messageFor } from '../../forms/errors';
+import { hasPaisa, messageFor } from '../../forms/errors';
 import { formatWhen } from '../../lib/format';
 import {
+  CLOSE_ONLY_HINT,
+  CLOSE_STATUSES,
   invalidateOrders,
   SOURCE_LABEL,
   STATUS_ACTION,
@@ -97,12 +100,22 @@ export function OrderDetailScreen({ id }: { id: string }) {
         renderPage(
           order,
           can('orders:write'),
+          can('orders:close'),
           order.allowedStatuses.filter((s) => !ELSEWHERE.includes(s)),
         )}
     </QueryBoundary>
   );
 
-  function renderPage(o: NonNullable<typeof order>, write: boolean, moves: OrderStatus[]) {
+  function renderPage(
+    o: NonNullable<typeof order>,
+    write: boolean,
+    close: boolean,
+    allMoves: OrderStatus[],
+  ) {
+    // Delivered and Returned need `orders:close`: without it they are not offered, and the page says why.
+    const moves = close ? allMoves : allMoves.filter((s) => !CLOSE_STATUSES.includes(s));
+    const closeHidden =
+      write && !close && o.allowedStatuses.some((s) => CLOSE_STATUSES.includes(s));
     const allowed = o.allowedStatuses;
     const liveShipment = (shipments.data ?? []).some(
       (s) => s.status !== 'booking_failed' && s.status !== 'cancelled',
@@ -155,7 +168,7 @@ export function OrderDetailScreen({ id }: { id: string }) {
                   {STATUS_ACTION.return_requested}
                 </Button>
               )}
-              {write && allowed.includes('returned') && (
+              {write && close && allowed.includes('returned') && (
                 <Button variant="secondary" icon="return" onPress={() => setDialog('returned')}>
                   {STATUS_ACTION.returned}
                 </Button>
@@ -173,6 +186,16 @@ export function OrderDetailScreen({ id }: { id: string }) {
           busy={busy}
           onMove={(s, isQuick) => (isQuick ? quick(s) : setDialog(s))}
         />
+
+        {hasPaisa(o) && (o.status === 'pending_confirmation' || o.status === 'confirmed') && (
+          <CodPaisaHint />
+        )}
+
+        {closeHidden && (
+          <Text variant="caption" tone="muted">
+            {CLOSE_ONLY_HINT}
+          </Text>
+        )}
 
         {o.stockHeld && (
           <Alert tone="info">

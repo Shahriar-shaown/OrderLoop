@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Platform, Text as RNText, type TextProps as RNTextProps } from 'react-native';
 import { fontFamily, fontSize, lineHeight, type } from './theme/tokens';
 import { localizeChildren, useLocale } from './i18n';
@@ -80,6 +81,19 @@ export interface TextProps extends RNTextProps {
   verbatim?: boolean;
 }
 
+// Bengali letters, vowel signs, conjunct joiners and digits (U+0980 to U+09F1): not the currency signs, so "৳" amounts are left alone.
+const BENGALI = /[\u0980-\u09F1]/;
+/**
+ * Android measures Bengali conjuncts (like the "দ্দি" of "উদ্দিন") a little narrower than it paints them. A text box that is only
+ * as wide as its measured text, such as a name beside a price, then wraps its last word onto a second line the box does not have
+ * room for, and the word disappears. A few points of slack in the box prevents it.
+ */
+const HAIR_SPACE = '\u200A';
+const withSlack = (node: ReactNode): ReactNode =>
+  Platform.OS === 'android' && typeof node === 'string' && BENGALI.test(node)
+    ? node + HAIR_SPACE.repeat(Math.max(3, Math.ceil(node.length / 8)))
+    : node;
+
 export function Text({
   variant,
   tone,
@@ -109,7 +123,7 @@ export function Text({
       style={[variantStyle, style]}
       {...rest}
     >
-      {verbatim ? children : localizeChildren(locale, children)}
+      {withSlack(verbatim ? children : localizeChildren(locale, children))}
     </RNText>
   );
 }

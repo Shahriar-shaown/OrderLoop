@@ -60,7 +60,7 @@ export function Checkbox({
       >
         {checked ? <Icon name="check" size={14} color={colors.onPrimary} strokeWidth={3} /> : null}
       </View>
-      {hideLabel ? null : <Text>{label}</Text>}
+      {hideLabel ? null : <Text style={{ flexShrink: 1 }}>{label}</Text>}
     </Pressable>
   );
 }
