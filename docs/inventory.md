@@ -75,10 +75,28 @@ The orders milestone must use these operations and nothing else to touch stock. 
 | Goods returned by the customer  | `POST /v1/inventory/return` with `idempotencyKey: "return:<return id>:<variant id>"`, `condition`, `referenceType: "return"`, `referenceId` | The key is **required** and unique per business: processing the same return again (retry, duplicate webhook) adds the units once and returns the original result. The same key with a different quantity is `409`. |
 | A returned item is unsellable   | the same call with `condition: "DAMAGED"`                                                                                                   | Goes to the damaged bucket, never to available stock.                                                                                                                                                              |
 
+A returned **order** (`POST /v1/orders/{id}/status`, `returned`) calls the same return per line, with `returnedItems` giving the
+quantity and condition of each line that came back; unlisted lines return nothing (they stayed with the customer).
+
 Rules the orders code can rely on: an idempotency key is per business; reusing it for a **different** request is `409`, never
 silently ignored; failures that did not change stock (`409 insufficient_stock`, `404`) are safe to retry; a request that
 succeeded is never repeated by retrying it with the same key. Cancelling after fulfilment is not a release: a shipped order
 that comes back is a **return**.
+
+## One location in practice (pilot)
+
+Orders reserve, ship and take returns at the **default location** only; transfers between locations are not built. The stock
+screens sum all locations, so a second location can show units that confirm cannot reserve. When confirm finds the default
+short and another location holding enough, it answers `409 insufficient_stock` naming each location and the default one:
+receive or adjust the stock into the default location, then confirm again. For the pilot, keep one location.
+
+## Checking the ledger
+
+`pnpm inventory:verify` replays every stock movement per (business, variant, location) with the same pure rules the database
+enforces (`replay` in `packages/domain/src/stock.ts`) and compares the result with `stock_levels`. It is read only, prints one
+`DRIFT` line per level that differs (or whose ledger breaks a rule, or that has movements but no row) and exits 1 on any drift
+(2 if `DATABASE_ADMIN_URL` is missing). It reads every business at once, so it connects with `DATABASE_ADMIN_URL`, not the
+app's role. Test: `apps/api/test/inventory-ledger.e2e.test.ts`.
 
 ## CSV import
 

@@ -73,13 +73,41 @@ The backend is in [automation.md](automation.md); the screens are shared with th
 - Push is mobile only: the web runtime has no `push`, so registration, the permission prompt and the sign-out clean-up do nothing.
 - Browser scenarios: `apps/web/e2e/automation.spec.ts` (set up low stock, run now, bell and list, open it, run again for no second alert, turn in-app off, an accountant has no rules).
 
+## Facebook and Instagram messages (Meta)
+
+The backend is in [meta.md](meta.md); the screens are shared with the phone (`packages/features/src/screens/meta`). **Receive-only**: there is no reply UI. Everything that is simulated says so.
+
+| Screen                                       | Route                         | Who                                                                                                     |
+| -------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Integrations (accounts, connect, mock tools) | `/settings/integrations/meta` | `integrations:read` to look, `integrations:manage` to connect, reconnect, disconnect and use mock tools |
+| Social orders (inbox of drafts)              | `/social-orders`              | `orders:read`; a count of drafts needing review sits beside it in the menu (polled every 60 s)          |
+| Review a draft                               | `/social-orders/[id]`         | `orders:read` to look; `orders:write` to edit, confirm or dismiss                                       |
+
+- **Mock notice.** "Mock integration: not connected to Meta" (`MockNotice`) shows on every screen whenever the overview says `mode: 'mock'` or a connection or draft has `mock: true`; connections and drafts also carry a "Mock" badge. In mock mode "Connect Facebook & Instagram" is disabled with the reason. The test tool sends a Bangla order to a mock account; its message id is derived from the account, sender and text (`mockMessageId`), so the same text again is the same message and creates nothing.
+- **Sign-in with Meta** (live): `POST oauth/start`, then the browser goes to `authorizeUrl`. Meta returns to the same page with `?session=` (choose Pages: `PageSelection`, per-Page failures listed) or `?error=<code>` (each code has a plain message, see `OAUTH_ERRORS`). On the phone the screen says "Connect from the web app" and offers status, disconnect and the mock tools only.
+- **Review** reuses the order form: `OrderForm` takes a `draft`, starts from its fields, and its Confirm calls `POST /v1/social-drafts/:id/confirm` with exactly the normal order payload and the form's one idempotency key (kept on retry). Low-confidence fields (below `CHECK_THIS_CONFIDENCE` = 0.7, from `@orderloop/domain`) say "Check this" until edited, thana and postal code included (prefilled from the draft's `area` and `postalCode`; "Save draft" sends `area`, and `postalCode` only when it is exactly four digits); items the extractor could not match show "Pick the product"; prices always come from the catalogue; possible duplicates list links and need "This is a different order" ticked before Confirm. "Save draft" sends only what changed. Closed drafts and people without `orders:write` get a read-only view. The list masks phone numbers (`017••••5678`), shows the start of the first message under it (`snippet`, the customer's own words, never translated) and, for a confirmed draft, "Order #123" linking to the order (the review page's banner also says it).
+- Browser scenarios: `apps/web/e2e/meta.spec.ts` (mock banner, add account, Bangla message to order, replay creates nothing, second message joins the open draft, pick a product, dismiss, accountant read-only, accessibility and phone width). The e2e stack sets `META_MODE=mock`.
+
+## Orders: returns, closing, couriers
+
+- **Returns.** Moving an order to _returned_ shows every line with a quantity stepper (default: what was sent, 0 = not returned) and a condition (resaleable or damaged), then a plain summary ("Returning 1 of 2 Red / M; 0 of 1 Blue / L"). The API only restocks the lines it is given, so the payload (`returnPlan` in `lib/returns.ts`) holds one entry per line with a quantity above 0, `quantity` only when partial, and is left out when everything came back resaleable. A server error on `returnedItems.N.quantity` is shown beside the line that entry belongs to. Marking a return with nothing back is refused: cancel instead.
+- **`orders:close`** (owner, admin, manager) is needed to move an order to _delivered_ or _returned_ by hand. Without it those buttons are not offered (order page, Next banner, bulk bar) and the page says "Only an owner, admin or manager can mark an order delivered or returned by hand." A `forbidden` on one row of a bulk change is explained in the bulk result list. Staff still do the moves that are theirs (confirm, ready, shipped, in transit).
+- **Whole-taka cash.** Couriers take whole taka only (the server refuses a booking otherwise, simulated courier included). When `codHasPaisa` is true the booking form says the order cannot be booked and what to do (cancel and enter it again with whole-taka amounts) and disables Book; the order form summary and the order page (before the order is ready to ship) give the same advice as a soft hint when a courier is turned on. The `422 courier_unsupported` for it is worded by `messageFor` and translated.
+- **Partly delivered parcels** (`partial_delivered`): the Next banner tells a person to mark the order returned with only the units that came back. Finance caveats (partly returned orders, no courier shipment) are printed as the API sends them and have Bangla patterns; statement imports list the API's `warnings` under the result ("Worth a look"), not only in a toast.
+
+## Creating things safely, and offline
+
+- Every create form uses `useIdempotencyKey`: one key per attempt, kept across retries, so a timeout or a double press never creates twice (orders, products, variants, suppliers, addresses, workspaces, invitations, rules, imports, courier bookings, drafts).
+- Changes are never queued while offline: the guard refuses them at once with "You are offline. Nothing was sent." Reads stay on screen and refetch on reconnect. See [mobile.md](mobile.md#sessions-offline-and-expiry).
+
 ## Sign-in and the session
 
 - The access token (15 min) lives **only in memory**. The refresh token is an HttpOnly cookie the page cannot read. After a reload the app restores the session by asking the API to refresh.
 - Refresh tokens are single use. `SessionManager` makes sure only one refresh runs at a time (in a tab, and across tabs through a Web Lock) and shares the result between tabs.
 - A private page redirects to `/login?next=...`; `safeNext` only accepts same-site paths.
 
-**Known limitation.** If a tab is reloaded or closed while its refresh request is in flight, the server has already rotated the token but the browser never stored the new cookie; the next refresh then looks like token reuse and signs the user out everywhere. This needs a short server-side grace window for a just-rotated token; it is not implemented.
+- A tab reloaded or closed while its refresh is in flight no longer ends the session everywhere: the API accepts the previous token again for a short grace window (see [known-issues.md](known-issues.md)). A refresh sends `expectedTenantId`, so a tab does not follow another tab's business switch (`409 tenant_changed` makes it ask again instead).
+- Registration can be closed on a server (`403 registration_closed`): the sign-up screen shows a clear alert with the next step and a link to sign-in.
 
 ## Running it
 
@@ -104,9 +132,9 @@ The browser tests need `pnpm services:up` and `pnpm services:mail`. Their setup 
 
 The scenarios cover: sign up and email verification, sign in and out, wrong password, protected-page redirect and open-redirect refusal, password reset (once-only link), reloads and two tabs at once, sign-out across tabs, product creation and validation, stock receive/adjust/reserve and refusal of overdrawing, locations, categories, archive/restore, search, CSV import through the worker, an invited accountant seeing a read-only catalog, suppliers with size and colour variants, damaged stock and write-offs, returns, an import that is checked before it is applied, CSV downloads, the dashboard's figures checked against seeded orders, a whole seller's day from sign-up to a delivered order with no database edits, the team page (invite, role change, removal), taking, confirming, cancelling and importing orders with the stock and totals checked, bulk actions, customers and addresses, editing business settings, creating and switching businesses without data leaking between them, read-only settings for non-admins, keyboard-only sign-in, and phone-width layout.
 
-## Not built yet
+## Known limitations
 
-- Mobile sign-in and catalog screens. The shared screens exist; the mobile app still needs a native session adapter (refresh token in secure storage, sent in the request body) and an expo-router `Navigation` adapter.
-- Team management screens (invite, roles) and a tenant switcher.
-- Translations (all text is English, in the screens).
 - Reservations show a reference and quantity but not the variant, because the API's reservation record carries only the variant id.
+- Signing in with Meta needs a browser: the phone app shows account status and the mock tools, and sends people to the web app to connect.
+- Push notifications are phone-only; the web has the in-app list and bell.
+- Explanatory sentences that the API writes (finance caveats, import warnings, courier messages) are translated by pattern where a pattern exists and stay English otherwise; a few sentences with inline bold text also stay English.

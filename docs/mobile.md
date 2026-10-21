@@ -19,6 +19,7 @@ and the app's identity.
 | COD summary, outstanding COD, statement import, settlements, discrepancies                                            | More → _COD reconciliation_                                                   |
 | Analytics and profit                                                                                                  | More → _Analytics & profit_                                                   |
 | Profile, language (English / বাংলা), colour theme, sign out                                                           | tab **More**                                                                  |
+| Social orders (drafts from Facebook / Instagram messages), Integrations (status, mock tools)                          | More → _Social orders_, _Integrations_                                        |
 | Team and business settings                                                                                            | More → _Team & staff_, _Business settings_                                    |
 | Notifications (bell in the header), their preferences, automation rules                                               | header bell, More → _Notifications_, _Notification preferences_, _Automation_ |
 
@@ -89,6 +90,8 @@ packages/ui/src/                 components in folders: inputs, overlays, data, 
 The identifiers and the placeholder API addresses in `eas.json` (`api.example.com`) are to be replaced with yours before the
 first store build. Icons and the splash screen are generated from the OrderLoop mark: `node scripts/make-icons.mjs`
 (`assets/images`). The Android manifest is limited to `INTERNET`, `ACCESS_NETWORK_STATE` and `VIBRATE`.
+
+**Release builds.** `app.config.ts` throws for the `preview` and `production` variants unless `EXPO_PUBLIC_API_URL` is an `https://` address (and not the `example.com` placeholder); only the development variant may use `http://`. The CI mobile job sets one (`https://api.ci.orderloop.test`). Android's `allowBackup` is `false`, so the device's cloud backup never copies the app's data.
 
 **Localhost from a phone.** A simulator on the same Mac reaches `localhost`. An Android emulator does not: either run
 `adb reverse tcp:4000 tcp:4000` (what we use) or point `EXPO_PUBLIC_API_URL` at `http://10.0.2.2:4000`. A physical phone needs
@@ -176,6 +179,14 @@ Push (Expo notifications, `expo-notifications` + `expo-device`) is kept to a sma
   EAS project (see Expo's push setup), and `PUSH_PROVIDER=expo` on the server; with the default `dev` provider pushes are only recorded.
 - Not verified on a phone from this repository: a real device and an EAS project are needed.
 
+## Orders on the phone
+
+The order screens are the shared ones (see [web.md](web.md#orders-returns-closing-couriers)): marking an order returned asks for a quantity and condition per line, Delivered and Returned need `orders:close` (hidden for staff, with the reason), and an order whose cash to collect has paisa cannot be booked with a courier (the form says what to do). Controls keep 44 pt targets and the return steppers sit one line per row, so they fit a 360 pt-wide phone.
+
+## Facebook and Instagram messages
+
+Social orders (list and review, `/social-orders`) and Integrations (`/settings/integrations/meta`) are the same shared screens as on the web (see [web.md](web.md) and [meta.md](meta.md)). Signing in with Meta needs a browser, so on the phone Integrations shows each account's status, lets an owner or admin disconnect, and says "Connect from the web app" for connecting and reconnecting. In mock mode the mock account and test-message tools work here too, under the same "Mock integration: not connected to Meta" notice. The draft review form scrolls above the keyboard like every other form.
+
 ## Sessions, offline and expiry
 
 - **Tokens.** The refresh token lives in the platform's secure storage (Keychain / Keystore, `expo-secure-store`); the short
@@ -196,10 +207,8 @@ Push (Expo notifications, `expo-notifications` + `expo-device`) is kept to a sma
 English and Bangla, chosen in _More → Language_ (and on the sign-in screen); the default is the phone's language, and the
 choice is kept on the device. The English text in the source is the translation key; `Text`, `Button` and `TextField`
 translate what they render, so screens did not change. Catalogues: `packages/ui/src/i18n/bn.ts`,
-`packages/features/src/i18n/bn.ts` (+ `bn.extra.ts`, `bn.automation.ts`). Entries may contain `{name}` placeholders for text built at run time.
-Digits in prices, counts and dates are shown as Bengali numerals; order numbers and codes keep theirs. Known limits:
-explanatory sentences that the **API** writes (the finance caveats) and a few sentences with inline bold text stay English,
-and screen-reader labels outside `Button`/`TextField` are not translated yet. To find what is still English:
+`packages/features/src/i18n/bn.ts` (+ `bn.extra.ts`, `bn.automation.ts`, `bn.meta.ts`). Entries may contain `{name}` placeholders for text built at run time.
+Digits in prices, counts and dates are shown as Bengali numerals; order numbers and codes keep theirs. Known limits: explanatory sentences that the **API** writes (finance caveats, import warnings) are translated by pattern and stay English where no pattern exists, and a few sentences with inline bold text stay English. Screen-reader labels are translated (a test in `packages/ui` fails on a raw `aria-label`). To find what is still English:
 `TEST_LOCALE=bn MISSING_OUT=/tmp/missing pnpm --filter @orderloop/features test` renders every tested screen in Bangla and
 writes the untranslated strings; `node scripts/i18n-extract.mjs` lists all source strings.
 

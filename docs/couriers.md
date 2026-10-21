@@ -194,6 +194,19 @@ A courier's refusal is `422 courier_rejected` (credentials, booking or cancellat
 `422 courier_unsupported`, wherever it happens, cancel included; an unreachable courier is `502 courier_unavailable`. Every order status change also
 re-checks the cash discrepancies of that order's settlement lines.
 
+## Cash to collect with paisa
+
+Both real couriers and the simulated one take whole taka only, and a confirmed order cannot be edited, so an order whose cash to
+collect (total minus advance) has paisa can never be booked. The order carries `codHasPaisa` so a screen can warn before booking,
+and booking is refused up front with `422 courier_unsupported` and what to do (cancel the order and enter it again with amounts
+that make the cash a whole number of taka); no shipment row is created. The order rules are unchanged.
+
+## Booking replies that arrive late
+
+If a person settles an unconfirmed booking as "not booked" (or "cancelled at the courier") and the courier's reply then says a
+parcel was created, the shipment stays as the person left it, but a shipment event (not applied) and an audit entry
+`shipment.orphan_booking` (`kind: orphan_booking`, ids only) record the parcel so it can be cancelled in the courier's panel.
+
 ## Webhooks and how they are verified
 
 `POST /v1/webhooks/couriers/:provider/:tenantId/:connectionId`, public (no sign-in), authenticated by the courier's own method:

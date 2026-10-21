@@ -2,19 +2,22 @@
 
 One loop. Every order. A Bangladesh-first platform for Facebook and Instagram sellers: orders, couriers, COD reconciliation, inventory and analytics.
 
-**Current state: identity, tenancy, and the product catalog with stock control.** The API has accounts, tenants, roles, sessions, invitations and an audit log, plus products with variants, stock locations, an append-only stock ledger that cannot oversell, reservations, low-stock alerts and background CSV import, all isolated per tenant by PostgreSQL row-level security. Businesses have a profile (logo, contact, address, BDT / Asia/Dhaka / English-Bangla defaults), people belong to several through memberships with roles (owner, admin, manager, staff, accountant) and can switch between them; see [docs/permissions.md](docs/permissions.md). The web app has sign-in, the catalog and business settings screens; the mobile app has sign-in, a business list and switcher, creation and settings. Orders work end to end (customers, addresses, server-side totals, a validated status machine, stock reserved on confirm and released, shipped or restocked exactly once, bulk actions, CSV in and out, duplicate hints). There are no couriers or COD reconciliation yet.
+**Current state: identity, tenancy, and the product catalog with stock control.** The API has accounts, tenants, roles, sessions, invitations and an audit log, plus products with variants, stock locations, an append-only stock ledger that cannot oversell, reservations, low-stock alerts and background CSV import, all isolated per tenant by PostgreSQL row-level security. Businesses have a profile (logo, contact, address, BDT / Asia/Dhaka / English-Bangla defaults), people belong to several through memberships with roles (owner, admin, manager, staff, accountant) and can switch between them; see [docs/permissions.md](docs/permissions.md). The web app has sign-in, the catalog and business settings screens; the mobile app has sign-in, a business list and switcher, creation and settings. Orders work end to end (customers, addresses, server-side totals, a validated status machine, stock reserved on confirm and released, shipped or restocked exactly once, bulk actions, CSV in and out, duplicate hints). Couriers (Pathao, Steadfast and a simulated one), courier settlement import with COD reconciliation and discrepancies, finance summaries, automation rules with in-app and push notifications, and a Facebook Page / Instagram inbox that turns chats into draft orders are built too (see [docs/couriers.md](docs/couriers.md), [docs/finance.md](docs/finance.md), [docs/automation.md](docs/automation.md), [docs/meta.md](docs/meta.md)); none of the external integrations has been exercised against a real account.
 
 - Plan: [docs/implementation-plan.md](docs/implementation-plan.md)
 - Architecture decisions: [docs/architecture.md](docs/architecture.md)
 - API reference, auth flows, errors, rate limits, email setup: [docs/api.md](docs/api.md)
 - Data model, tenant isolation, migrations, seed data: [docs/database.md](docs/database.md)
+- All documentation, indexed: [docs/README.md](docs/README.md)
+- Operations: [deployment](docs/operations/deployment.md), [migrations](docs/operations/migrations.md), [backup and restore](docs/operations/backup-and-restore.md), [monitoring](docs/operations/monitoring.md), [incident response](docs/operations/incident-response.md)
+- Pilot release: [go/no-go checklist](docs/release/pilot-checklist.md), [dependencies and status](docs/release/dependencies-and-status.md), [known limitations](docs/release/known-limitations.md)
 
 ## What is in the repo
 
 ```
 apps/
   api/        NestJS 12 REST API (ESM). GET /health/live, GET /health/ready
-  worker/     BullMQ worker process (connects to Redis; no jobs yet)
+  worker/     BullMQ worker process: CSV imports, automation (rule evaluation, notification delivery), the Meta event inbox, sweepers that re-queue unfinished work, and a Redis heartbeat
   web/        Next.js 16. Thin routes over the shared screens: sign-in, sign-up, password reset, catalog, stock
   mobile/     Expo SDK 57 + React Native + Expo Router: the iOS and Android app (native tabs and stack, Bangla, offline-safe). See [docs/mobile.md](docs/mobile.md)
 packages/

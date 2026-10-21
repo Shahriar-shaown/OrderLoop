@@ -40,6 +40,8 @@ estimated profit = goods revenue
                  − COD shortfalls written off
 ```
 
+- **Partly returned orders.** An order marked returned is never revenue, even when only some lines came back; the units the
+  customer kept are then in neither revenue nor cost of goods. The summary's caveats count such orders per period.
 - **One definition, everywhere.** Revenue is goods (item prices less every discount, line and order level) plus delivery billed,
   on orders delivered in the period (`revenueMinor` in `packages/domain`, selected by `deliveredOrdersSql` in
   `apps/api/src/finance/revenue.ts`). Gross profit is that revenue less cost of goods (`grossProfitMinor`). The dashboard's
@@ -104,8 +106,10 @@ matched only against that courier's own **real** parcels (never simulated ones; 
 - The **same file** (its content, ignoring line endings, a BOM and trailing blanks, for the same courier) is imported once.
   Uploading it again, or twice at once, returns the original settlement with `alreadyImported: true`. The database enforces
   this (`unique (tenant, file hash)`).
-- A **line** is identified by the courier's `transaction_id` when there is one, otherwise by everything it says (parcel
-  identifiers, type, date and every amount). A line that repeats one already recorded, in the same file or an earlier one, is
+- A **line** is identified by the courier's `transaction_id` together with its parcel (consignment, tracking code, reference)
+  and type, because one payout id often covers many parcels; without a transaction id, by everything it says (parcel
+  identifiers, type, date and every amount). The import result carries `warnings` (for example how many lines were left out
+  as duplicates). A line that repeats one already recorded, in the same file or an earlier one, is
   kept but marked **duplicate** and **never counted**. A database index makes a second counted copy impossible.
   _Limitation:_ if a courier really prints two identical lines with no transaction id, the second is treated as a repeat.
   Ask the courier for a transaction id, or tell the lines apart with the `transaction_id` column.

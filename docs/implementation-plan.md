@@ -247,7 +247,7 @@ Verified locally: `pnpm install`; `pnpm check` (lint, typecheck, test, build for
 
 **Not verified (environment gaps):**
 
-- iOS Simulator launch: Xcode cannot be installed on the development machine. iOS is covered by the Metro iOS bundle build and (when available) Expo Go on a physical iPhone; Android emulator is the verified mobile runtime.
+- iOS Simulator launch: Xcode cannot be installed on the development machine. iOS is covered by the Metro iOS bundle build and (when available) Expo Go on a physical iPhone; Android emulator is the verified mobile runtime. _(Note, 2026-10-21: iOS was later verified on an iPhone 17 simulator with a native development build; see "How it was verified" in [mobile.md](mobile.md). The statement above is kept as written at the time.)_
 - GitHub Actions workflow has not run (nothing pushed).
 
 Notes: pnpm 11 manages `overrides`/`allowBuilds` in `pnpm-workspace.yaml` (mirrored in `package.json` `overrides` for Bun); `packages/db` and `courier-sdk` are created in the phases that need them; `@orderloop/contracts` has a browser-safe root entry and a Node-only `@orderloop/contracts/server` entry (found when the mobile bundle failed on `node:fs`).
@@ -271,7 +271,7 @@ Branch `feat/phase1-identity-tenancy`. Design notes and deviations are in [archi
 
 **Verified:** `pnpm check` (32 tasks) passes; 25 API unit tests and 71 integration tests pass against real PostgreSQL 16 and Redis 7; a live run against the dev server registered a tenant and returned `/health/ready` ok.
 
-**Known limits (not blockers for Phase 2):** no email delivery (invitation links are logged in development); no password reset or email verification yet; per-instance in-memory IP rate limiting (shared store needed for multiple replicas); registration reveals taken emails; no refresh grace window; the web and mobile apps do not use the auth API yet (Phases 6 and 7); iOS runtime is still unverified (no Xcode).
+**Known limits (not blockers for Phase 2):** no email delivery (invitation links are logged in development); no password reset or email verification yet; per-instance in-memory IP rate limiting (shared store needed for multiple replicas); registration reveals taken emails; no refresh grace window; the web and mobile apps do not use the auth API yet (Phases 6 and 7); iOS runtime is still unverified (no Xcode). _(Superseded: iOS was verified later, see the note under Phase 1 and [mobile.md](mobile.md).)_
 
 ## 10. Milestone 2 status: database and authentication complete (2026-10-15)
 

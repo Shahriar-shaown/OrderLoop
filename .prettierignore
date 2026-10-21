@@ -12,3 +12,7 @@ apps/web/public
 apps/web/next-env.d.ts
 *.icon
 expo-env.d.ts
+
+# Playwright output
+test-results
+playwright-report

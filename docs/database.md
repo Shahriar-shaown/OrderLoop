@@ -18,11 +18,11 @@ with a different role in each. Nothing was renamed, to keep the approved archite
 - Timestamps are `timestamptz`, stored in UTC. Table and column names are `snake_case` in the database and `camelCase` in code.
 - Tokens and passwords are stored only as hashes: argon2id for passwords, SHA-256 for random 256-bit tokens. No plaintext
   credential or token is ever stored.
-- Money (from the orders phase on) is integer paisa. There is none in the schema yet.
+- Money is integer paisa (`*_minor` / paisa columns on products, orders, shipments, settlements and costs), never floating point; the database repeats the order arithmetic as `CHECK` constraints.
 
 ## Tables
 
-Seven tables carry authentication and tenancy. Tenant tables hold a tenant's data and are protected by row-level security
+The schema has 44 tables: 39 tenant tables (`TENANT_TABLES`) and 5 global ones (`GLOBAL_TABLES`: `users`, `sessions`, `refresh_tokens`, `user_tokens`, `push_devices`), counted from `packages/db/src/tables.ts`. The table below starts with the seven that carry authentication and tenancy; the later sections add the rest. Tenant tables hold a tenant's data and are protected by row-level security
 (RLS); global tables are reached before a tenant is known (signing in, redeeming an emailed link) and are keyed by unique
 identity or unguessable secrets.
 
@@ -122,6 +122,21 @@ never deletes rules, runs, notifications, deliveries, preferences or consents (`
 `stale_pending_deliveries`; the owner has one owner-only `SELECT` policy each on `automation_rules`, `tenants` and
 `notification_deliveries` for them (the same pattern as `stale_pending_imports`).
 
+## Meta social inbox tables
+
+Migration `20261027100000_meta_social_inbox`. Four more tenant tables with `tenant_id`, forced row-level security and composite
+`(tenant_id, id)` foreign keys, in `TENANT_TABLES`: `social_connections` (a connected Page or Instagram account: provider,
+`external_id`, status `active|needs_reconnect|permission_error|disconnected`, `mock`, **sealed** `access_token_enc`, granted scopes,
+`meta_user_id`, last check and error code; a **partial unique index** on `(provider, external_id)` where status is not
+`disconnected` lets an account belong to one business at a time), `social_oauth_sessions` (hashed one-time state, sealed user
+token, page list, 10-minute expiry), `social_events` (one webhook event: unique `(tenant_id, connection_id, external_event_id)` is
+the idempotency key; payload is the text and attachment kinds only) and `social_drafts` (extracted fields and a person's
+`overrides` as JSON, `source_event_ids`, `order_id`; a **partial unique index** allows one `needs_review` draft per
+`(connection_id, sender_id)`, and a check ties `status = confirmed` to `order_id`). Cross-business reads are the `SECURITY DEFINER`
+functions `meta_connection_for` (the webhook's only one), `stale_received_social_events`, `live_social_connections`,
+`meta_deletion_targets` and `purge_social_data`, each with owner-only policies for the owner role (the same pattern as
+`stale_pending_imports`). Details and retention in [meta.md](meta.md#data-handling).
+
 ## Tenant isolation
 
 Every request that touches tenant data runs inside **one transaction that first sets two transaction-local settings**,
@@ -152,6 +167,19 @@ generates the tenant's id, sets the context to it, and inserts, so the insert po
 The user and tenant models are reached by two typed handles: `withContext` (tenant data) and `Database.global` (typed to
 only `user`, `session`, `refreshToken`, `userToken`).
 
+**Global tables have no RLS (known limitation).** `users`, `sessions`, `refresh_tokens` and `user_tokens` cannot be tenant-scoped:
+a sign-in, a refresh and an emailed link all arrive before any tenant is known. Isolation there is a code discipline, not a
+database guarantee: `Database.global` is the only handle that reaches them, it is typed to those four models, every lookup is by
+a unique identity or by the hash of a 256-bit secret, and a boundary check keeps the rest of the code off them. The consequence of
+a bug (a query that forgot its `where`) is exposure across businesses of account rows, which RLS would have prevented.
+Review changes to `apps/api/src/auth/` and `Database.global` with that in mind.
+
+**Same-tenant product references.** `products.category_id` and `products.supplier_id` are plain foreign keys, which check
+existence only (and ignore RLS). A trigger (`products_same_tenant_refs`, migration `20261029100000`) refuses a category or
+supplier of another business on insert and update. It is a trigger rather than a composite foreign key because Prisma cannot
+express a composite key with a nullable column and would drop it at the next `migrate dev`. The migration stops, changing
+nothing, if existing rows already violate the rule.
+
 ### Database roles
 
 `pnpm db:setup` creates these (idempotent, using a superuser URL that nothing else uses):
@@ -165,6 +193,8 @@ The setup script grants the runtime role access only through `ALTER DEFAULT PRIV
 `GRANT ... ON ALL TABLES`, because re-running that would undo the per-table revokes. A migration re-asserts them.
 
 ## Migrations
+
+There are 22 migrations in `packages/db/prisma/migrations` (the folder is the authoritative list, in timestamp order; the stamps run ahead of the calendar, so a new one must sort after the newest, currently `20261030100000_import_sweep_running`). The table below shows only the first four, which created the identity and tenancy tables; later ones add the catalog, orders, couriers, finance, import sweep functions, idempotency keys, automation, the Meta inbox and tenant-consistency triggers.
 
 | Migration                                          | Contents                                                                                                          |
 | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |

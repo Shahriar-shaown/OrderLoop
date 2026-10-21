@@ -1,0 +1,8 @@
+# Who must review changes to what. Today the repository has a single maintainer; replace the handle with a team
+# (for example @your-org/platform) when there is one, and turn on "Require review from Code Owners" in the branch protection
+# rule for main (a repository setting: it cannot be set from a file).
+*                                  @Shahriar-shaown
+/.github/                          @Shahriar-shaown
+/packages/db/prisma/migrations/    @Shahriar-shaown
+/apps/api/src/auth/                @Shahriar-shaown
+/packages/contracts/src/server-env.ts @Shahriar-shaown

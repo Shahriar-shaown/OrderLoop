@@ -27,9 +27,10 @@ jobs:
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version-file: .nvmrc, cache: pnpm }
       - run: cp .env.example .env
       - run: pnpm install --frozen-lockfile
@@ -50,9 +51,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version-file: .nvmrc, cache: pnpm }
       - run: cp .env.example .env
       - run: pnpm install --frozen-lockfile
@@ -60,7 +62,11 @@ jobs:
       - run: pnpm exec turbo run build --filter='@orderloop/mobile^...'
       - run: pnpm --filter @orderloop/mobile exec expo export --platform ios --platform android --output-dir /tmp/mobile-export
       - run: pnpm --filter @orderloop/mobile exec expo prebuild --no-install --platform ios --platform android
-        env: { APP_VARIANT: production, EXPO_PUBLIC_APP_ENV: development }
+        # The production variant refuses a non-https API address: any https address will do for a build that is not shipped.
+        env:
+          APP_VARIANT: production
+          EXPO_PUBLIC_APP_ENV: development
+          EXPO_PUBLIC_API_URL: https://api.ci.orderloop.test
 
   e2e:
     # Real browser scenarios against the whole stack: API, worker, web app, PostgreSQL, Redis and a mail catcher.
@@ -82,9 +88,10 @@ jobs:
         image: axllent/mailpit:v1.31
         ports: ['1025:1025', '8025:8025']
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version-file: .nvmrc, cache: pnpm }
       - run: cp .env.example .env
       - run: pnpm install --frozen-lockfile
@@ -92,10 +99,12 @@ jobs:
       # The API and worker run from their build output.
       - run: pnpm build --filter='!@orderloop/mobile'
       # GitHub's Ubuntu runners include Google Chrome, which the tests drive (no browser download).
+      # META_MODE has no default in production, so it is named here as well (.env.example and apps/web/e2e/env.ts set it too).
       - run: pnpm --filter @orderloop/web test:e2e
-      # Also on a green run: a test that passed only on retry leaves its trace here.
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+        env: { META_MODE: mock }
+      # Only when the job failed: reports and traces can hold screenshots of the app and its test data.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
         with:
           name: playwright-report
           path: |

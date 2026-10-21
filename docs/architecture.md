@@ -132,12 +132,12 @@ Additional rules:
 
 ## 8. Background jobs
 
-BullMQ queues: `courier-sync`, `courier-webhooks`, `reconciliation`, `notifications`, `reports`, `imports`. Jobs are idempotent, use exponential backoff with a dead-letter queue, and are visible through a protected admin board. Scheduled work uses BullMQ job schedulers (not in-process cron) so multiple workers do not double-fire.
+BullMQ queues, as built (the names in code): `imports` (CSV catalog imports), `automation-tick` (one repeatable job per minute that finds what is due), `automation` (rule evaluations), `automation-delivery` (one job per notification and channel, including receipts), `meta-events` (stored webhook events to drafts) and `meta-health` (a daily connection check). Courier work, settlement import and exports run in the API request, not on a queue; there is no `courier-sync`, `reconciliation` or `reports` queue. Jobs are idempotent and retried with exponential backoff; the planned dead-letter queue and admin board do not exist (a failed import job stays in Redis for a day and its database row says what failed). Scheduled work uses BullMQ job schedulers (not in-process cron) so multiple workers do not double-fire. Redis holds queue state only: sweepers in the worker re-queue what the database says is unfinished (see [operations/backup-and-restore.md](operations/backup-and-restore.md#4-redis)), and the worker writes a `worker:heartbeat` key to Redis for liveness.
 
 ## 9. Frontend notes
 
 - **Web:** Next.js App Router; data via TanStack Query against `api-client`; auth through the in-memory access token plus cookie refresh. i18n with `bn` and `en` from day one (Bangla is a first-class language, with Bangla numerals as a display option). Dhaka timezone formatting.
-- **Mobile:** Expo Router; offline-tolerant order capture (queue writes locally and sync with idempotency keys); push via Expo Notifications (needs credentials in Phase 7).
+- **Mobile:** Expo Router; offline-safe, **not** offline-capable: while the device is offline every request that changes data is refused at once with a clear message and nothing is queued or sent later (`withOfflineGuard` in `packages/features/src/core/connectivity.ts`, see [mobile.md](mobile.md#sessions-offline-and-expiry)); what is already loaded stays readable. Push via Expo Notifications (needs credentials).
 
 ---
 
@@ -195,7 +195,7 @@ What was built, and where it deliberately differs from the sections above. Every
 ### Authentication as built
 
 - Access token: EdDSA JWT, 15 min, claims `sub`, `tid`, `sid` only. **The role is not trusted from the token.** `AccessGuard` re-reads the session and the membership on every request, so logout, demotion and removal take effect immediately. (Section 4 mentioned a short-TTL Redis cache for this; it is deferred until it is needed, because correctness is simpler without it.)
-- Refresh tokens: opaque, SHA-256 hashed at rest, single use. Replay of a used token, or two concurrent exchanges of one token, revokes the whole session (compare-and-set on `used_at`). There is no grace period, so a client that double-submits a refresh will be signed out; add a short grace window only if real clients need it.
+- Refresh tokens: opaque, SHA-256 hashed at rest, single use. Replay of a used token, or two concurrent exchanges of one token, revokes the whole session (compare-and-set on `used_at`). A short reuse grace window (`REFRESH_REUSE_GRACE_SECONDS`, default 10, 0 turns it off) treats a second presentation of an already-exchanged token as a lost-response retry, and hands out a fresh token, as long as the token issued the first time has not been used yet; after the window, or once the successor was used, reuse is theft and the session is revoked.
 - Passwords: argon2id (19 MiB, t=2, p=1), 10 to 128 characters, no composition rules. Login does a dummy verification for unknown emails and returns one error for every credential failure.
 - Brute force: per-IP request rate limits (strict on credential routes) plus two lockout counters in Redis: 5 failures per (account, IP) pair per 15 minutes, and 50 failures per account across all IPs. The pair counter means someone else's bad guesses cannot lock the real owner out from their own IP; the account-wide counter catches guessing spread across many IPs. Both fail open if Redis is down. The IP limiter is in-memory per instance; use a shared store before running multiple replicas. Set `TRUST_PROXY` to the exact number of proxy hops in production, otherwise every client shares the proxy's IP.
 - Invitations carry their inviter's authority. Acceptance re-checks that the inviter is still a member who may grant that role (and permanently revokes the invitation if not); removing or demoting a member revokes their pending invitations; OWNER and ADMIN can list and revoke invitations (an ADMIN only for roles they could grant).
@@ -316,3 +316,24 @@ The full design is [automation.md](automation.md). Decisions in short:
   SMTP/Mailpit mail path. SMS and WhatsApp are gated by provider configuration and the recipient's own consent.
 - **Privacy by construction:** builders accept only ids, numbers and product names; push carries `{kind, id}` and a generic text.
 - `PUT` was added to the route registry's methods (`HttpMethod`), the controllers' decorators and CORS.
+
+## 15. Meta (Facebook Page and Instagram) draft orders
+
+The full design is [meta.md](meta.md). Decisions in short:
+
+- **Receive-only, human in the loop.** Customer messages become drafts; only a person's confirm creates an order, through the same
+  `OrdersService` path as manual entry (`createWithin`, in the draft's own transaction). No replies, no scraping, no media, no passwords.
+- **Persist first, queue second.** The webhook verifies the signature over the raw bytes, stores events (unique message id =
+  idempotency), queues a job per event under a deterministic id and answers within Meta's five seconds even if Redis is down; a
+  worker sweeper queues what was missed. Processing is idempotent, serialised per conversation and independent of arrival order.
+- **One cross-business read for the webhook**, `meta_connection_for`, then everything runs inside the business's RLS context. Four
+  more narrow `SECURITY DEFINER` functions serve the sweeper, the daily health check, the deletion callbacks and retention.
+- **Shared server code in `packages/automation/src/meta`** (Graph client with injected `fetch`, signatures, webhook parsing,
+  ingestion, processing, health, retention), the pure extractor in `packages/domain`, the credential cipher extracted to
+  `SecretBox` (reused by `CredentialVault`). Tokens are sealed with the courier credential key.
+- **Mock and live modes** behind `META_MODE`; mock is a labelled provider through the same pipeline; live is documented as
+  implemented against documentation and not tested with authorised credentials.
+- **Data minimisation:** chit-chat is dropped, attachments are recorded by kind only, retention is 30 days by default, a confirmed
+  order keeps no chat text, and Meta's deauthorize and data-deletion callbacks are implemented.
+- **Not done on purpose:** an in-app notification for a connection that needs attention (the notification kinds are the
+  `AutomationKind` enum; adding one is invasive, see meta.md).
