@@ -1,0 +1,48 @@
+# Prometheus for the single-host pilot (compose profile `monitoring`). Targets are on the internal Docker network.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  # API: GET /metrics needs the bearer token (METRICS_TOKEN), mounted as a file by Compose. Without METRICS_TOKEN the endpoint
+  # answers 404 and this target shows as down.
+  - job_name: api
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/metrics_token
+    static_configs:
+      - targets: ['api:4000']
+
+  # Worker: its own health server (WORKER_HEALTH_PORT, 4010), same token.
+  - job_name: worker
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/metrics_token
+    static_configs:
+      - targets: ['worker:4010']
+
+  - job_name: node
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ['alertmanager:9093']

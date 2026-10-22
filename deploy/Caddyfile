@@ -1,0 +1,43 @@
+# Reverse proxy for the single-host pilot: automatic HTTPS (Let's Encrypt) for app.<DOMAIN> and api.<DOMAIN>.
+# What docs/operations/deployment.md section 9 requires, and how this file does it:
+#   - HTTPS only, HTTP redirected             : Caddy's automatic HTTPS (certificates, renewal and the redirect are built in)
+#   - X-Forwarded-For / X-Forwarded-Proto     : set by reverse_proxy; this proxy is the edge, so client-sent values are overwritten.
+#                                               The API runs with TRUST_PROXY=1: exactly this one hop.
+#   - webhook bodies untouched                : no encode, no body rewriting; the Meta signature is over the exact bytes
+#   - body size >= 3 MB                       : 4 MB on the API host
+#   - upstream read timeout >= 65 s           : response_header_timeout 70s
+#   - Origin / Cookie / Authorization pass    : untouched; no CORS or CSP headers are added here (the apps send their own)
+#   - no caching of API or HTML               : no cache directive anywhere
+#   - /metrics is internal                    : answered 404 here; Prometheus reaches the API over the internal network
+#   - Redis and PostgreSQL are not proxied    : they have no published port at all
+{
+	admin off
+	email {$ACME_EMAIL}
+	http_port {$HTTP_PORT:80}
+	https_port {$HTTPS_PORT:443}
+	servers {
+		protocols h1 h2
+	}
+	# Empty in production. `local_certs` for a local test with Caddy's own CA (deploy/smoke-test.sh).
+	{$CADDY_GLOBAL_OPTIONS}
+}
+
+app.{$DOMAIN} {
+	header -Server
+	reverse_proxy web:3000
+}
+
+api.{$DOMAIN} {
+	header -Server
+	request_body {
+		max_size 4MB
+	}
+	@internal path /metrics /metrics/*
+	respond @internal 404
+	reverse_proxy api:4000 {
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 70s
+		}
+	}
+}

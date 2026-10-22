@@ -14,7 +14,9 @@ const migrator = required('DATABASE_MIGRATION_URL');
 const runtime = required('DATABASE_URL');
 
 const dbName = admin.pathname.slice(1);
-const databases = [dbName, `${dbName}_test`];
+// The integration tests use `<db>_test`; a deployment has no use for it (deploy/migrate.mjs sets SETUP_ROLES_SKIP_TEST_DB=1).
+const databases =
+  process.env.SETUP_ROLES_SKIP_TEST_DB === '1' ? [dbName] : [dbName, `${dbName}_test`];
 const q = pg.escapeIdentifier;
 const lit = pg.escapeLiteral;
 

@@ -1,0 +1,411 @@
+# OrderLoop single-host pilot stack: PostgreSQL 16, Redis, a one-shot migrate job, api, worker, web, Caddy (automatic HTTPS), and
+# the encrypted backup loop. Optional profiles: `monitoring` (Prometheus, Alertmanager, Grafana, exporters) and `ops` (restore drill).
+#
+#   cp deploy/.env.example deploy/.env   # or: ./deploy/generate-secrets.sh   (fills every secret, mode 600)
+#   docker compose -f deploy/docker-compose.yml build
+#   docker compose -f deploy/docker-compose.yml up -d
+#
+# Read docs/operations/deployment.md first. This is a SINGLE host: one PostgreSQL, one Redis, no failover. What was and was not
+# tested is stated there. Only Caddy publishes ports; PostgreSQL, Redis, api, worker and web are reachable on the internal network only.
+name: orderloop
+
+x-restart: &restart
+  restart: unless-stopped
+
+# Hardening shared by the stateless app containers: no capabilities, no privilege escalation, read-only root filesystem.
+x-hardened: &hardened
+  init: true
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+  read_only: true
+  tmpfs: [/tmp]
+  <<: *restart
+
+# What api and worker both read (the same schema validates it in both, with the API-only production rules skipped for the worker:
+# packages/contracts/src/server-env.ts). A variable that is
+# blank or unset is "not set". Secrets come from deploy/.env (never baked into an image).
+x-app-env: &app-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://app_user:${DATABASE_APP_PASSWORD:?run deploy/generate-secrets.sh}@postgres:5432/${POSTGRES_DB:-orderloop}
+  REDIS_URL: redis://:${REDIS_PASSWORD:?run deploy/generate-secrets.sh}@redis:6379
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  MAIL_PROVIDER: ${MAIL_PROVIDER:-smtp}
+  MAIL_FROM: ${MAIL_FROM:-}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_SECURE: ${SMTP_SECURE:-false}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  PUSH_PROVIDER: ${PUSH_PROVIDER:-dev}
+  PUSH_DEV_OUTBOX: ${PUSH_DEV_OUTBOX:-}
+  EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
+  SMS_PROVIDER: ${SMS_PROVIDER:-none}
+  WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-none}
+  COURIER_CREDENTIALS_KEY: ${COURIER_CREDENTIALS_KEY:-}
+  COURIER_CREDENTIALS_KEY_ID: ${COURIER_CREDENTIALS_KEY_ID:-k1}
+  COURIER_CREDENTIALS_OLD_KEYS: ${COURIER_CREDENTIALS_OLD_KEYS:-}
+  COURIER_MOCK_ENABLED: ${COURIER_MOCK_ENABLED:-}
+  API_PUBLIC_URL: ${API_PUBLIC_URL:-https://api.${DOMAIN:?set DOMAIN in deploy/.env}}
+  META_MODE: ${META_MODE:?set META_MODE in deploy/.env (mock or live)}
+  META_ALLOW_MOCK_IN_PRODUCTION: ${META_ALLOW_MOCK_IN_PRODUCTION:-false}
+  META_APP_ID: ${META_APP_ID:-}
+  META_APP_SECRET: ${META_APP_SECRET:-}
+  META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
+  META_GRAPH_VERSION: ${META_GRAPH_VERSION:-}
+  META_LOGIN_CONFIG_ID: ${META_LOGIN_CONFIG_ID:-}
+  META_RETENTION_DAYS: ${META_RETENTION_DAYS:-30}
+  METRICS_TOKEN: ${METRICS_TOKEN:-}
+  # Days between an owner asking to delete a business and the worker deleting it for good (the API schedules it, the worker purges).
+  TENANT_DELETION_GRACE_DAYS: ${TENANT_DELETION_GRACE_DAYS:-14}
+  WORKER_HEALTH_PORT: '4010'
+
+services:
+  postgres:
+    image: postgres:16.15-bookworm
+    <<: *restart
+    environment:
+      # The superuser. Used by the migrate job (roles), the restore drill and administration; NEVER given to api or worker.
+      POSTGRES_USER: ${POSTGRES_USER:-orderloop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run deploy/generate-secrets.sh}
+      POSTGRES_DB: ${POSTGRES_DB:-orderloop}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        limits: { cpus: '1.50', memory: 1536M }
+    stop_grace_period: 30s
+
+  redis:
+    image: redis:7.4.11-bookworm
+    <<: *restart
+    # Append-only file on a volume: queued jobs survive a restart. Password required (the port is not published anyway).
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+      - --appendfsync
+      - everysec
+      - --requirepass
+      - ${REDIS_PASSWORD:?run deploy/generate-secrets.sh}
+      - --maxmemory
+      - 192mb
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    environment:
+      # redis-cli reads the password from here (kept out of the command line of the healthcheck).
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    deploy:
+      resources:
+        limits: { cpus: '0.50', memory: 256M }
+
+  # One-shot: roles + `prisma migrate deploy` as the owner role + status check. Runs on every `up`; idempotent.
+  migrate:
+    image: orderloop-migrate:${IMAGE_TAG:-local}
+    build: { context: .., dockerfile: deploy/Dockerfile, target: migrate }
+    restart: 'no'
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      DATABASE_ADMIN_URL: postgresql://${POSTGRES_USER:-orderloop}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-orderloop}
+      DATABASE_MIGRATION_URL: postgresql://app_migrator:${DATABASE_MIGRATOR_PASSWORD:?run deploy/generate-secrets.sh}@postgres:5432/${POSTGRES_DB:-orderloop}
+      DATABASE_URL: postgresql://app_user:${DATABASE_APP_PASSWORD}@postgres:5432/${POSTGRES_DB:-orderloop}
+      DATABASE_BACKUP_PASSWORD: ${DATABASE_BACKUP_PASSWORD:-}
+      DATABASE_MONITOR_PASSWORD: ${DATABASE_MONITOR_PASSWORD:-}
+    init: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    read_only: true
+    tmpfs: [/tmp]
+    deploy:
+      resources:
+        limits: { cpus: '1.00', memory: 512M }
+
+  api:
+    image: orderloop-api:${IMAGE_TAG:-local}
+    build: { context: .., dockerfile: deploy/Dockerfile, target: api }
+    <<: *hardened
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *app-env
+      API_PORT: '4000'
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?run deploy/generate-secrets.sh}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?run deploy/generate-secrets.sh}
+      ACCESS_TOKEN_TTL_SECONDS: ${ACCESS_TOKEN_TTL_SECONDS:-900}
+      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-30}
+      REFRESH_REUSE_GRACE_SECONDS: ${REFRESH_REUSE_GRACE_SECONDS:-10}
+      WEB_ORIGINS: ${WEB_ORIGINS:-https://app.${DOMAIN}}
+      WEB_APP_URL: ${WEB_APP_URL:-}
+      # Who may create a business. Only the API reads these (the worker is not given them).
+      REGISTRATION_MODE: ${REGISTRATION_MODE:?set REGISTRATION_MODE in deploy/.env (allowlist or open)}
+      REGISTRATION_ALLOWED_EMAILS: ${REGISTRATION_ALLOWED_EMAILS:-}
+      # One reverse proxy (Caddy) in front of the API: exactly one hop.
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      TRUST_PROXY_NONE_OK: 'false'
+      OPENAPI_PUBLIC: ${OPENAPI_PUBLIC:-false}
+      RATE_LIMIT_ENABLED: 'true'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 4s
+      start_period: 40s
+      retries: 3
+    deploy:
+      resources:
+        limits: { cpus: '1.00', memory: 768M }
+    stop_grace_period: 30s
+
+  worker:
+    image: orderloop-worker:${IMAGE_TAG:-local}
+    build: { context: .., dockerfile: deploy/Dockerfile, target: worker }
+    <<: *hardened
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *app-env
+    # The image's own healthcheck (/health/ready on the worker's health port: Redis, PostgreSQL and the heartbeat loop) applies.
+    deploy:
+      resources:
+        limits: { cpus: '1.00', memory: 768M }
+    stop_grace_period: 60s
+
+  web:
+    image: orderloop-web:${IMAGE_TAG:-local}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: web
+      args:
+        # Compiled into the browser bundle: changing the public API address means rebuilding this image.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.${DOMAIN:?set DOMAIN in deploy/.env}}
+        NEXT_PUBLIC_APP_ENV: ${NEXT_PUBLIC_APP_ENV:-production}
+        NEXT_PUBLIC_PRIVACY_CONTACT: ${NEXT_PUBLIC_PRIVACY_CONTACT:-}
+    <<: *hardened
+    # next writes its (empty) cache here at run time.
+    tmpfs: [/tmp, '/app/apps/web/.next/cache']
+    environment:
+      # The CSP's connect-src is built at run time from this: it must equal the value compiled into the bundle.
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.${DOMAIN}}
+      NEXT_PUBLIC_APP_ENV: ${NEXT_PUBLIC_APP_ENV:-production}
+    deploy:
+      resources:
+        limits: { cpus: '1.00', memory: 768M }
+
+  caddy:
+    image: caddy:2.11.7-alpine
+    <<: *restart
+    depends_on: [api, web]
+    ports:
+      - '${HTTP_PORT:-80}:${HTTP_PORT:-80}'
+      - '${HTTPS_PORT:-443}:${HTTPS_PORT:-443}'
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in deploy/.env}
+      HTTP_PORT: ${HTTP_PORT:-80}
+      HTTPS_PORT: ${HTTPS_PORT:-443}
+      CADDY_GLOBAL_OPTIONS: ${CADDY_GLOBAL_OPTIONS:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ['no-new-privileges:true']
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 "$${HTTPS_PORT}"']
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits: { cpus: '0.50', memory: 192M }
+
+  # Encrypted nightly backups (ops/backup.sh in a loop). Holds only the PUBLIC age key and a read-only (BYPASSRLS) database role.
+  backup:
+    image: orderloop-ops:${IMAGE_TAG:-local}
+    build: { context: .., dockerfile: deploy/Dockerfile, target: ops }
+    <<: *restart
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    command: ['backup-loop.sh']
+    environment:
+      PGHOST: postgres
+      PGPORT: '5432'
+      PGDATABASE: ${POSTGRES_DB:-orderloop}
+      BACKUP_DB_USER: app_backup
+      BACKUP_DB_PASSWORD: ${DATABASE_BACKUP_PASSWORD:?run deploy/generate-secrets.sh}
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:?run deploy/generate-secrets.sh}
+      BACKUP_AT: ${BACKUP_AT:-02:30}
+      BACKUP_ON_START: ${BACKUP_ON_START:-if-missing}
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-7}
+      BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-4}
+      BACKUP_MAX_AGE_HOURS: ${BACKUP_MAX_AGE_HOURS:-26}
+      BACKUP_RCLONE_REMOTE: ${BACKUP_RCLONE_REMOTE:-}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      # Off-site target (S3-compatible, via rclone's remote named "offsite"): see deploy/.env.example.
+      RCLONE_CONFIG_OFFSITE_TYPE: ${RCLONE_CONFIG_OFFSITE_TYPE:-s3}
+      RCLONE_CONFIG_OFFSITE_PROVIDER: ${RCLONE_CONFIG_OFFSITE_PROVIDER:-Other}
+      RCLONE_CONFIG_OFFSITE_ENDPOINT: ${RCLONE_CONFIG_OFFSITE_ENDPOINT:-}
+      RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID: ${RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID:-}
+      RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY: ${RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY:-}
+    volumes:
+      - backups:/backups
+    healthcheck:
+      test: ['CMD', 'backup-health.sh']
+      interval: 5m
+      timeout: 10s
+      start_period: 2h
+      retries: 1
+    init: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    deploy:
+      resources:
+        limits: { cpus: '1.00', memory: 512M }
+
+  # Restore drill (profile `ops`; never starts by itself). Needs the age PRIVATE key mounted for the run:
+  #   docker compose -f deploy/docker-compose.yml --profile ops run --rm \
+  #     -v "$PWD/deploy/backup-age-identity.txt:/run/secrets/age-identity:ro" drill
+  drill:
+    image: orderloop-ops:${IMAGE_TAG:-local}
+    profiles: [ops]
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ['restore-drill.sh']
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-orderloop}
+      DRILL_ADMIN_USER: ${POSTGRES_USER:-orderloop}
+      DRILL_ADMIN_PASSWORD: ${POSTGRES_PASSWORD}
+      DRILL_APP_USER_PASSWORD: ${DATABASE_APP_PASSWORD}
+      BACKUP_AGE_IDENTITY_FILE: /run/secrets/age-identity
+    volumes:
+      - backups:/backups:ro
+    init: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+
+  # ---- profile `monitoring`: bound to 127.0.0.1 only; reach them through an SSH tunnel ----------------------------------
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    profiles: [monitoring]
+    <<: *restart
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+    ports: ['127.0.0.1:${PROMETHEUS_PORT:-9090}:9090']
+    volumes:
+      - ../ops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../ops/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    secrets: [metrics_token]
+    depends_on: [alertmanager]
+    deploy:
+      resources:
+        limits: { cpus: '0.75', memory: 512M }
+
+  alertmanager:
+    image: prom/alertmanager:v0.34.1
+    profiles: [monitoring]
+    <<: *restart
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports: ['127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093']
+    volumes:
+      - ../ops/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    secrets: [alert_webhook_url]
+    deploy:
+      resources:
+        limits: { cpus: '0.25', memory: 128M }
+
+  grafana:
+    image: grafana/grafana-oss:13.0.2
+    profiles: [monitoring]
+    <<: *restart
+    ports: ['127.0.0.1:${GRAFANA_PORT:-3001}:3000']
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in deploy/.env}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+    volumes:
+      - ../ops/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../ops/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on: [prometheus]
+    deploy:
+      resources:
+        limits: { cpus: '0.50', memory: 384M }
+
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    profiles: [monitoring]
+    <<: *restart
+    command:
+      [
+        '--path.rootfs=/host',
+        '--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($$|/)',
+      ]
+    pid: host
+    volumes:
+      - /:/host:ro
+    deploy:
+      resources:
+        limits: { cpus: '0.25', memory: 64M }
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+    profiles: [monitoring]
+    <<: *restart
+    environment:
+      DATA_SOURCE_NAME: postgresql://app_monitor:${DATABASE_MONITOR_PASSWORD:?run deploy/generate-secrets.sh}@postgres:5432/${POSTGRES_DB:-orderloop}?sslmode=disable
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    deploy:
+      resources:
+        limits: { cpus: '0.25', memory: 96M }
+
+secrets:
+  # Read by Prometheus (bearer token for /metrics) and Alertmanager (webhook address) from files, never from the command line.
+  metrics_token:
+    environment: METRICS_TOKEN
+  alert_webhook_url:
+    environment: ALERT_WEBHOOK_URL
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
+  backups:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:

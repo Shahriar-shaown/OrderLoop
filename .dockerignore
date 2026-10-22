@@ -1,0 +1,34 @@
+# Build context for deploy/Dockerfile (the repository root). Keep secrets, build output and everything the images do not need OUT:
+# a smaller context builds faster and, more importantly, nothing here can leak into a layer.
+.git
+.github
+.idea
+.vscode
+.turbo
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/dist
+**/.next
+**/.expo
+**/coverage
+**/test-results
+**/playwright-report
+**/*.tsbuildinfo
+**/*.log
+# generated at image build time by `prisma generate`
+packages/db/src/generated
+# the mobile app is built by EAS, never in these images; only its manifest is needed so the lockfile still matches the workspace
+apps/mobile/*
+!apps/mobile/package.json
+# local state and operator files that must never be baked in
+deploy/.env
+deploy/*.txt
+deploy/backups
+infra/data
+docs
+*.md

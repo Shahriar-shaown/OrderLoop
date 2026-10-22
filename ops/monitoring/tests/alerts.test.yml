@@ -1,0 +1,263 @@
+# Unit tests for alerts.yml:  promtool test rules ops/monitoring/tests/alerts.test.yml
+# Each case feeds time series and checks which alerts fire (or do not) at a given time, including their labels and annotations
+# (so a runbook link cannot be dropped unnoticed). scripts/check-deploy.test.mjs also checks that every link points at a real section.
+rule_files:
+  - ../alerts.yml
+evaluation_interval: 15s
+
+tests:
+  - name: worker stopped fires WorkerHeartbeatStale and WorkerDown
+    interval: 15s
+    input_series:
+      - series: 'orderloop_worker_heartbeat_present'
+        values: '1x8 0x30'
+      - series: 'up{job="worker"}'
+        values: '1x8 0x30'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: WorkerHeartbeatStale
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: WorkerHeartbeatStale
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: 'No worker heartbeat'
+              description: 'No worker has refreshed its heartbeat in Redis for over 2 minutes (it is written every 30 s and expires after 90 s). Queued jobs are not being processed.'
+              runbook: docs/operations/incident-response.md#alert-workerheartbeatstale
+      - eval_time: 5m
+        alertname: WorkerDown
+        exp_alerts:
+          - exp_labels: { severity: critical, job: 'worker' }
+            exp_annotations:
+              summary: 'The worker cannot be scraped'
+              description: "The worker's health server has not answered for 2 minutes. Imports, automation, notifications and Meta events are not being processed."
+              runbook: docs/operations/incident-response.md#alert-workerheartbeatstale
+
+  - name: a stale heartbeat (key present but old) also fires
+    interval: 15s
+    input_series:
+      - series: 'orderloop_worker_heartbeat_age_seconds'
+        values: '10x4 200x20'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: WorkerHeartbeatStale
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: WorkerHeartbeatStale
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: 'No worker heartbeat'
+              description: 'No worker has refreshed its heartbeat in Redis for over 2 minutes (it is written every 30 s and expires after 90 s). Queued jobs are not being processed.'
+              runbook: docs/operations/incident-response.md#alert-workerheartbeatstale
+
+  - name: a healthy worker raises nothing
+    interval: 15s
+    input_series:
+      - series: 'orderloop_worker_heartbeat_present'
+        values: '1x40'
+      - series: 'orderloop_worker_heartbeat_age_seconds'
+        values: '12x40'
+      - series: 'up{job="worker"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: WorkerHeartbeatStale
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: WorkerDown
+        exp_alerts: []
+
+  - name: API unreachable and readiness
+    interval: 15s
+    input_series:
+      - series: 'up{job="api"}'
+        values: '1x4 0x30'
+      - series: 'orderloop_dependency_up{dependency="redis"}'
+        values: '1x4 0x30'
+      - series: 'orderloop_dependency_up{dependency="postgres"}'
+        values: '1x34'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ApiDown
+        exp_alerts:
+          - exp_labels: { severity: critical, job: 'api' }
+            exp_annotations:
+              summary: 'The API cannot be scraped'
+              description: 'Prometheus has not been able to scrape the API for 2 minutes. Either the API is down, METRICS_TOKEN does not match, or /metrics is disabled (no METRICS_TOKEN set).'
+              runbook: docs/operations/incident-response.md#alert-apidown
+      - eval_time: 5m
+        alertname: ApiNotReady
+        exp_alerts:
+          - exp_labels: { severity: critical, dependency: 'redis' }
+            exp_annotations:
+              summary: 'API readiness: redis is down'
+              description: "The API's readiness probe cannot reach redis (PostgreSQL or Redis) for 2 minutes. /health/ready answers 503."
+              runbook: docs/operations/incident-response.md#alert-apinotready
+
+  - name: 5xx ratio above 5 percent fires, below does not
+    interval: 15s
+    input_series:
+      - series: 'orderloop_http_requests_total{method="GET",route="/v1/orders",status_class="2xx"}'
+        values: '0+10x60'
+      - series: 'orderloop_http_requests_total{method="GET",route="/v1/orders",status_class="5xx"}'
+        values: '0+1.5x60'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ApiHigh5xxRate
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: ApiHigh5xxRate
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: 'More than 5% of API requests fail with 5xx'
+              description: '13.04% of API requests over the last 5 minutes answered 5xx. Look for `event":"unhandled_error"` in the API log.'
+              runbook: docs/operations/incident-response.md#alert-apihigh5xxrate
+
+  - name: a few errors at very low traffic do not page
+    interval: 15s
+    input_series:
+      - series: 'orderloop_http_requests_total{method="GET",route="/v1/orders",status_class="2xx"}'
+        values: '0+0x60'
+      - series: 'orderloop_http_requests_total{method="GET",route="/v1/orders",status_class="5xx"}'
+        values: '0+0.01x60'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: ApiHigh5xxRate
+        exp_alerts: []
+
+  - name: p95 latency above 1.5 s for 10 minutes
+    interval: 15s
+    input_series:
+      - series: 'orderloop_http_request_duration_seconds_bucket{le="1"}'
+        values: '0+0x80'
+      - series: 'orderloop_http_request_duration_seconds_bucket{le="2.5"}'
+        values: '0+4x80'
+      - series: 'orderloop_http_request_duration_seconds_bucket{le="+Inf"}'
+        values: '0+4x80'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ApiHighLatencyP95
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: ApiHighLatencyP95
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: 'API p95 latency above 1.5 s'
+              description: 'The 95th percentile request duration has been above 1.5 s for 10 minutes (2.425s).'
+              runbook: docs/operations/incident-response.md#alert-apihighlatencyp95
+
+  - name: queue age and failed automation jobs
+    interval: 15s
+    input_series:
+      - series: 'orderloop_queue_oldest_waiting_age_seconds{queue="imports"}'
+        values: '0x4 400x40'
+      - series: 'orderloop_queue_oldest_waiting_age_seconds{queue="automation-tick"}'
+        values: '900x44'
+      - series: 'orderloop_queue_jobs{queue="automation",state="failed"}'
+        values: '0x20 3x30'
+      - series: 'orderloop_queue_jobs{queue="imports",state="failed"}'
+        values: '11x44'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: QueueOldestJobTooOld
+        exp_alerts:
+          - exp_labels: { severity: warning, queue: 'imports' }
+            exp_annotations:
+              summary: 'Queue imports: oldest waiting job is 6m 40s old'
+              description: 'A job has been waiting more than 5 minutes in imports. The worker is stuck, down, or overloaded.'
+              runbook: docs/operations/incident-response.md#alert-queueoldestjobtooold
+      - eval_time: 6m
+        alertname: AutomationJobsFailed
+        exp_alerts:
+          - exp_labels: { severity: warning, queue: 'automation', state: 'failed' }
+            exp_annotations:
+              summary: 'Automation: jobs gave up in automation'
+              description: 'Jobs in automation used all 5 attempts and failed (runs of a rule, or deliveries of a notification). They are kept for a week; their reason is in the worker log.'
+              runbook: docs/operations/incident-response.md#alert-automationjobsfailed
+      - eval_time: 12m
+        alertname: QueueFailedJobsHigh
+        exp_alerts:
+          - exp_labels: { severity: warning, queue: 'imports', state: 'failed' }
+            exp_annotations:
+              summary: 'Queue imports holds 11 failed jobs'
+              description: 'More than 10 failed jobs are kept in imports.'
+              runbook: docs/operations/incident-response.md#alert-queuefailedjobshigh
+
+  - name: backup older than 26 hours fires; a fresh one does not
+    interval: 1m
+    input_series:
+      - series: 'orderloop_backup_last_success_timestamp_seconds'
+        values: '0x2000'
+    alert_rule_test:
+      - eval_time: 24h
+        alertname: BackupStale
+        exp_alerts: []
+      - eval_time: 30h
+        alertname: BackupStale
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: 'The last successful backup is more than 26 hours old'
+              description: 'ops/backup.sh has not reported a success for 1d 6h 0m 0s. Check `docker compose logs backup` for backup.failed.'
+              runbook: docs/operations/incident-response.md#alert-backupstale
+
+  - name: backup never reported
+    interval: 15m
+    input_series:
+      - series: 'up{job="api"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: BackupNeverReported
+        exp_alerts: []
+      - eval_time: 4h
+        alertname: BackupNeverReported
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: 'No backup has ever been reported'
+              description: 'The API has no backup time in Redis for 3 hours. The backup container is not running, never succeeded, or Redis was reset after the last backup (the backup loop re-reports at its next start).'
+              runbook: docs/operations/incident-response.md#alert-backupstale
+
+  - name: disk below 15 percent
+    interval: 1m
+    input_series:
+      - series: 'node_filesystem_avail_bytes{mountpoint="/",fstype="ext4"}'
+        values: '30x30 10x30'
+      - series: 'node_filesystem_size_bytes{mountpoint="/",fstype="ext4"}'
+        values: '100x60'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: DiskSpaceLow
+        exp_alerts: []
+      - eval_time: 45m
+        alertname: DiskSpaceLow
+        exp_alerts:
+          - exp_labels: { severity: warning, mountpoint: '/', fstype: 'ext4' }
+            exp_annotations:
+              summary: 'Less than 15% free on /'
+              description: '/ has 10% free. PostgreSQL, backups and logs fill the disk.'
+              runbook: docs/operations/incident-response.md#alert-diskspacelow
+
+  - name: postgres connections above 80 percent
+    interval: 1m
+    input_series:
+      - series: 'pg_stat_activity_count{datname="orderloop",state="active"}'
+        values: '50x20'
+      - series: 'pg_stat_activity_count{datname="orderloop",state="idle"}'
+        values: '35x20'
+      - series: 'pg_settings_max_connections'
+        values: '100x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PostgresConnectionsHigh
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: 'PostgreSQL connections above 80% of max_connections'
+              description: '85% of max_connections are in use. New connections will start to fail.'
+              runbook: docs/operations/incident-response.md#alert-postgresconnectionshigh

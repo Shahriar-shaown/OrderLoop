@@ -111,3 +111,39 @@ jobs:
             apps/web/playwright-report
             apps/web/test-results
           retention-days: 7
+
+  images:
+    # The deployment artifacts (deploy/, ops/): every production image must build from a clean checkout, the compose file must
+    # validate with its example environment, the monitoring rules must pass promtool, and an image must refuse to start with an
+    # invalid environment. Nothing is pushed anywhere. Uses only tools preinstalled on the runner (docker, docker compose), so no
+    # extra action is added.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - name: Compose files validate with the example environment
+        run: |
+          docker compose --env-file deploy/.env.example -f deploy/docker-compose.yml config -q
+          docker compose --env-file deploy/.env.example -f deploy/docker-compose.yml --profile monitoring --profile ops config -q
+      - name: Build the images (no push)
+        run: |
+          docker build -f deploy/Dockerfile --target api -t orderloop-api:ci .
+          docker build -f deploy/Dockerfile --target worker -t orderloop-worker:ci .
+          docker build -f deploy/Dockerfile --target migrate -t orderloop-migrate:ci .
+          docker build -f deploy/Dockerfile --target ops -t orderloop-ops:ci .
+          docker build -f deploy/Dockerfile --target web --build-arg NEXT_PUBLIC_API_URL=https://api.ci.orderloop.test -t orderloop-web:ci .
+          docker images 'orderloop-*:ci' --format '{{.Repository}}:{{.Tag}} {{.Size}}'
+      - name: Images run as a non-root user and refuse an invalid environment
+        run: |
+          for t in api worker migrate web; do test "$(docker run --rm --entrypoint id orderloop-$t:ci -u)" != 0; done
+          out=$(docker run --rm -e NODE_ENV=production orderloop-api:ci 2>&1) && { echo 'the api started without an environment'; exit 1; }
+          echo "$out" | grep -q unhandled_error
+      - name: Backup retention logic (ops/lib.sh) in the ops image
+        run: docker run --rm -v "$PWD/ops":/ops:ro --entrypoint bash orderloop-ops:ci /ops/tests/retention.test.sh
+      - name: Monitoring rules and config
+        run: |
+          docker run --rm --entrypoint promtool -v "$PWD/ops/monitoring":/m:ro prom/prometheus:v3.15.1 check rules /m/alerts.yml
+          docker run --rm --entrypoint promtool -v "$PWD/ops/monitoring":/m:ro prom/prometheus:v3.15.1 test rules /m/tests/alerts.test.yml
+          echo http://receiver.invalid/hook > "$RUNNER_TEMP/alert_webhook_url"
+          docker run --rm --entrypoint amtool -v "$PWD/ops/monitoring/alertmanager.yml":/etc/alertmanager/alertmanager.yml:ro -v "$RUNNER_TEMP/alert_webhook_url":/run/secrets/alert_webhook_url:ro prom/alertmanager:v0.34.1 check-config /etc/alertmanager/alertmanager.yml

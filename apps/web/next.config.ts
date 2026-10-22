@@ -42,7 +42,18 @@ function securityHeaders() {
   ];
 }
 
+/**
+ * `NEXT_OUTPUT=standalone` (set by deploy/Dockerfile only) makes `next build` write a self-contained server under
+ * `.next/standalone` for the container image. The tracing root is the repository root so that the workspace packages and the
+ * single pnpm store are included; the server then lives at `.next/standalone/apps/web/server.js`.
+ */
+const standalone =
+  process.env.NEXT_OUTPUT === 'standalone'
+    ? { output: 'standalone' as const, outputFileTracingRoot: resolve(process.cwd(), '../..') }
+    : {};
+
 const nextConfig: NextConfig = {
+  ...standalone,
   // The end-to-end tests build into their own folder so they never disturb a running `next dev`.
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   // The shared UI and feature packages are TypeScript sources written against React Native; Next compiles them.

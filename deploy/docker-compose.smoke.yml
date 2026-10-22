@@ -1,0 +1,25 @@
+# Test-only overlay used by deploy/smoke-test.sh, never for a real deployment: adds a Mailpit that offers STARTTLS with a certificate
+# from a throwaway CA (so the API can be run with NODE_ENV=production, which REQUIRES STARTTLS and a trusted certificate) and makes
+# the api, worker and the ops containers trust that CA. SMOKE_CERT_DIR is set by the script.
+services:
+  mailpit:
+    image: axllent/mailpit:v1.31
+    restart: 'no'
+    environment:
+      MP_SMTP_TLS_CERT: /certs/mail.crt
+      MP_SMTP_TLS_KEY: /certs/mail.key
+      MP_SMTP_AUTH_ACCEPT_ANY: '1'
+    volumes:
+      - ${SMOKE_CERT_DIR:?set by deploy/smoke-test.sh}:/certs:ro
+  api:
+    environment:
+      NODE_EXTRA_CA_CERTS: /certs/ca.crt
+    volumes:
+      - ${SMOKE_CERT_DIR}:/certs:ro
+    depends_on:
+      mailpit: { condition: service_started }
+  worker:
+    environment:
+      NODE_EXTRA_CA_CERTS: /certs/ca.crt
+    volumes:
+      - ${SMOKE_CERT_DIR}:/certs:ro

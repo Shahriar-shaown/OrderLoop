@@ -50,3 +50,9 @@ bun.lockb
 infra/data
 packages/db/src/generated
 node_modules
+
+# deployment: generated secrets, backup keys and local backup output are never committed (deploy/.env.example is)
+deploy/.env
+deploy/backup-age-identity.txt
+deploy/backups/
+deploy/*.pem

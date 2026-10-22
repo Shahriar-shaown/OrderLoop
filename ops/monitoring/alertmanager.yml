@@ -1,0 +1,35 @@
+# Alertmanager: groups alerts and posts them to ONE webhook receiver. The address is read from a file (Compose secret
+# alert_webhook_url, from ALERT_WEBHOOK_URL in deploy/.env), so it never appears in this file or in the process list.
+# The default value in deploy/.env.example is a placeholder that delivers nothing: set a real Slack/Teams/other webhook, or point
+# it at your own receiver. To send email instead, replace webhook_configs with email_configs (commented example below).
+route:
+  receiver: default
+  group_by: [alertname, queue, dependency]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: ['severity="critical"']
+      receiver: default
+      repeat_interval: 1h
+
+receivers:
+  - name: default
+    webhook_configs:
+      - url_file: /run/secrets/alert_webhook_url
+        send_resolved: true
+    # email_configs:
+    #   - to: oncall@example.com
+    #     from: alerts@example.com
+    #     smarthost: smtp.example.com:587
+    #     auth_username: alerts@example.com
+    #     auth_password_file: /run/secrets/alert_smtp_password
+
+inhibit_rules:
+  # When the API is down, everything derived from its metrics is noise.
+  - source_matchers: ['alertname="ApiDown"']
+    target_matchers:
+      [
+        'alertname=~"ApiNotReady|WorkerHeartbeatStale|QueueOldestJobTooOld|AutomationJobsFailed|QueueFailedJobsHigh|BackupStale|BackupNeverReported"',
+      ]
+    equal: []

@@ -1,0 +1,156 @@
+# Alert rules. Every alert carries `runbook`: the section of docs/operations/incident-response.md to open first.
+# Thresholds are starting points for a small pilot (low traffic), not tuned values: adjust them after a week of real data.
+# `promtool check rules ops/monitoring/alerts.yml` and `promtool test rules ops/monitoring/tests/alerts.test.yml` validate this file.
+groups:
+  - name: orderloop-availability
+    rules:
+      - alert: ApiDown
+        expr: up{job="api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: The API cannot be scraped
+          description: Prometheus has not been able to scrape the API for 2 minutes. Either the API is down, METRICS_TOKEN does not match, or /metrics is disabled (no METRICS_TOKEN set).
+          runbook: docs/operations/incident-response.md#alert-apidown
+
+      - alert: ApiNotReady
+        expr: orderloop_dependency_up == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: 'API readiness: {{ $labels.dependency }} is down'
+          description: The API's readiness probe cannot reach {{ $labels.dependency }} (PostgreSQL or Redis) for 2 minutes. /health/ready answers 503.
+          runbook: docs/operations/incident-response.md#alert-apinotready
+
+      - alert: WorkerDown
+        expr: up{job="worker"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: The worker cannot be scraped
+          description: The worker's health server has not answered for 2 minutes. Imports, automation, notifications and Meta events are not being processed.
+          runbook: docs/operations/incident-response.md#alert-workerheartbeatstale
+
+      - alert: WorkerHeartbeatStale
+        expr: orderloop_worker_heartbeat_present == 0 or orderloop_worker_heartbeat_age_seconds > 120
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: No worker heartbeat
+          description: No worker has refreshed its heartbeat in Redis for over 2 minutes (it is written every 30 s and expires after 90 s). Queued jobs are not being processed.
+          runbook: docs/operations/incident-response.md#alert-workerheartbeatstale
+
+  - name: orderloop-api-quality
+    rules:
+      - alert: ApiHigh5xxRate
+        expr: |
+          sum(rate(orderloop_http_requests_total{status_class="5xx"}[5m]))
+            / sum(rate(orderloop_http_requests_total[5m])) > 0.05
+          and sum(rate(orderloop_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: More than 5% of API requests fail with 5xx
+          description: '{{ $value | humanizePercentage }} of API requests over the last 5 minutes answered 5xx. Look for `event":"unhandled_error"` in the API log.'
+          runbook: docs/operations/incident-response.md#alert-apihigh5xxrate
+
+      - alert: ApiHighLatencyP95
+        expr: histogram_quantile(0.95, sum by (le) (rate(orderloop_http_request_duration_seconds_bucket[5m]))) > 1.5
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: API p95 latency above 1.5 s
+          description: The 95th percentile request duration has been above 1.5 s for 10 minutes ({{ $value | humanizeDuration }}).
+          runbook: docs/operations/incident-response.md#alert-apihighlatencyp95
+
+      - alert: ApiDatabaseSlow
+        expr: orderloop_db_ping_seconds > 0.5
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: SELECT 1 through the API's connection pool takes over 0.5 s
+          description: A trivial query takes {{ $value | humanizeDuration }}. The database is slow or the pool is exhausted.
+          runbook: docs/operations/incident-response.md#alert-postgresconnectionshigh
+
+  - name: orderloop-queues
+    rules:
+      - alert: QueueOldestJobTooOld
+        expr: orderloop_queue_oldest_waiting_age_seconds{queue!~"automation-tick|meta-health"} > 300
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Queue {{ $labels.queue }}: oldest waiting job is {{ $value | humanizeDuration }} old'
+          description: A job has been waiting more than 5 minutes in {{ $labels.queue }}. The worker is stuck, down, or overloaded.
+          runbook: docs/operations/incident-response.md#alert-queueoldestjobtooold
+
+      - alert: AutomationJobsFailed
+        expr: delta(orderloop_queue_jobs{state="failed",queue=~"automation|automation-delivery"}[15m]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: 'Automation: jobs gave up in {{ $labels.queue }}'
+          description: Jobs in {{ $labels.queue }} used all 5 attempts and failed (runs of a rule, or deliveries of a notification). They are kept for a week; their reason is in the worker log.
+          runbook: docs/operations/incident-response.md#alert-automationjobsfailed
+
+      - alert: QueueFailedJobsHigh
+        expr: orderloop_queue_jobs{state="failed",queue=~"imports|meta-events"} > 10
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Queue {{ $labels.queue }} holds {{ $value }} failed jobs'
+          description: More than 10 failed jobs are kept in {{ $labels.queue }}.
+          runbook: docs/operations/incident-response.md#alert-queuefailedjobshigh
+
+  - name: orderloop-backups-and-capacity
+    rules:
+      - alert: BackupStale
+        expr: time() - orderloop_backup_last_success_timestamp_seconds > 93600
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: The last successful backup is more than 26 hours old
+          description: ops/backup.sh has not reported a success for {{ $value | humanizeDuration }}. Check `docker compose logs backup` for backup.failed.
+          runbook: docs/operations/incident-response.md#alert-backupstale
+
+      - alert: BackupNeverReported
+        expr: absent(orderloop_backup_last_success_timestamp_seconds)
+        for: 3h
+        labels: { severity: warning }
+        annotations:
+          summary: No backup has ever been reported
+          description: The API has no backup time in Redis for 3 hours. The backup container is not running, never succeeded, or Redis was reset after the last backup (the backup loop re-reports at its next start).
+          runbook: docs/operations/incident-response.md#alert-backupstale
+
+      - alert: DiskSpaceLow
+        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"} < 0.15
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Less than 15% free on {{ $labels.mountpoint }}'
+          description: '{{ $labels.mountpoint }} has {{ $value | humanizePercentage }} free. PostgreSQL, backups and logs fill the disk.'
+          runbook: docs/operations/incident-response.md#alert-diskspacelow
+
+      - alert: DiskSpaceCritical
+        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"} < 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: 'Less than 5% free on {{ $labels.mountpoint }}'
+          description: PostgreSQL stops accepting writes when its disk is full.
+          runbook: docs/operations/incident-response.md#alert-diskspacelow
+
+      - alert: PostgresConnectionsHigh
+        expr: sum(pg_stat_activity_count) / max(pg_settings_max_connections) > 0.8
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: PostgreSQL connections above 80% of max_connections
+          description: '{{ $value | humanizePercentage }} of max_connections are in use. New connections will start to fail.'
+          runbook: docs/operations/incident-response.md#alert-postgresconnectionshigh
+
+      - alert: MetricsLabelCapReached
+        expr: increase(orderloop_metrics_dropped_series_total[1h]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: A metric reached its label-combination cap
+          description: Metric {{ $labels.metric }} refused new label combinations (a label is taking too many values). A bug, not an incident.
+          runbook: docs/operations/incident-response.md#alert-metricslabelcapreached
