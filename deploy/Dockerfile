@@ -129,6 +129,8 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
     NEXT_OUTPUT=standalone \
     NODE_ENV=production
 COPY . .
+# git cannot store an empty directory, and the web app has no public assets today: make sure the folder the runtime image copies exists.
+RUN mkdir -p apps/web/public
 # A build without a public API address would ship a bundle that calls http://localhost:4000 from every browser.
 RUN test -n "$NEXT_PUBLIC_API_URL" || (echo "NEXT_PUBLIC_API_URL build argument is required" >&2; exit 1)
 RUN if [ -z "$NEXT_PUBLIC_PRIVACY_CONTACT" ]; then unset NEXT_PUBLIC_PRIVACY_CONTACT; fi; \
