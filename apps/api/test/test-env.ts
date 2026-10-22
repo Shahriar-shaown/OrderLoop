@@ -41,4 +41,6 @@ export const testEnv = {
   COURIER_MOCK_ENABLED: 'true',
   // Tests replay used tokens to check theft detection; the grace-window tests turn the window on.
   REFRESH_REUSE_GRACE_SECONDS: '0',
+  // The worker the import tests spawn must not collide with a development worker on the default health port (4010).
+  WORKER_HEALTH_PORT: '4311',
 } as const;

@@ -54,6 +54,14 @@ x-app-env: &app-env
   META_GRAPH_VERSION: ${META_GRAPH_VERSION:-}
   META_LOGIN_CONFIG_ID: ${META_LOGIN_CONFIG_ID:-}
   META_RETENTION_DAYS: ${META_RETENTION_DAYS:-30}
+  TIKTOK_MODE: ${TIKTOK_MODE:?set TIKTOK_MODE in deploy/.env (mock or live)}
+  TIKTOK_ALLOW_MOCK_IN_PRODUCTION: ${TIKTOK_ALLOW_MOCK_IN_PRODUCTION:-false}
+  TIKTOK_APP_KEY: ${TIKTOK_APP_KEY:-}
+  TIKTOK_APP_SECRET: ${TIKTOK_APP_SECRET:-}
+  TIKTOK_AUTH_HOST: ${TIKTOK_AUTH_HOST:-https://auth.tiktok-shops.com}
+  TIKTOK_API_HOST: ${TIKTOK_API_HOST:-https://open-api.tiktokglobalshop.com}
+  TIKTOK_API_VERSION: ${TIKTOK_API_VERSION:-202309}
+  TIKTOK_RETENTION_DAYS: ${TIKTOK_RETENTION_DAYS:-180}
   METRICS_TOKEN: ${METRICS_TOKEN:-}
   # Days between an owner asking to delete a business and the worker deleting it for good (the API schedules it, the worker purges).
   TENANT_DELETION_GRACE_DAYS: ${TENANT_DELETION_GRACE_DAYS:-14}

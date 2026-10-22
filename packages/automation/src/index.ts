@@ -9,3 +9,4 @@ export * from './providers/index.js';
 export * from './secret-box.js';
 export * from './scrub.js';
 export * from './meta/index.js';
+export * from './tiktok/index.js';

@@ -5,17 +5,24 @@ import {
   SOCIAL_PURGE_EVERY_MS,
   SOCIAL_SWEEP_EVERY_MS,
   SecretBox,
+  TIKTOK_PURGE_EVERY_MS,
+  TIKTOK_QUEUES,
+  TIKTOK_SWEEP_EVERY_MS,
+  TikTokShopClient,
   buildProviders,
   channelAvailability,
   jsonLogger,
   purgeSocialData,
+  purgeTikTokData,
   sweepReceivedSocialEvents,
+  sweepReceivedTikTokEvents,
 } from '@orderloop/automation';
 import {
   failImportJob,
   findStalePendingImports,
   findStalledRunningImports,
   processImportJob,
+  tiktokOrderSink,
 } from '@orderloop/catalog';
 import { loadDotEnv, loadServerEnv } from '@orderloop/contracts/server';
 import { Database } from '@orderloop/db';
@@ -26,6 +33,7 @@ import { SWEEP_EVERY_MS, sweepPendingImports } from './sweep-imports.js';
 import { PURGE_EVERY_MS, purgeIdempotencyKeys } from './purge-idempotency.js';
 import { automationProcessors, logFailedJob, registerTick } from './automation.js';
 import { metaProcessors, onEventJobFailed, registerHealthSchedule } from './meta.js';
+import { onTikTokEventJobFailed, registerTikTokSchedules, tiktokProcessors } from './tiktok.js';
 import { describe } from './describe-error.js';
 import { startHeartbeat } from './heartbeat.js';
 import { TENANT_PURGE_QUEUE, registerTenantPurge, runTenantPurge } from './tenant-purge.js';
@@ -46,6 +54,18 @@ async function main(): Promise<void> {
   const db = new Database(env.DATABASE_URL, { max: 5 });
   const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
   connection.on('error', (err) => console.error('[worker] redis error:', describe(err)));
+
+  // Liveness signal in Redis (read by the API's /metrics as the worker heartbeat age), plus an HTTP health and metrics server
+  // for the container healthcheck and Prometheus: /health/live, /health/ready (Redis, PostgreSQL, heartbeat) and /metrics.
+  const heartbeat = startHeartbeat({
+    redis: connection,
+    log: (message) => console.error(`[worker] ${message}`),
+  });
+  const metrics = createWorkerMetrics({
+    redis: connection,
+    db,
+    lastHeartbeatAt: heartbeat.lastSuccessAt,
+  });
 
   // One job at a time per process keeps database load predictable; scale by running more workers.
   const imports = new Worker(
@@ -213,6 +233,83 @@ async function main(): Promise<void> {
     `[worker] Meta ready (${env.META_MODE}): queue "${META_QUEUES.events}", daily health check${metaLive ? '' : ' (idle: no live Meta app configured)'}`,
   );
 
+  // ---- TikTok Shop (read-only order mirror + stock) -----------------------------------------------------------------------------
+  // Events are stored by the API's webhook first and queued second; this worker fetches the order from TikTok (live) and updates
+  // the mirror and the stock. A sweeper queues the events the API could not (Redis down), retention deletes old data, and three
+  // repeatable jobs run on one queue: the catch-up check (webhooks are dropped after about 12 hours of failures), the renewal of
+  // access tokens, and a daily health check. See docs/tiktok-shop.md.
+  const tiktokEventsQueue = new Queue(TIKTOK_QUEUES.events, { connection });
+  const tiktokMaintenanceQueue = new Queue(TIKTOK_QUEUES.maintenance, { connection });
+  const tiktokLive = Boolean(
+    env.TIKTOK_MODE === 'live' && env.TIKTOK_APP_KEY && env.TIKTOK_APP_SECRET,
+  );
+  const tiktokVault = new SecretBox({
+    keyId: env.COURIER_CREDENTIALS_KEY_ID,
+    key: env.COURIER_CREDENTIALS_KEY,
+    oldKeys: env.COURIER_CREDENTIALS_OLD_KEYS,
+    keyName: 'COURIER_CREDENTIALS_KEY',
+  });
+  const tiktokClient = tiktokLive
+    ? new TikTokShopClient({
+        fetch,
+        appKey: env.TIKTOK_APP_KEY!,
+        appSecret: env.TIKTOK_APP_SECRET!,
+        authHost: env.TIKTOK_AUTH_HOST,
+        apiHost: env.TIKTOK_API_HOST,
+        version: env.TIKTOK_API_VERSION,
+      })
+    : undefined;
+  const tiktok = tiktokProcessors({
+    process: {
+      db,
+      log: jsonLogger,
+      now,
+      sink: tiktokOrderSink,
+      metrics: metrics.tiktok,
+      live: tiktokClient ? { client: tiktokClient, vault: tiktokVault } : undefined,
+    },
+    live: tiktokClient
+      ? {
+          db,
+          log: jsonLogger,
+          now,
+          client: tiktokClient,
+          vault: tiktokVault,
+          sink: tiktokOrderSink,
+          metrics: metrics.tiktok,
+        }
+      : undefined,
+  });
+  const tiktokWorkers = [
+    new Worker(TIKTOK_QUEUES.events, tiktok.event, { connection, concurrency: 4 }),
+    new Worker(TIKTOK_QUEUES.maintenance, tiktok.maintenance, { connection, concurrency: 1 }),
+  ];
+  tiktokWorkers[0]!.on('error', (err) =>
+    console.error('[worker] tiktok-events error:', describe(err)),
+  );
+  tiktokWorkers[0]!.on('failed', (j, err) => {
+    onTikTokEventJobFailed(db, jsonLogger, j, err).catch((e: Error) =>
+      console.error(`[worker] could not mark TikTok event failed: ${describe(e)}`),
+    );
+  });
+  tiktokWorkers[1]!.on('error', (err) =>
+    console.error('[worker] tiktok-maintenance error:', describe(err)),
+  );
+  await registerTikTokSchedules(tiktokMaintenanceQueue);
+  const tiktokSweep = setInterval(() => {
+    sweepReceivedTikTokEvents({ db, queue: tiktokEventsQueue, log: jsonLogger }).catch((e: Error) =>
+      console.error(`[worker] TikTok sweep failed: ${describe(e)}`),
+    );
+  }, TIKTOK_SWEEP_EVERY_MS);
+  const tiktokPurge = setInterval(() => {
+    purgeTikTokData({ db, orderRetentionDays: env.TIKTOK_RETENTION_DAYS, log: jsonLogger }).catch(
+      (e: Error) => console.error(`[worker] TikTok purge failed: ${describe(e)}`),
+    );
+  }, TIKTOK_PURGE_EVERY_MS);
+  console.log(
+    `[worker] TikTok ready (${env.TIKTOK_MODE}): queue "${TIKTOK_QUEUES.events}", sync every 10 minutes, token renewal, daily health check${tiktokLive ? '' : ' (idle: no live TikTok app configured)'}`,
+  );
+
   // ---- business deletion ------------------------------------------------------------------------------------------------
   // An owner's deletion request marks the business; once its grace period is over this hourly job deletes it for good (the
   // database function re-checks, so cancelled or already purged businesses are skipped). See docs/privacy-and-deletion.md.
@@ -228,23 +325,16 @@ async function main(): Promise<void> {
   await registerTenantPurge(purgeQueue);
   console.log(`[worker] tenant purge ready: queue "${TENANT_PURGE_QUEUE}", hourly`);
 
-  // Liveness signal in Redis (read by the API's /metrics as the worker heartbeat age), plus an HTTP health and metrics server
-  // for the container healthcheck and Prometheus: /health/live, /health/ready (Redis, PostgreSQL, heartbeat) and /metrics.
-  const heartbeat = startHeartbeat({
-    redis: connection,
-    log: (message) => console.error(`[worker] ${message}`),
-  });
-  const metrics = createWorkerMetrics({
-    redis: connection,
-    db,
-    lastHeartbeatAt: heartbeat.lastSuccessAt,
-  });
+  // Instrument every queue's worker (counts and durations), and start the health and metrics server.
   metrics.instrument('imports', imports);
   automationWorkers.forEach((w, i) =>
     metrics.instrument([QUEUES.tick, QUEUES.evaluate, QUEUES.deliver][i]!, w),
   );
   metaWorkers.forEach((w, i) =>
     metrics.instrument([META_QUEUES.events, META_QUEUES.health][i]!, w),
+  );
+  tiktokWorkers.forEach((w, i) =>
+    metrics.instrument([TIKTOK_QUEUES.events, TIKTOK_QUEUES.maintenance][i]!, w),
   );
   metrics.instrument(TENANT_PURGE_QUEUE, purgeWorker);
   const health = await startHealthServer(env.WORKER_HEALTH_PORT, {
@@ -267,10 +357,14 @@ async function main(): Promise<void> {
     clearInterval(purge);
     clearInterval(metaSweep);
     clearInterval(metaPurge);
+    clearInterval(tiktokSweep);
+    clearInterval(tiktokPurge);
     await purgeWorker.close();
     await purgeQueue.close();
     await Promise.all(metaWorkers.map((w) => w.close()));
     await Promise.all([metaEventsQueue, metaHealthQueue].map((q) => q.close()));
+    await Promise.all(tiktokWorkers.map((w) => w.close()));
+    await Promise.all([tiktokEventsQueue, tiktokMaintenanceQueue].map((q) => q.close()));
     await queue.close();
     await Promise.all(automationWorkers.map((w) => w.close()));
     await Promise.all([evaluateQueue, deliverQueue, tickQueue].map((q) => q.close()));

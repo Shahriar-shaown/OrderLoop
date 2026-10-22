@@ -42,6 +42,12 @@ export const TENANT_TABLES = [
   'social_oauth_sessions',
   'social_events',
   'social_drafts',
+  'tiktok_connections',
+  'tiktok_oauth_sessions',
+  'tiktok_events',
+  'tiktok_orders',
+  'tiktok_sku_links',
+  'tiktok_stock_holds',
 ] as const;
 
 /** Tenant tables the runtime role may only INSERT into and SELECT from: history that must never be rewritten. */

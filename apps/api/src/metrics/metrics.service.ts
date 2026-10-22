@@ -1,5 +1,11 @@
 import { Inject, Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
-import { META_QUEUES, QUEUES } from '@orderloop/automation';
+import {
+  META_QUEUES,
+  QUEUES,
+  TIKTOK_QUEUES,
+  createTikTokMetrics,
+  type TikTokMetrics,
+} from '@orderloop/automation';
 import { Database } from '@orderloop/db';
 import {
   BACKUP_LAST_SUCCESS_KEY,
@@ -23,6 +29,8 @@ export const METRIC_QUEUES = [
   QUEUES.deliver,
   META_QUEUES.events,
   META_QUEUES.health,
+  TIKTOK_QUEUES.events,
+  TIKTOK_QUEUES.maintenance,
   // The worker's hourly purge of deleted businesses (apps/worker/src/tenant-purge.ts; the API cannot import the worker's constant).
   'tenant-purge',
 ] as const;
@@ -46,6 +54,8 @@ export class MetricsService implements OnApplicationShutdown {
   private readonly processHandle = registerProcessMetrics(this.registry, {
     service: 'orderloop-api',
   });
+  /** TikTok counters (events by result, renewals, reconciliations): fixed label sets, never an id. */
+  readonly tiktok: TikTokMetrics = createTikTokMetrics(this.registry);
   private queueConnection: Redis | undefined;
   private queues: Queue[] = [];
 

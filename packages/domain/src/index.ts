@@ -10,3 +10,4 @@ export * from './settlements.js';
 export * from './automation.js';
 export * from './bd-districts.js';
 export * from './social-extract.js';
+export * from './tiktok.js';

@@ -84,7 +84,7 @@ test('every ${VARIABLE} the compose file reads is documented in deploy/.env.exam
   assert.deepEqual(missing, [], `deploy/.env.example does not document: ${missing.join(', ')}`);
 });
 
-test('deploy/.env.example holds placeholders only: no real-looking secret, REGISTRATION_MODE and META_MODE are explicit', () => {
+test('deploy/.env.example holds placeholders only: no real-looking secret, REGISTRATION_MODE, META_MODE and TIKTOK_MODE are explicit', () => {
   for (const [name, value] of deployEnv
     .matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)
     .map((m) => [m[1], m[2]])) {
@@ -98,6 +98,7 @@ test('deploy/.env.example holds placeholders only: no real-looking secret, REGIS
   }
   assert.match(deployEnv, /^REGISTRATION_MODE=(allowlist|open)$/m);
   assert.match(deployEnv, /^META_MODE=(mock|live)$/m);
+  assert.match(deployEnv, /^TIKTOK_MODE=(mock|live)$/m);
 });
 
 test('the generated env file is git-ignored and secrets never reach the repository', () => {

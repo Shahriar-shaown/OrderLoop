@@ -1,3 +1,4 @@
+import { createTikTokMetrics } from '@orderloop/automation';
 import { Registry, registerProcessMetrics, type Gauge } from '@orderloop/observability';
 import type { HealthDeps } from './health-server.js';
 import { probeWorker } from './health-server.js';
@@ -57,6 +58,8 @@ export function createWorkerMetrics(
 
   return {
     registry,
+    /** TikTok counters (processed events, token renewals, stock reconciliations): fixed label sets, never an id. */
+    tiktok: createTikTokMetrics(registry),
     stop: handle.stop,
     instrument(queue: string, worker: WorkerLike): void {
       const seconds = (j?: JobTimes) =>

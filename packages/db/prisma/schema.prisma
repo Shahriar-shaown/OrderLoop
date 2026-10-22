@@ -51,6 +51,7 @@ model User {
   idempotencyKeys IdempotencyKey[]
   pushDevices     PushDevice[]
   socialConnections SocialConnection[]
+  tiktokConnections TikTokConnection[]
 
   @@map("users")
 }
@@ -118,6 +119,12 @@ model Tenant {
   socialOauthSessions  SocialOauthSession[]
   socialEvents         SocialEvent[]
   socialDrafts         SocialDraft[]
+  tiktokConnections    TikTokConnection[]
+  tiktokOauthSessions  TikTokOauthSession[]
+  tiktokEvents         TikTokEvent[]
+  tiktokOrders         TikTokOrder[]
+  tiktokSkuLinks       TikTokSkuLink[]
+  tiktokStockHolds     TikTokStockHold[]
 
   @@map("tenants")
 }
@@ -137,6 +144,7 @@ model Membership {
   notificationPrefs NotificationPreference[]
   messagingConsents MessagingConsent[]
   socialOauthSessions SocialOauthSession[]
+  tiktokOauthSessions TikTokOauthSession[]
 
   @@unique([tenantId, userId])
   @@index([userId])
@@ -346,6 +354,8 @@ model ProductVariant {
   movements    StockMovement[]
   reservations Reservation[]
   orderItems   OrderItem[]
+  tiktokSkuLinks   TikTokSkuLink[]
+  tiktokStockHolds TikTokStockHold[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, sku])
@@ -468,6 +478,7 @@ model Reservation {
   tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   variant  ProductVariant @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Restrict)
   location StockLocation  @relation(fields: [tenantId, locationId], references: [tenantId, id], onDelete: Restrict)
+  tiktokHold TikTokStockHold?
 
   @@index([tenantId, status, createdAt])
   @@index([tenantId, variantId])
@@ -1450,4 +1461,222 @@ model SocialDraft {
   @@unique([tenantId, id])
   @@index([tenantId, status, lastMessageAt(sort: Desc), id(sort: Desc)])
   @@map("social_drafts")
+}
+
+// ---- TikTok Shop: read-only order mirror in the shop's own currency, SKU links, and exactly-once stock holds ---------------
+// NOT OrderLoop orders: those are BDT-only. No buyer personal data is stored anywhere in these tables. See docs/tiktok-shop.md.
+
+enum TikTokConnectionStatus {
+  active
+  needs_reconnect
+  permission_error
+  disconnected
+}
+
+enum TikTokEventStatus {
+  received
+  processed
+  ignored
+  failed
+}
+
+enum TikTokStockState {
+  none
+  reserved
+  shipped
+  released
+  needs_mapping
+  stock_short
+}
+
+enum TikTokSkuLinkSource {
+  auto
+  manual
+}
+
+enum TikTokHoldState {
+  held
+  shipped
+  released
+}
+
+model TikTokConnection {
+  id               String                 @id @default(uuid(7)) @db.Uuid
+  tenantId         String                 @map("tenant_id") @db.Uuid
+  /// Shops authorised in one sign-in share one token pair; refreshing renews it for all of them together.
+  grantId          String                 @map("grant_id") @db.Uuid
+  /// TikTok's shop id (webhooks carry it as shop_id). A mock shop's starts with `mock_`.
+  shopId           String                 @map("shop_id")
+  /// Needed by every shop-level API call. An identifier, not a credential. Null for a mock shop.
+  shopCipher       String?                @map("shop_cipher")
+  shopName         String                 @map("shop_name")
+  region           String?
+  sellerType       String?                @map("seller_type")
+  /// The shop's currency, once known.
+  currency         String?
+  status           TikTokConnectionStatus @default(active)
+  mock             Boolean                @default(false)
+  /// AES-GCM sealed (never returned by the API, never logged). Null for mock and after disconnect.
+  accessTokenEnc   String?                @map("access_token_enc")
+  refreshTokenEnc  String?                @map("refresh_token_enc")
+  tokensObtainedAt DateTime?              @map("tokens_obtained_at") @db.Timestamptz(3)
+  accessExpiresAt  DateTime?              @map("access_expires_at") @db.Timestamptz(3)
+  refreshExpiresAt DateTime?              @map("refresh_expires_at") @db.Timestamptz(3)
+  refreshFailures  Int                    @default(0) @map("refresh_failures")
+  nextRefreshAt    DateTime?              @map("next_refresh_at") @db.Timestamptz(3)
+  scopes           Json                   @default("[]")
+  lastSyncedAt     DateTime?              @map("last_synced_at") @db.Timestamptz(3)
+  lastCheckedAt    DateTime?              @map("last_checked_at") @db.Timestamptz(3)
+  lastErrorCode    String?                @map("last_error_code")
+  lastErrorMessage String?                @map("last_error_message")
+  connectedById    String?                @map("connected_by_id") @db.Uuid
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  disconnectedAt   DateTime?              @map("disconnected_at") @db.Timestamptz(3)
+
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connectedBy User?           @relation(fields: [connectedById], references: [id], onDelete: SetNull)
+  events      TikTokEvent[]
+  orders      TikTokOrder[]
+  skuLinks    TikTokSkuLink[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status])
+  @@index([grantId])
+  @@index([shopId])
+  @@map("tiktok_connections")
+}
+
+model TikTokOauthSession {
+  id                    String    @id @default(uuid(7)) @db.Uuid
+  tenantId              String    @map("tenant_id") @db.Uuid
+  userId                String    @map("user_id") @db.Uuid
+  /// SHA-256 of the signed state; the state itself is never stored.
+  stateHash             String    @unique @map("state_hash")
+  stateUsedAt           DateTime? @map("state_used_at") @db.Timestamptz(3)
+  /// The sealed token pair from the code exchange, until the shops are chosen.
+  grantEnc              String?   @map("grant_enc")
+  /// [{ id, name, region, sellerType }]: names and ids only.
+  shops                 Json      @default("[]")
+  reconnectConnectionId String?   @map("reconnect_connection_id") @db.Uuid
+  expiresAt             DateTime  @map("expires_at") @db.Timestamptz(3)
+  consumedAt            DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member Membership @relation(fields: [tenantId, userId], references: [tenantId, userId], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@map("tiktok_oauth_sessions")
+}
+
+model TikTokEvent {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  tenantId        String            @map("tenant_id") @db.Uuid
+  connectionId    String            @map("connection_id") @db.Uuid
+  /// tts_notification_id, or a derived key: the idempotency key of the whole pipeline.
+  externalEventId String            @map("external_event_id")
+  eventType       String            @map("event_type")
+  orderExternalId String?           @map("order_external_id")
+  eventTimestamp  DateTime          @map("event_timestamp") @db.Timestamptz(3)
+  /// Ids and a status word only (a mock event also carries its synthetic order).
+  payload         Json              @default("{}")
+  status          TikTokEventStatus @default(received)
+  error           String?
+  processedAt     DateTime?         @map("processed_at") @db.Timestamptz(3)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connection TikTokConnection @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, connectionId, externalEventId])
+  @@index([status, createdAt])
+  @@map("tiktok_events")
+}
+
+model TikTokOrder {
+  id                    String           @id @default(uuid(7)) @db.Uuid
+  tenantId              String           @map("tenant_id") @db.Uuid
+  connectionId          String           @map("connection_id") @db.Uuid
+  externalOrderId       String           @map("external_order_id")
+  /// TikTok's own status text.
+  status                String
+  onHold                Boolean          @default(false) @map("on_hold")
+  /// TikTok's update_time: the clock that orders updates (a late delivery never moves an order backwards).
+  statusUpdatedAt       DateTime?        @map("status_updated_at") @db.Timestamptz(3)
+  createdAtTiktok       DateTime?        @map("created_at_tiktok") @db.Timestamptz(3)
+  /// The SHOP'S currency. Never converted, never added to a BDT figure.
+  currency              String
+  currencyExponent      Int              @default(2) @map("currency_exponent") @db.SmallInt
+  subtotalMinor         BigInt           @default(0) @map("subtotal_minor")
+  sellerDiscountMinor   BigInt           @default(0) @map("seller_discount_minor")
+  platformDiscountMinor BigInt           @default(0) @map("platform_discount_minor")
+  shippingMinor         BigInt           @default(0) @map("shipping_minor")
+  taxMinor              BigInt           @default(0) @map("tax_minor")
+  totalMinor            BigInt           @default(0) @map("total_minor")
+  fulfilmentType        String?          @map("fulfilment_type")
+  region                String?
+  /// [{ key, externalLineId, externalSkuId, sellerSku, productName, quantity, unitPriceMinor }]
+  lineItems             Json             @default("[]") @map("line_items")
+  stockState            TikTokStockState @default(none) @map("stock_state")
+  attention             String?
+  mock                  Boolean          @default(false)
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connection TikTokConnection  @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Cascade)
+  holds      TikTokStockHold[]
+
+  @@unique([tenantId, id])
+  @@unique([connectionId, externalOrderId])
+  @@index([tenantId, statusUpdatedAt(sort: Desc), id(sort: Desc)])
+  @@index([tenantId, stockState])
+  @@index([updatedAt])
+  @@map("tiktok_orders")
+}
+
+model TikTokSkuLink {
+  id            String              @id @default(uuid(7)) @db.Uuid
+  tenantId      String              @map("tenant_id") @db.Uuid
+  connectionId  String              @map("connection_id") @db.Uuid
+  externalSkuId String              @map("external_sku_id")
+  sellerSku     String?             @map("seller_sku")
+  productName   String?             @map("product_name")
+  variantId     String?             @map("variant_id") @db.Uuid
+  source        TikTokSkuLinkSource @default(auto)
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connection TikTokConnection @relation(fields: [tenantId, connectionId], references: [tenantId, id], onDelete: Cascade)
+  variant    ProductVariant?  @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([connectionId, externalSkuId])
+  @@index([tenantId, variantId])
+  @@map("tiktok_sku_links")
+}
+
+model TikTokStockHold {
+  id            String          @id @default(uuid(7)) @db.Uuid
+  tenantId      String          @map("tenant_id") @db.Uuid
+  tiktokOrderId String          @map("tiktok_order_id") @db.Uuid
+  lineKey       String          @map("line_key")
+  variantId     String          @map("variant_id") @db.Uuid
+  quantity      Int
+  reservationId String          @unique @map("reservation_id") @db.Uuid
+  state         TikTokHoldState @default(held)
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order       TikTokOrder    @relation(fields: [tenantId, tiktokOrderId], references: [tenantId, id], onDelete: Cascade)
+  variant     ProductVariant @relation(fields: [tenantId, variantId], references: [tenantId, id], onDelete: Restrict)
+  reservation Reservation    @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+
+  @@unique([tiktokOrderId, lineKey])
+  @@index([tenantId, variantId])
+  @@map("tiktok_stock_holds")
 }

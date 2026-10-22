@@ -131,6 +131,40 @@ const ServerEnvShape = z.object({
     .optional(),
   /** Days to keep webhook events, and drafts nobody confirmed (or that were dismissed), before the worker deletes them. */
   META_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  /**
+   * TikTok Shop (read-only order mirror + stock reservations). `mock` (default): a clearly labelled simulated shop, no TikTok
+   * account involved. `live`: the real TikTok Shop API, written against SDK sources and NEVER run against TikTok (no credentials
+   * exist for a Bangladesh business): docs/tiktok-shop.md. Production must set it on purpose.
+   */
+  TIKTOK_MODE: z.enum(['mock', 'live']).optional(),
+  /** Pilot-demo only. In production the mock TikTok endpoints answer 404 even when TIKTOK_MODE=mock, unless this is true. */
+  TIKTOK_ALLOW_MOCK_IN_PRODUCTION: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  /** The app key of your app in the TikTok Shop Partner Center. Public (it is in the authorize URL) but still never logged with a secret. */
+  TIKTOK_APP_KEY: z.string().min(4).max(100).optional(),
+  /** The app secret: signs every API request and every webhook, and signs the sign-in state. Never logged or returned. */
+  TIKTOK_APP_SECRET: z.string().min(16).optional(),
+  /** Where the sign-in and token calls go. Regional partner centres may use another host: check partner.tiktokshop.com. */
+  TIKTOK_AUTH_HOST: z
+    .string()
+    .url()
+    .refine((v) => v.startsWith('https://'), 'TIKTOK_AUTH_HOST must be https')
+    .default('https://auth.tiktok-shops.com'),
+  /** Where the Shop API calls go. */
+  TIKTOK_API_HOST: z
+    .string()
+    .url()
+    .refine((v) => v.startsWith('https://'), 'TIKTOK_API_HOST must be https')
+    .default('https://open-api.tiktokglobalshop.com'),
+  /** The API version in every path (order, authorization and event APIs), pinned on purpose. */
+  TIKTOK_API_VERSION: z
+    .string()
+    .regex(/^\d{6}$/, 'Use an API version like 202309')
+    .default('202309'),
+  /** Days to keep mirrored orders that are in a final state (and whose stock is settled). Webhook events are kept 30 days. At least 30. */
+  TIKTOK_RETENTION_DAYS: z.coerce.number().int().min(30).max(3650).default(180),
   /** Where the web app lives, for the redirect back from Meta's sign-in. Defaults to the first of WEB_ORIGINS. */
   WEB_APP_URL: z.string().url().optional(),
   /**
@@ -261,6 +295,13 @@ function checkServerEnv(env: RawEnv, ctx: z.RefinementCtx, service: 'api' | 'wor
       message: 'META_MODE must be set explicitly in production (live, or mock for a pilot demo)',
     });
   }
+  if (env.NODE_ENV === 'production' && env.TIKTOK_MODE === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['TIKTOK_MODE'],
+      message: 'TIKTOK_MODE must be set explicitly in production (live, or mock for a pilot demo)',
+    });
+  }
   if (
     service === 'api' &&
     env.NODE_ENV === 'production' &&
@@ -307,6 +348,28 @@ function checkServerEnv(env: RawEnv, ctx: z.RefinementCtx, service: 'api' | 'wor
           message: `${name} is required when META_MODE=live`,
         });
   }
+  if (env.TIKTOK_MODE === 'live') {
+    const need = [
+      'TIKTOK_APP_KEY',
+      'TIKTOK_APP_SECRET',
+      'API_PUBLIC_URL',
+      'COURIER_CREDENTIALS_KEY',
+    ] as const;
+    for (const name of need)
+      if (!env[name])
+        ctx.addIssue({
+          code: 'custom',
+          path: [name],
+          message: `${name} is required when TIKTOK_MODE=live`,
+        });
+    if (env.API_PUBLIC_URL && !env.API_PUBLIC_URL.startsWith('https://'))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['API_PUBLIC_URL'],
+        message:
+          'API_PUBLIC_URL must be https when TIKTOK_MODE=live (TikTok only delivers webhooks to https)',
+      });
+  }
   if (Boolean(env.JWT_PRIVATE_KEY) !== Boolean(env.JWT_PUBLIC_KEY)) {
     ctx.addIssue({
       code: 'custom',
@@ -316,10 +379,11 @@ function checkServerEnv(env: RawEnv, ctx: z.RefinementCtx, service: 'api' | 'wor
   }
 }
 
-// META_MODE defaults to mock and REGISTRATION_MODE to open outside production (production must say both: checked above).
+// META_MODE and TIKTOK_MODE default to mock and REGISTRATION_MODE to open outside production (production must say all three: checked above).
 const withDefaults = (env: RawEnv) => ({
   ...env,
   META_MODE: env.META_MODE ?? ('mock' as const),
+  TIKTOK_MODE: env.TIKTOK_MODE ?? ('mock' as const),
   REGISTRATION_MODE: env.REGISTRATION_MODE ?? ('open' as const),
 });
 

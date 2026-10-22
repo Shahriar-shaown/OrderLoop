@@ -234,6 +234,88 @@ export class Database {
     return rows[0] ?? { drafts: 0, events: 0, sessions: 0 };
   }
 
+  /**
+   * The TikTok webhook's one cross-business read: the connection (and business) that owns a TikTok shop id. A connected shop wins
+   * over an old disconnected one; a shop that is only disconnected is returned too (so its events are recorded as ignored).
+   */
+  async tiktokConnectionFor(shopId: string): Promise<{
+    id: string;
+    tenantId: string;
+    status: 'active' | 'needs_reconnect' | 'permission_error' | 'disconnected';
+  } | null> {
+    const rows = await this.client.$queryRaw<
+      {
+        id: string;
+        tenant_id: string;
+        status: 'active' | 'needs_reconnect' | 'permission_error' | 'disconnected';
+      }[]
+    >`SELECT id, tenant_id, status FROM tiktok_connection_for(${shopId})`;
+    const r = rows[0];
+    return r ? { id: r.id, tenantId: r.tenant_id, status: r.status } : null;
+  }
+
+  /** TikTok webhook events saved as `received` that nothing has processed for `olderThanSeconds` (at least 30): the queue never got them. */
+  async staleReceivedTikTokEvents(
+    olderThanSeconds: number,
+    maxRows = 200,
+  ): Promise<{ id: string; tenantId: string }[]> {
+    const rows = await this.client.$queryRaw<
+      { id: string; tenant_id: string }[]
+    >`SELECT id, tenant_id FROM stale_received_tiktok_events(${Math.ceil(olderThanSeconds)}::int, ${Math.floor(maxRows)}::int)`;
+    return rows.map((r) => ({ id: r.id, tenantId: r.tenant_id }));
+  }
+
+  /** Connections that talk to the real TikTok and can still work or recover, `afterId`-keyed pages in id order. For the health check and the catch-up poll. */
+  async liveTikTokConnections(
+    afterId: string | null,
+    maxRows = 200,
+  ): Promise<{ id: string; tenantId: string }[]> {
+    if (afterId !== null) assertUuid('afterId', afterId);
+    const rows = await this.client.$queryRaw<
+      { id: string; tenant_id: string }[]
+    >`SELECT id, tenant_id FROM live_tiktok_connections(${afterId}::uuid, ${Math.floor(maxRows)}::int)`;
+    return rows.map((r) => ({ id: r.id, tenantId: r.tenant_id }));
+  }
+
+  /** One connection per token grant whose tokens may be inside their renewal window (a loose 24 h pre-filter: the caller applies the exact rule). */
+  async tiktokConnectionsDueForRefresh(maxRows = 200): Promise<
+    {
+      id: string;
+      tenantId: string;
+      tokensObtainedAt: Date | null;
+      accessExpiresAt: Date | null;
+      refreshExpiresAt: Date | null;
+    }[]
+  > {
+    const rows = await this.client.$queryRaw<
+      {
+        id: string;
+        tenant_id: string;
+        tokens_obtained_at: Date | null;
+        access_expires_at: Date | null;
+        refresh_expires_at: Date | null;
+      }[]
+    >`SELECT id, tenant_id, tokens_obtained_at, access_expires_at, refresh_expires_at FROM tiktok_connections_due_for_refresh(${Math.floor(maxRows)}::int)`;
+    return rows.map((r) => ({
+      id: r.id,
+      tenantId: r.tenant_id,
+      tokensObtainedAt: r.tokens_obtained_at,
+      accessExpiresAt: r.access_expires_at,
+      refreshExpiresAt: r.refresh_expires_at,
+    }));
+  }
+
+  /** Retention for the TikTok mirror across businesses (see the migration for exactly what goes). */
+  async purgeTikTokData(
+    eventDays: number,
+    orderDays: number,
+  ): Promise<{ events: number; orders: number; sessions: number }> {
+    const rows = await this.client.$queryRaw<
+      { events: number; orders: number; sessions: number }[]
+    >`SELECT events, orders, sessions FROM purge_tiktok_data(${Math.ceil(eventDays)}::int, ${Math.ceil(orderDays)}::int)`;
+    return rows[0] ?? { events: 0, orders: 0, sessions: 0 };
+  }
+
   /** Businesses whose deletion was requested and whose grace period is over (oldest first). The worker's purge reads this. */
   async tenantsDueForPurge(maxRows = 20): Promise<string[]> {
     const rows = await this.client.$queryRaw<

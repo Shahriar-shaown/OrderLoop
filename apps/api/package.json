@@ -18,6 +18,7 @@
     "automation:demo": "tsc -p tsconfig.build.json && node dist/scripts/automation-demo.js",
     "meta:demo": "tsc -p tsconfig.build.json && node dist/scripts/meta-demo.js",
     "meta:send-webhook": "tsc -p tsconfig.build.json && node dist/scripts/meta-send-webhook.js",
+    "tiktok:demo": "tsc -p tsconfig.build.json && node dist/scripts/tiktok-demo.js",
     "inventory:verify": "tsc -p tsconfig.build.json && node dist/scripts/inventory-verify.js",
     "sessions:revoke": "tsc -p tsconfig.build.json && node dist/scripts/sessions-revoke.js",
     "mail:test": "tsc -p tsconfig.build.json && node dist/scripts/mail-test.js",

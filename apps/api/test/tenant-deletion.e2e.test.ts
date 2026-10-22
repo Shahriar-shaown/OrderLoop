@@ -27,7 +27,7 @@ let metaQueue: FakeQueue;
 beforeAll(async () => {
   metaQueue = fakeQueue();
   t = await createTestApp(
-    { META_MODE: 'mock' },
+    { META_MODE: 'mock', TIKTOK_MODE: 'mock' },
     {
       courier: {
         fetch: (url: string, init: unknown) =>
@@ -189,8 +189,41 @@ async function fullBusiness(tenantName: string) {
     ),
   );
 
+  // TikTok: a mock shop with a reserved order (holds, a SKU link, an event), and one unmapped SKU left waiting
+  const tiktok = (await api.post('/v1/integrations/tiktok-shop/mock/connection', {}).expect(201))
+    .body as { id: string };
+  await api
+    .post('/v1/integrations/tiktok-shop/mock/orders', {
+      connectionId: tiktok.id,
+      items: [
+        { skuId: 'tt-1', sellerSku: variant.sku, quantity: 2, unitPriceMinor: 1500 },
+        { skuId: 'tt-unmapped', sellerSku: 'NO-SUCH-SKU', quantity: 1 },
+      ],
+    })
+    .expect(200);
+  await api
+    .post('/v1/integrations/tiktok-shop/mock/orders', {
+      connectionId: tiktok.id,
+      items: [{ skuId: 'tt-1', sellerSku: variant.sku, quantity: 1 }],
+    })
+    .expect(200);
+
   // what only background jobs write
   await withAdmin(async (c) => {
+    // a live TikTok shop (sealed token pair) and a sign-in in progress (a sealed hand-over): the schedule must delete both
+    const liveShop = (
+      await c.query(
+        `INSERT INTO tiktok_connections (id, tenant_id, grant_id, shop_id, shop_cipher, shop_name, access_token_enc, refresh_token_enc, updated_at)
+         VALUES (gen_random_uuid(), $1, gen_random_uuid(), $2, 'ROW_cipher', 'Live shop', 'v1.k1.sealed-a', 'v1.k1.sealed-r', now()) RETURNING id`,
+        [tenantId, `live_${randomUUID()}`],
+      )
+    ).rows[0].id as string;
+    void liveShop;
+    await c.query(
+      `INSERT INTO tiktok_oauth_sessions (id, tenant_id, user_id, state_hash, grant_enc, expires_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, 'v1.k1.sealed-grant', now() + interval '10 minutes')`,
+      [tenantId, owner.user.id, randomUUID()],
+    );
     const rule = (
       await c.query('SELECT id FROM automation_rules WHERE tenant_id = $1 LIMIT 1', [tenantId])
     ).rows[0]?.id as string | undefined;
@@ -388,6 +421,16 @@ describe('the moment the owner asks', () => {
       ).rows[0].n,
     }));
     expect(before.courier.credentials_enc).toBeTruthy();
+    const liveBefore = await withAdmin(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT access_token_enc FROM tiktok_connections WHERE tenant_id = $1 AND shop_id LIKE 'live\\_%'`,
+            [shop.tenantId],
+          )
+        ).rows,
+    );
+    expect(liveBefore).toEqual([{ access_token_enc: 'v1.k1.sealed-a' }]);
     expect(before.courier.enabled).toBe(true);
     expect(before.rules).toBeGreaterThan(0);
 
@@ -407,6 +450,17 @@ describe('the moment the owner asks', () => {
       ).rows[0],
       oauth: (
         await c.query('SELECT count(*)::int n FROM social_oauth_sessions WHERE tenant_id = $1', [
+          shop.tenantId,
+        ])
+      ).rows[0].n,
+      tiktok: (
+        await c.query(
+          `SELECT status::text AS status, access_token_enc, refresh_token_enc, shop_cipher FROM tiktok_connections WHERE tenant_id = $1 AND shop_id LIKE 'live\\_%'`,
+          [shop.tenantId],
+        )
+      ).rows,
+      tiktokSessions: (
+        await c.query('SELECT count(*)::int n FROM tiktok_oauth_sessions WHERE tenant_id = $1', [
           shop.tenantId,
         ])
       ).rows[0].n,
@@ -436,6 +490,16 @@ describe('the moment the owner asks', () => {
     });
     expect(after.meta).toEqual({ status: 'disconnected', access_token_enc: null });
     expect(after.oauth).toBe(0);
+    // TikTok: the sealed token pair and the cipher are gone, and so is a sign-in in progress
+    expect(after.tiktok).toEqual([
+      {
+        status: 'disconnected',
+        access_token_enc: null,
+        refresh_token_enc: null,
+        shop_cipher: null,
+      },
+    ]);
+    expect(after.tiktokSessions).toBe(0);
     expect(after.rules).toBe(0);
     expect(after.liveInvites).toBe(0);
     expect(after.liveSessions).toBe(1); // the owner's, so they can cancel

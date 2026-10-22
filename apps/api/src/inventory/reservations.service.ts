@@ -42,8 +42,13 @@ const toReservation = (r: Row): Reservation => ({
   resolvedAt: r.resolvedAt?.toISOString() ?? null,
 });
 
-/** Reservations made for an order belong to that order: only the order's own transitions may move them. */
+/**
+ * Reservations made for an order belong to that order: only the order's own transitions may move them. The same holds for a
+ * TikTok order's holds (reference type `tiktok_order`): only the TikTok reconciler releases or ships them, or its holds would
+ * disagree with the reservations.
+ */
 const ORDER_REFERENCE = 'order';
+const OWNED_REFERENCES = [ORDER_REFERENCE, 'tiktok_order'];
 
 @Injectable()
 export class ReservationsService {
@@ -53,7 +58,7 @@ export class ReservationsService {
   ) {}
 
   async create(auth: AuthContext, body: ReservationBody): Promise<Reservation> {
-    if (body.referenceType === ORDER_REFERENCE) {
+    if (body.referenceType && OWNED_REFERENCES.includes(body.referenceType)) {
       throw new ApiError('validation_failed', 'Request validation failed', [
         {
           path: 'referenceType',
@@ -108,7 +113,7 @@ export class ReservationsService {
             where: { id, tenantId: auth.tenantId },
             select: { referenceType: true },
           });
-          if (owner?.referenceType === ORDER_REFERENCE) {
+          if (owner?.referenceType && OWNED_REFERENCES.includes(owner.referenceType)) {
             throw ApiError.conflict(
               'This reservation belongs to an order. Change the order instead of releasing or fulfilling it here.',
             );

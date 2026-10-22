@@ -29,6 +29,7 @@
     "automation:demo": "pnpm --filter @orderloop/api automation:demo",
     "meta:demo": "pnpm --filter @orderloop/api meta:demo",
     "meta:send-webhook": "pnpm --filter @orderloop/api meta:send-webhook",
+    "tiktok:demo": "pnpm --filter @orderloop/api tiktok:demo",
     "inventory:verify": "pnpm --filter @orderloop/api inventory:verify",
     "sessions:revoke": "pnpm --filter @orderloop/api sessions:revoke",
     "mail:test": "pnpm --filter @orderloop/api mail:test",

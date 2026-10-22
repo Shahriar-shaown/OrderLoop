@@ -35,8 +35,10 @@ export function configureApp(app: NestExpressApplication): void {
   );
   // Meta signs the exact bytes it sends, so the webhook body is kept raw (a Buffer) and parsed only after the signature is
   // checked. Its two callbacks arrive form-encoded (signed_request=...). Both are small.
+  // TikTok Shop signs app_key + the exact bytes it sends (Authorization header), so its webhook body is kept raw the same way.
   app.use((req: Request, res: Response, next: NextFunction) =>
-    req.method === 'POST' && req.path === '/v1/webhooks/meta'
+    req.method === 'POST' &&
+    (req.path === '/v1/webhooks/meta' || req.path === '/v1/webhooks/tiktok-shop')
       ? raw({ type: () => true, limit: '512kb' })(req, res, next)
       : next(),
   );

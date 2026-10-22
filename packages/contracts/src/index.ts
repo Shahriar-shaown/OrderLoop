@@ -12,6 +12,7 @@ export * from './insights.js';
 export * from './dashboard.js';
 export * from './automation.js';
 export * from './meta.js';
+export * from './tiktok.js';
 export * from './deletion.js';
 export * from './routes.js';
 export * from './openapi.js';

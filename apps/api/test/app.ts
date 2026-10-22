@@ -17,8 +17,10 @@ import {
   DELIVERY_QUEUE,
   IMPORTS_QUEUE,
   META_EVENTS_QUEUE,
+  TIKTOK_EVENTS_QUEUE,
 } from '../src/queue/queue.module.js';
 import { META_HTTP, META_NOW } from '../src/meta/meta.runtime.js';
+import { TIKTOK_HTTP, TIKTOK_NOW } from '../src/tiktok/tiktok.runtime.js';
 import { AUTOMATION_NOW } from '../src/automation/automation.runtime.js';
 import { PinoLoggerService } from '../src/logging/pino-logger.service.js';
 import { Mailer } from '../src/mail/mailer.js';
@@ -44,6 +46,8 @@ export async function createTestApp(
     courier?: { fetch?: unknown; sleep?: (ms: number) => Promise<void> };
     /** A fake queue for Meta events, a fake Graph network and a fake clock, so no test reaches Meta. */
     meta?: { events?: object; fetch?: unknown; now?: () => Date };
+    /** A fake queue for TikTok events, a fake TikTok network and a fake clock, so no test reaches TikTok. */
+    tiktok?: { events?: object; fetch?: unknown; now?: () => Date };
   } = {},
 ): Promise<TestApp> {
   const previous = Object.fromEntries(Object.keys(env).map((k) => [k, process.env[k]]));
@@ -68,6 +72,12 @@ export async function createTestApp(
   if (options.meta?.fetch)
     builder = builder.overrideProvider(META_HTTP).useValue({ fetch: options.meta.fetch });
   if (options.meta?.now) builder = builder.overrideProvider(META_NOW).useValue(options.meta.now);
+  if (options.tiktok?.events)
+    builder = builder.overrideProvider(TIKTOK_EVENTS_QUEUE).useValue(options.tiktok.events);
+  if (options.tiktok?.fetch)
+    builder = builder.overrideProvider(TIKTOK_HTTP).useValue({ fetch: options.tiktok.fetch });
+  if (options.tiktok?.now)
+    builder = builder.overrideProvider(TIKTOK_NOW).useValue(options.tiktok.now);
   if (options.courier) builder = builder.overrideProvider(COURIER_HTTP).useValue(options.courier);
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bodyParser: false });

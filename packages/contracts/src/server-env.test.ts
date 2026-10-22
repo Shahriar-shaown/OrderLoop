@@ -7,10 +7,11 @@ const valid = {
   NODE_ENV: 'development',
 };
 
-/** What production also needs on purpose: a proxy hop, explicit Meta and sign-up modes and https origins. */
+/** What production also needs on purpose: a proxy hop, explicit Meta, TikTok and sign-up modes and https origins. */
 const prodExtras = {
   TRUST_PROXY: '1',
   META_MODE: 'mock',
+  TIKTOK_MODE: 'mock',
   REGISTRATION_MODE: 'open',
   WEB_ORIGINS: 'https://app.example.test',
 };
@@ -163,6 +164,76 @@ describe('meta env', () => {
   it('rejects a malformed Graph version and a non-numeric app id', () => {
     expect(() => loadServerEnv({ ...live, META_GRAPH_VERSION: '23' })).toThrow(/Graph API version/);
     expect(() => loadServerEnv({ ...live, META_APP_ID: 'abc' })).toThrow(/numeric/);
+  });
+});
+
+describe('tiktok env', () => {
+  const live = {
+    ...valid,
+    TIKTOK_MODE: 'live',
+    TIKTOK_APP_KEY: '6abcdefghij',
+    TIKTOK_APP_SECRET: 'a-sixteen-char-secret',
+    API_PUBLIC_URL: 'https://api.test.example',
+    COURIER_CREDENTIALS_KEY: Buffer.alloc(32, 1).toString('base64'),
+  };
+  it('defaults to mock with the documented hosts, version and retention', () => {
+    expect(loadServerEnv(valid)).toMatchObject({
+      TIKTOK_MODE: 'mock',
+      TIKTOK_ALLOW_MOCK_IN_PRODUCTION: false,
+      TIKTOK_AUTH_HOST: 'https://auth.tiktok-shops.com',
+      TIKTOK_API_HOST: 'https://open-api.tiktokglobalshop.com',
+      TIKTOK_API_VERSION: '202309',
+      TIKTOK_RETENTION_DAYS: 180,
+    });
+  });
+  it('accepts a complete live configuration', () => {
+    expect(loadServerEnv(live)).toMatchObject({
+      TIKTOK_MODE: 'live',
+      TIKTOK_API_VERSION: '202309',
+    });
+  });
+  it.each(['TIKTOK_APP_KEY', 'TIKTOK_APP_SECRET', 'API_PUBLIC_URL', 'COURIER_CREDENTIALS_KEY'])(
+    'live mode without %s fails to start and names it',
+    (name) => {
+      const env: Record<string, string | undefined> = { ...live };
+      delete env[name];
+      expect(() => loadServerEnv(env)).toThrow(
+        new RegExp(`${name} is required when TIKTOK_MODE=live`),
+      );
+    },
+  );
+  it('refuses a short secret, a plain-http API_PUBLIC_URL and plain-http hosts', () => {
+    expect(() => loadServerEnv({ ...live, TIKTOK_APP_SECRET: 'short' })).toThrow(
+      /TIKTOK_APP_SECRET/,
+    );
+    expect(() => loadServerEnv({ ...live, API_PUBLIC_URL: 'http://api.test.example' })).toThrow(
+      /API_PUBLIC_URL must be https/,
+    );
+    expect(() => loadServerEnv({ ...live, TIKTOK_API_HOST: 'http://x.example' })).toThrow(/https/);
+    expect(() => loadServerEnv({ ...live, TIKTOK_AUTH_HOST: 'http://x.example' })).toThrow(/https/);
+    expect(() => loadServerEnv({ ...live, TIKTOK_API_VERSION: '2023' })).toThrow(/API version/);
+  });
+  it('keeps mirrored orders at least 30 days', () => {
+    expect(() => loadServerEnv({ ...valid, TIKTOK_RETENTION_DAYS: '29' })).toThrow(
+      /TIKTOK_RETENTION_DAYS/,
+    );
+    expect(loadServerEnv({ ...valid, TIKTOK_RETENTION_DAYS: '30' }).TIKTOK_RETENTION_DAYS).toBe(30);
+  });
+  it('must be chosen on purpose in production, for the API and the worker alike', () => {
+    const prod = {
+      ...valid,
+      ...prodExtras,
+      NODE_ENV: 'production',
+      JWT_PRIVATE_KEY: 'a',
+      JWT_PUBLIC_KEY: 'b',
+      MAIL_PROVIDER: 'smtp',
+      SMTP_HOST: 'smtp.example.test',
+    };
+    const { TIKTOK_MODE: _omitted, ...without } = prod;
+    void _omitted;
+    expect(() => loadServerEnv(without)).toThrow(/TIKTOK_MODE must be set explicitly/);
+    expect(() => loadServerEnv(without, { service: 'worker' })).toThrow(/TIKTOK_MODE/);
+    expect(loadServerEnv(prod).TIKTOK_MODE).toBe('mock');
   });
 });
 
@@ -363,6 +434,7 @@ describe('the worker', () => {
     ...valid,
     NODE_ENV: 'production',
     META_MODE: 'mock',
+    TIKTOK_MODE: 'mock',
     MAIL_PROVIDER: 'smtp',
     SMTP_HOST: 'smtp.example.test',
   };

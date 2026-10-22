@@ -24,6 +24,7 @@ import { LoggingModule } from './logging/logging.module.js';
 import { HttpMetricsMiddleware, MetricsModule } from './metrics/metrics.module.js';
 import { RequestLogMiddleware } from './logging/request-log.middleware.js';
 import { MetaModule } from './meta/meta.module.js';
+import { TikTokModule } from './tiktok/tiktok.module.js';
 import { MailModule } from './mail/mail.module.js';
 import { MembersModule } from './members/members.module.js';
 import { OpenApiController } from './openapi.controller.js';
@@ -64,6 +65,7 @@ import { RedisModule } from './redis/redis.module.js';
     DashboardModule,
     AutomationModule,
     MetaModule,
+    TikTokModule,
   ],
   controllers: [OpenApiController],
   providers: [

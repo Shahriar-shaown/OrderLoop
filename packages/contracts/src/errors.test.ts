@@ -69,6 +69,16 @@ const MEANING: Record<ErrorCode, string> = {
     'Meta no longer accepts the saved access (password change, removed app, expired). Reconnect the account.',
   meta_unavailable:
     'Meta could not be reached, is limiting requests, or answered badly. Try again shortly.',
+  tiktok_not_configured:
+    'The TikTok Shop integration is not set up on this server (live mode needs the TIKTOK_* settings), or the action needs a mode this server is not in.',
+  tiktok_oauth_invalid:
+    'The TikTok sign-in link or hand-over is unknown, expired (10 minutes), already used, or was started by someone else. Start again.',
+  tiktok_permission_denied:
+    'TikTok refused: the seller did not grant a required permission, or the app is not approved for that shop. `detail` names what to fix.',
+  tiktok_token_invalid:
+    'TikTok no longer accepts the saved access (expired, revoked, or the seller removed the app). Reconnect the shop.',
+  tiktok_unavailable:
+    'TikTok could not be reached, is limiting requests, or answered badly. Try again shortly.',
   draft_closed: 'The draft was already confirmed or dismissed, so it can no longer be changed.',
   erase_blocked:
     'The customer still has orders in progress (not delivered, cancelled or returned). Finish or cancel them first; `detail` says how many.',

@@ -8,6 +8,7 @@ import { APP_CONFIG, type AppConfig } from '../config/config.module.js';
 import { MailService } from '../mail/mail.service.js';
 import { templates } from '../mail/templates.js';
 import { markDisconnected } from '../meta/connections.service.js';
+import { markTikTokDisconnected } from '../tiktok/connections.service.js';
 import { ReauthService } from './reauth.service.js';
 
 const DAY_MS = 86_400_000;
@@ -95,6 +96,13 @@ export class TenantDeletionService {
     for (const c of live) await markDisconnected(tx, input.tenantId, c.id);
     // A hand-over in progress holds a sealed user token.
     await tx.socialOauthSession.deleteMany({ where: { tenantId: input.tenantId } });
+    // TikTok: the sealed token pairs go (shops disconnected), and so does a sign-in in progress.
+    const tiktokLive = await tx.tikTokConnection.findMany({
+      where: { tenantId: input.tenantId, status: { not: 'disconnected' } },
+      select: { id: true },
+    });
+    for (const c of tiktokLive) await markTikTokDisconnected(tx, input.tenantId, c.id);
+    await tx.tikTokOauthSession.deleteMany({ where: { tenantId: input.tenantId } });
     await tx.invitation.updateMany({
       where: { tenantId: input.tenantId, acceptedAt: null, revokedAt: null },
       data: { revokedAt: now },
@@ -124,6 +132,7 @@ export class TenantDeletionService {
         source: input.source,
         courierConnections: 'credentials_deleted',
         socialConnectionsDisconnected: live.length,
+        tiktokConnectionsDisconnected: tiktokLive.length,
       },
       ip,
     });
