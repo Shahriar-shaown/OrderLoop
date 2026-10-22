@@ -1,3 +1,4 @@
+import type { APIRequestContext } from '@playwright/test';
 import {
   API,
   createAccount,
@@ -50,6 +51,13 @@ async function customerWithOrder(
       reason: 'Changed mind',
     });
   return order.customer.id as string;
+}
+
+/** Inviting people needs a verified email address: verify the owner's through the mailed link, as a person would. */
+async function verifyEmail(request: APIRequestContext, email: string) {
+  const token = (await mailLink(email, 'verify-email')).split('token=')[1]!;
+  const res = await request.post(`${API}/v1/auth/verify-email`, { data: { token } });
+  expect(res.ok(), await res.text()).toBe(true);
 }
 
 test.describe('erasing a customer', () => {
@@ -172,6 +180,7 @@ test.describe('deleting an account', () => {
     request,
   }) => {
     const owner = await createAccount(request, 'blocked');
+    await verifyEmail(request, owner.email);
     const api = await apiClient(request, owner.email);
     // a member, joined through an invitation
     const inviteeEmail = uniqueEmail('member');
@@ -244,6 +253,7 @@ test.describe('deleting a business', () => {
     request,
   }) => {
     const owner = await createAccount(request, 'closing2');
+    await verifyEmail(request, owner.email);
     const api = await apiClient(request, owner.email);
     const staffEmail = uniqueEmail('staff');
     await api.post('/v1/members/invitations', { email: staffEmail, role: 'STAFF' });
