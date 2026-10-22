@@ -72,6 +72,10 @@ describe('mobile routes', () => {
       '/social-orders',
       '/social-orders/123',
       '/settings/integrations/meta',
+      '/settings/integrations/tiktok-shop',
+      '/tiktok-orders',
+      '/tiktok-orders/123',
+      '/tiktok-orders/sku-mapping',
     ])
       expect(hasRoute(href), href).toBe(true);
   });

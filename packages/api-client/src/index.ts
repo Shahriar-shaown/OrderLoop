@@ -466,6 +466,47 @@ export function createApiClient(options: ApiClientOptions) {
       mockEvent: (body: RouteInput<typeof routes.injectMockMetaEvent>['body']) =>
         call(routes.injectMockMetaEvent, { body }),
     },
+    /**
+     * TikTok Shop (`integrations:read` to look, `integrations:manage` to change): a READ-ONLY mirror of a shop's orders in the
+     * shop's own currency (never BDT, no buyer data) that keeps stock honest. There is no call that changes anything at TikTok. The
+     * mock calls exist only in mock mode and are 404 in live mode.
+     */
+    tiktokShop: {
+      overview: () => call(routes.getTikTokOverview),
+      /** Live: returns the TikTok sign-in address to send the browser to. 409 `tiktok_not_configured` in mock mode. */
+      startOauth: () => call(routes.startTikTokOauth, { body: {} }),
+      session: (id: string) => call(routes.getTikTokOauthSession, { params: { id } }),
+      connect: (body: RouteInput<typeof routes.connectTikTokShops>['body']) =>
+        call(routes.connectTikTokShops, { body }),
+      /** Disconnecting twice is not an error. */
+      disconnect: (id: string) => call(routes.disconnectTikTokConnection, { params: { id } }),
+      reconnect: (id: string) => call(routes.reconnectTikTokConnection, { params: { id } }),
+      /** Look at TikTok now (live) and at the orders waiting for a SKU link or for stock. */
+      sync: (id: string) => call(routes.syncTikTokConnection, { params: { id } }),
+      mockConnection: (body: RouteInput<typeof routes.createMockTikTokConnection>['body'] = {}) =>
+        call(routes.createMockTikTokConnection, { body }),
+      /** Repeating an `externalOrderId` with the same `notificationId` creates nothing new. */
+      mockOrder: (body: RouteInput<typeof routes.injectMockTikTokOrder>['body']) =>
+        call(routes.injectMockTikTokOrder, { body }),
+      mockStatus: (
+        id: string,
+        body: RouteInput<typeof routes.changeMockTikTokOrderStatus>['body'],
+      ) => call(routes.changeMockTikTokOrderStatus, { params: { id }, body }),
+    },
+    /** Orders mirrored from TikTok Shop (`orders:read`). Read-only. */
+    tiktokOrders: {
+      list: (query: RouteInput<typeof routes.listTikTokOrders>['query'] = {}) =>
+        call(routes.listTikTokOrders, { query }),
+      get: (id: string) => call(routes.getTikTokOrder, { params: { id } }),
+    },
+    /** TikTok SKU to OrderLoop variant links (`inventory:read` to look, `inventory:write` to map). */
+    tiktokSkuLinks: {
+      list: (query: RouteInput<typeof routes.listTikTokSkuLinks>['query'] = {}) =>
+        call(routes.listTikTokSkuLinks, { query }),
+      /** `variantId: null` clears the link. Orders waiting for it are looked at again at once. */
+      update: (id: string, variantId: string | null) =>
+        call(routes.updateTikTokSkuLink, { params: { id }, body: { variantId } }),
+    },
     /** Draft orders made from customer messages (`orders:read` to look, `orders:write` to change). */
     socialDrafts: {
       list: (query: RouteInput<typeof routes.listSocialDrafts>['query'] = {}) =>

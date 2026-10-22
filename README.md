@@ -18,7 +18,7 @@ One loop. Every order. A Bangladesh-first platform for Facebook and Instagram se
 ```
 apps/
   api/        NestJS 12 REST API (ESM). GET /health/live, GET /health/ready
-  worker/     BullMQ worker process: CSV imports, automation (rule evaluation, notification delivery), the Meta event inbox, sweepers that re-queue unfinished work, a Redis heartbeat, and an HTTP health/metrics port
+  worker/     BullMQ worker process: CSV imports, automation (rule evaluation, notification delivery), the Meta event inbox, the TikTok Shop order mirror and stock sync, sweepers that re-queue unfinished work, a Redis heartbeat, and an HTTP health/metrics port
   web/        Next.js 16. Thin routes over the shared screens: sign-in, sign-up, password reset, catalog, stock
   mobile/     Expo SDK 57 + React Native + Expo Router: the iOS and Android app (native tabs and stack, Bangla, offline-safe). See [docs/mobile.md](docs/mobile.md)
 packages/

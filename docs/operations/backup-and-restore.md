@@ -325,7 +325,7 @@ they are obvious. Record the date, dump name, timings and results in the [checkl
 - Do not store the dump and `COURIER_CREDENTIALS_KEY` together. Do not email or chat dumps.
 - Do not restore over production while the API and worker are running; stop both first (the worker holds queue jobs and sweepers
   that would write into a half-restored database).
-- Do not start a restored copy with live outbound integrations enabled (`META_MODE=live`, `PUSH_PROVIDER=expo`, real SMTP, real courier credentials): it will send real email, pushes and may touch real courier accounts.
+- Do not start a restored copy with live outbound integrations enabled (`META_MODE=live`, `TIKTOK_MODE=live`, `PUSH_PROVIDER=expo`, real SMTP, real courier credentials): it will send real email, pushes and may touch real courier accounts.
 - Do not rely on `pnpm db:seed`, which refuses to run in production, as part of recovery.
 - Do not delete `_prisma_migrations` rows to "fix" a restore; see [migrations.md](migrations.md).
 

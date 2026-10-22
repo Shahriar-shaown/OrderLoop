@@ -25,6 +25,33 @@ export function metaErrorText(code: string, fallback?: string): string {
   }
 }
 
+/** What went wrong with TikTok Shop, and what to do about it. Also used for a shop that could not be connected. */
+export function tiktokErrorText(code: string, fallback?: string): string {
+  switch (code) {
+    case 'tiktok_not_configured':
+      return 'Connecting to TikTok Shop is not set up on this server, or this action is not available in its current mode. Ask whoever runs the server.';
+    case 'tiktok_oauth_invalid':
+      return 'The sign-in with TikTok expired or is not valid. Start the connection again.';
+    case 'tiktok_permission_denied':
+      return 'TikTok did not give OrderLoop every permission it needs. Reconnect and approve every permission.';
+    case 'tiktok_token_invalid':
+      return 'TikTok no longer accepts the saved access. Reconnect the shop.';
+    case 'tiktok_unavailable':
+      return 'TikTok could not be reached. Try again in a few minutes.';
+    case 'conflict':
+      return 'That shop is already connected to another business. Disconnect it there first.';
+    default:
+      return fallback ?? 'This shop could not be connected. Try again.';
+  }
+}
+
+/** A reservation made for an order belongs to that order. The API refuses a hand release or fulfil (409). */
+export const RESERVATION_OWNED =
+  'This reservation belongs to an order. Change the order instead of releasing or fulfilling it here.';
+/** ...and refuses making one for an order by hand (400). */
+export const RESERVATION_REFERENCE =
+  'Reservations for orders are created by the order itself, not by hand.';
+
 /** Couriers take whole taka only and a confirmed order cannot be edited, so paisa in the cash to collect must be fixed first. */
 export const COD_PAISA_ADVICE =
   'Couriers take whole taka only, so this order cannot be booked with a courier: its cash to collect has paisa. Cancel the order and enter it again with prices, discount and delivery charge that make the cash to collect a whole number of taka.';
@@ -74,6 +101,7 @@ export function messageFor(error: unknown): string {
       case 'token_reuse_detected':
         return 'Your session has ended. Sign in again.';
       case 'validation_failed':
+        if (error.errors?.some((e) => /referenceType$/.test(e.path))) return RESERVATION_REFERENCE;
         return error.errors?.length ? 'Please fix the highlighted fields.' : error.message;
       case 'channel_not_configured':
         return 'This server cannot send that kind of message yet. Turn the channel off, or ask whoever runs the server to set it up.';
@@ -103,7 +131,14 @@ export function messageFor(error: unknown): string {
       case 'meta_token_invalid':
       case 'meta_unavailable':
         return metaErrorText(error.code);
+      case 'tiktok_not_configured':
+      case 'tiktok_oauth_invalid':
+      case 'tiktok_permission_denied':
+      case 'tiktok_token_invalid':
+      case 'tiktok_unavailable':
+        return tiktokErrorText(error.code);
       case 'conflict':
+        return /belongs to an order/.test(error.message) ? RESERVATION_OWNED : error.message;
       case 'insufficient_stock':
       case 'last_owner':
       case 'not_found':

@@ -24,11 +24,14 @@ export function VariantPicker({
   onPick,
   disabledIds = [],
   label = 'Add an item',
+  actionLabel = 'Add',
 }: {
   onPick: (v: PickedVariant) => void;
   disabledIds?: string[];
   /** Names the search box (a second picker on the same page needs its own name). */
   label?: string;
+  /** What the button beside each product says: "Add" on an order, "Use this product" when mapping a SKU. */
+  actionLabel?: string;
 }) {
   const api = useApi();
   const [search, setSearch] = useState('');
@@ -88,7 +91,7 @@ export function VariantPicker({
                       setSearch('');
                     }}
                   >
-                    {added ? 'Added' : 'Add'}
+                    {added ? 'Added' : actionLabel}
                   </Button>
                 </Row>
               );

@@ -8,12 +8,12 @@ operator and its advisers. The operator's runbook for a request is
 
 Three features, each a separate request, plus a CSV export so a business can take its data first:
 
-| Feature               | Who may                                      | What it does, in one line                                                                                                             |
-| --------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **Erase a customer**  | `customers:erase` (OWNER, ADMIN)             | Irreversibly removes one customer's personal data, here and on their orders. Totals, statuses and dates stay.                         |
-| **Delete my account** | the person themselves (password asked)       | Removes the person's sign-in and personal data; the row stays, anonymised. A business they alone belong to is scheduled for deletion. |
-| **Delete a business** | `tenant:delete` (OWNER only; name, password) | Blocks the business at once, deletes courier and Meta credentials, and after a grace period the worker deletes every row.             |
-| **Export**            | `orders:read` etc.                           | `GET /v1/exports/customers`, `/orders`, `/products`, `/stock` as CSV.                                                                 |
+| Feature               | Who may                                      | What it does, in one line                                                                                                              |
+| --------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Erase a customer**  | `customers:erase` (OWNER, ADMIN)             | Irreversibly removes one customer's personal data, here and on their orders. Totals, statuses and dates stay.                          |
+| **Delete my account** | the person themselves (password asked)       | Removes the person's sign-in and personal data; the row stays, anonymised. A business they alone belong to is scheduled for deletion.  |
+| **Delete a business** | `tenant:delete` (OWNER only; name, password) | Blocks the business at once, deletes courier, Meta and TikTok Shop credentials, and after a grace period the worker deletes every row. |
+| **Export**            | `orders:read` etc.                           | `GET /v1/exports/customers`, `/orders`, `/products`, `/stock` as CSV.                                                                  |
 
 Screens: _Customers > a customer > Erase personal data_; _account menu > Your account > Delete my account_; _Settings >
 Delete this business_ (owners); the blocking screen a business shows while it is scheduled. The same screens exist on web and
@@ -91,7 +91,8 @@ route still works then.
    business name. The grace period is `TENANT_DELETION_GRACE_DAYS` (default 14, at least 1). Sets `deletion_requested_at`,
    `purge_after`, `deletion_requested_by_id` on the tenant.
 2. **At once:** every route except the few below answers `403 tenant_deleted` (checked before the role, for everyone). Courier
-   credentials and webhook secrets are deleted and the connections disabled; Meta tokens are deleted and the connections
+   credentials and webhook secrets are deleted and the connections disabled; TikTok Shop tokens are deleted and the shops disconnected;
+   Meta tokens are deleted and the connections
    disconnected (the Page's subscription at Meta is **not** removed: events for a disconnected account are ignored); automation
    rules are switched off; pending invitations are revoked; every session scoped to the business is revoked **except the owner's
    own** (so they can reach Cancel); every member is emailed the date. Nothing is deleted from the business's data yet.
@@ -100,7 +101,7 @@ route still works then.
    The web and mobile apps replace the whole business with a screen showing the date, **Cancel deletion** for the owner, and
    Switch business / Sign out for everyone.
 4. **Cancel.** `POST /v1/tenant/cancel-deletion` within the grace period. The business works again, but what was deleted in step 2
-   is **not restored**: reconnect couriers and Meta, switch rules on again. After `purge_after` it is `409` even if the worker has not
+   is **not restored**: reconnect couriers, Meta and TikTok shops, switch rules on again. After `purge_after` it is `409` even if the worker has not
    run yet.
 5. **Purge.** The worker's hourly job `tenant-purge` (BullMQ scheduler, fixed id, queue `tenant-purge`) asks `tenants_due_for_purge`
    and calls `purge_tenant` for each. The function re-checks the conditions, locks the tenant row, deletes every table's rows
@@ -124,6 +125,26 @@ SELECT * FROM purge_tenant('<tenant id>'::uuid);   -- deletes one, refuses if no
 To bring a purge forward on a business that asked and is waiting, an operator with the owner/admin database role may
 `UPDATE tenants SET purge_after = now() WHERE id = ...` first; it is the only way, by design, since no API call can shorten the
 grace period. Do it only on the owner's written request, after the export.
+
+## TikTok Shop data
+
+[tiktok-shop.md](tiktok-shop.md) has the full list. In short: a connected TikTok shop is mirrored **without any buyer personal data**
+(no name, phone, email, address, message or buyer id; only TikTok's order id, status, timestamps, SKU lines, amounts in the shop's currency,
+the shop's region and the fulfilment type), so there is **nothing to erase for a customer** and TikTok orders are not OrderLoop customers.
+What does exist and how it goes:
+
+| What                                                  | Where                                 | How it goes                                                                                                                                                             |
+| ----------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sealed access and refresh tokens, the shop cipher     | `tiktok_connections`                  | Deleted when the shop is disconnected, and for every shop when the business is scheduled for deletion.                                                                  |
+| A sealed token pair in a sign-in hand-over            | `tiktok_oauth_sessions`               | Deleted when the shops are chosen, a day after it expires by the worker's retention, and at once when the business is scheduled for deletion.                           |
+| Webhook events (ids and a status word)                | `tiktok_events`                       | Deleted after 30 days by the worker (`purge_tiktok_data`); with the business at the purge.                                                                              |
+| Mirrored orders, their lines and stock holds          | `tiktok_orders`, `tiktok_stock_holds` | Deleted `TIKTOK_RETENTION_DAYS` (default 180, at least 30) after the last change when in a final state and holding no live reservation; with the business at the purge. |
+| SKU links                                             | `tiktok_sku_links`                    | Kept while the business exists (they are the seller's own mapping); deleted with the business.                                                                          |
+| Stock ledger lines (`TikTok order <TikTok order id>`) | `stock_movements`                     | Kept like all stock history; the reason holds a shop-side order id, no buyer data.                                                                                      |
+
+TikTok also keeps its own copies of everything it sent: OrderLoop cannot remove them. A seller who removes the app in TikTok Shop is
+handled as a deauthorisation if the `SELLER_DEAUTHORIZATION` event is subscribed (the shop is marked as needing reconnection).
+TikTok's app review asks for a privacy policy URL and a description of the data handled: this section and the tiktok-shop.md list are that description.
 
 ## Taking the data first
 
@@ -152,6 +173,7 @@ the Page's connection, and anything a customer or a business exported earlier. T
 | `orders`, `order_items`, `order_status_history`                                 | kept, personal copies removed                    | kept (ids only)                                    | deleted                                                               |
 | `shipments`, `shipment_events`, `settlement_*`, `discrepancies`, `manual_costs` | kept; payloads and statement lines redacted      | kept (ids only)                                    | deleted                                                               |
 | `stock_*`, `reservations`, catalog                                              | kept (only free-text reasons scrubbed)           | kept                                               | deleted                                                               |
+| `tiktok_*` (TikTok Shop)                                                        | nothing to do: no buyer data is stored           | n/a                                                | deleted (tokens deleted at once)                                      |
 | `social_*` (Meta)                                                               | that customer's drafts and events deleted        | n/a                                                | deleted                                                               |
 | `audit_logs`                                                                    | kept (never held personal data); one entry added | kept; IP addresses of the person's actions removed | deleted with the business; one tenant-less `tenant.purged` line stays |
 | `idempotency_keys`                                                              | answers holding the details deleted              | the person's own deleted                           | deleted                                                               |

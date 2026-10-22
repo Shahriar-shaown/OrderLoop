@@ -20,6 +20,7 @@ and the app's identity.
 | Analytics and profit                                                                                                  | More → _Analytics & profit_                                                   |
 | Profile, language (English / বাংলা), colour theme, sign out                                                           | tab **More**                                                                  |
 | Social orders (drafts from Facebook / Instagram messages), Integrations (status, mock tools)                          | More → _Social orders_, _Integrations_                                        |
+| TikTok orders (read-only mirror, with the SKU mapping), TikTok Shop status (switch at the top of _Integrations_)      | More → _TikTok orders_ (badge: orders that need a person), _Integrations_     |
 | Team and business settings                                                                                            | More → _Team & staff_, _Business settings_                                    |
 | Notifications (bell in the header), their preferences, automation rules                                               | header bell, More → _Notifications_, _Notification preferences_, _Automation_ |
 
@@ -187,6 +188,8 @@ The order screens are the shared ones (see [web.md](web.md#orders-returns-closin
 
 Social orders (list and review, `/social-orders`) and Integrations (`/settings/integrations/meta`) are the same shared screens as on the web (see [web.md](web.md) and [meta.md](meta.md)). Signing in with Meta needs a browser, so on the phone Integrations shows each account's status, lets an owner or admin disconnect, and says "Connect from the web app" for connecting and reconnecting. In mock mode the mock account and test-message tools work here too, under the same "Mock integration: not connected to Meta" notice. The draft review form scrolls above the keyboard like every other form.
 
+TikTok orders (`/tiktok-orders`, `/tiktok-orders/[id]`, `/tiktok-orders/sku-mapping`) and the TikTok Shop integration (`/settings/integrations/tiktok-shop`, reached from the switcher at the top of Integrations) are the same shared screens as on the web (see [web.md](web.md) and [tiktok-shop.md](tiktok-shop.md)). TikTok sign-in needs a browser, so the phone shows each shop's status, can sync and disconnect, and says "Connect from the web app". Mock mode shows "Mock integration: not connected to TikTok" and the mock shop and test-order tools. Amounts are in the shop's currency with its code, never taka.
+
 ## Deleting data
 
 The same screens as the web: **More > Your account** (delete my account), **Settings > Delete this business** (owners), **Customers >
@@ -216,7 +219,7 @@ remove: the app stores only the refresh token, the language and the push registr
 English and Bangla, chosen in _More → Language_ (and on the sign-in screen); the default is the phone's language, and the
 choice is kept on the device. The English text in the source is the translation key; `Text`, `Button` and `TextField`
 translate what they render, so screens did not change. Catalogues: `packages/ui/src/i18n/bn.ts`,
-`packages/features/src/i18n/bn.ts` (+ `bn.extra.ts`, `bn.automation.ts`, `bn.meta.ts`). Entries may contain `{name}` placeholders for text built at run time.
+`packages/features/src/i18n/bn.ts` (+ `bn.extra.ts`, `bn.automation.ts`, `bn.meta.ts`, `bn.tiktok.ts`). Entries may contain `{name}` placeholders for text built at run time.
 Digits in prices, counts and dates are shown as Bengali numerals; order numbers and codes keep theirs. Known limits: explanatory sentences that the **API** writes (finance caveats, import warnings) are translated by pattern and stay English where no pattern exists, and a few sentences with inline bold text stay English. Screen-reader labels are translated (a test in `packages/ui` fails on a raw `aria-label`). To find what is still English:
 `TEST_LOCALE=bn MISSING_OUT=/tmp/missing pnpm --filter @orderloop/features test` renders every tested screen in Bangla and
 writes the untranslated strings; `node scripts/i18n-extract.mjs` lists all source strings.

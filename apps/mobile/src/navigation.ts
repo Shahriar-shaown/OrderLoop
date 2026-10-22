@@ -20,6 +20,7 @@ export const TABS = [
 export const MORE_ITEMS: MoreItem[] = [
   { href: '/products', label: 'Products & inventory', icon: 'layers' },
   { href: '/social-orders', label: 'Social orders', icon: 'message', needs: 'orders:read' },
+  { href: '/tiktok-orders', label: 'TikTok orders', icon: 'box', needs: 'orders:read' },
   { href: '/customers', label: 'Customers', icon: 'users' },
   { href: '/cod', label: 'COD reconciliation', icon: 'wallet', needs: 'finance:read' },
   { href: '/analytics', label: 'Analytics & profit', icon: 'bar-chart', needs: 'finance:read' },

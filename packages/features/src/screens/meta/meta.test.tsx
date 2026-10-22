@@ -10,7 +10,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '../../../test/mount';
-import { expectNamedControls } from '../../../test/a11y';
+import { expectNamedControls, expectNamesContainVisibleText } from '../../../test/a11y';
 import { leaveApp } from '../../lib/leaveApp';
 import { MOCK_MESSAGE, mockMessageId } from '../../lib/meta';
 import { NewOrderScreen } from '../orders/NewOrderScreen';
@@ -478,6 +478,7 @@ describe('the social orders inbox', () => {
     expect(within(row).getByText('1 to pick')).toBeTruthy();
     expect(screen.getByText(MOCK_BANNER)).toBeTruthy();
     expectNamedControls();
+    expectNamesContainVisibleText();
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ status: 'needs_review' }));
   });
 
@@ -657,6 +658,7 @@ describe('reviewing a draft', () => {
     expect(screen.getAllByDisplayValue('Dhaka').length).toBeGreaterThanOrEqual(2); // district and division
     expect(screen.getByText(MOCK_BANNER)).toBeTruthy();
     expectNamedControls();
+    expectNamesContainVisibleText();
     expect(screen.queryByRole('button', { name: 'Save as draft' })).toBeNull();
   });
 

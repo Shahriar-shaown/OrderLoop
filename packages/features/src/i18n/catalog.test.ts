@@ -6,6 +6,7 @@ import { bnAutomation } from './bn.automation';
 import { bnDeletion } from './bn.deletion';
 import { bnExtra } from './bn.extra';
 import { bnMeta } from './bn.meta';
+import { bnTikTok } from './bn.tiktok';
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!);
 
@@ -15,6 +16,7 @@ describe.each([
   ['features (automation)', bnAutomation],
   ['features (Meta integration)', bnMeta],
   ['features (deletion and erasure)', bnDeletion],
+  ['features (TikTok Shop)', bnTikTok],
 ])('the Bangla catalogue (%s)', (_name, catalogue) => {
   const entries = Object.entries(catalogue);
 

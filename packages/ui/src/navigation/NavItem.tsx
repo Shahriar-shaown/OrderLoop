@@ -22,6 +22,7 @@ export function NavItem({
   collapsed = false,
   onNavigate,
   exact = false,
+  match,
 }: {
   href: string;
   label: string;
@@ -30,13 +31,16 @@ export function NavItem({
   collapsed?: boolean;
   onNavigate?: () => void;
   exact?: boolean;
+  /** Also current for every path under this one (a menu item that covers several pages). */
+  match?: string;
 }) {
   const { pathname } = useNavigation();
   const { isTouch } = useBreakpoint();
   const { colors } = useTheme();
   const t = useT();
   const follow = useLinkPress(href, false, onNavigate);
-  const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  const covers = (base: string) => pathname === base || pathname.startsWith(`${base}/`);
+  const active = exact ? pathname === href : covers(href) || (match !== undefined && covers(match));
   return (
     <Pressable
       role="link"

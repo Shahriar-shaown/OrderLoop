@@ -48,6 +48,8 @@ export const stackEnv = {
   COURIER_MOCK_ENABLED: 'true',
   // Facebook and Instagram messages are simulated: the suite never talks to Meta, whatever a developer's .env says.
   META_MODE: 'mock',
+  // Same for TikTok Shop: simulated, never live, whatever a developer's .env says.
+  TIKTOK_MODE: 'mock',
   NEXT_PUBLIC_API_URL: `http://localhost:${PORTS.api}`,
   NEXT_PUBLIC_APP_ENV: 'development',
 } as const;

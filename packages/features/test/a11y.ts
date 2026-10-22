@@ -35,3 +35,20 @@ export function expectNamedControls(): void {
     }
   expect(unnamed).toEqual([]);
 }
+
+/**
+ * A control's accessible name must contain its visible text (WCAG 2.5.3, "label in name"), so someone who says "Sync now" to a
+ * voice control finds the button. Checks every button and link that has both an aria-label and visible text.
+ */
+export function expectNamesContainVisibleText(): void {
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  const mismatched: string[] = [];
+  for (const role of ['button', 'link', 'tab', 'checkbox', 'switch'])
+    for (const el of screen.queryAllByRole(role)) {
+      const label = el.getAttribute('aria-label');
+      const text = norm(el.textContent ?? '');
+      if (label && text && !norm(label).includes(text))
+        mismatched.push(`${role} "${label}" does not contain its text "${text}"`);
+    }
+  expect(mismatched).toEqual([]);
+}

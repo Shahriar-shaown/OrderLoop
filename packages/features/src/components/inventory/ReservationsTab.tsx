@@ -5,6 +5,7 @@ import {
   DataTable,
   EmptyState,
   FilterMenu,
+  Link,
   LoadMore,
   Row,
   Stack,
@@ -20,6 +21,10 @@ import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
 import { QueryBoundary } from '../../shell/QueryBoundary';
 import { invalidateCatalog } from '../../lib/invalidate';
+
+/** The reference type of the holds that TikTok orders make. Only the TikTok order moves them (the API refuses a hand release or fulfil). */
+const TIKTOK_REFERENCE = 'tiktok_order';
+const isTikTok = (r: Reservation) => r.referenceType === TIKTOK_REFERENCE;
 
 const STATUSES = [
   { value: 'RELEASED', label: 'Released' },
@@ -71,8 +76,26 @@ export function ReservationsTab() {
       {r.status.charAt(0) + r.status.slice(1).toLowerCase()}
     </Badge>
   );
+  /** Where a reservation comes from: a TikTok order links to it, anything else shows its reference as written. */
+  const reference = (r: Reservation) =>
+    isTikTok(r) ? (
+      <Row gap={2} wrap>
+        <Badge tone="info">TikTok order</Badge>
+        {r.referenceId && can('orders:read') && (
+          <Link href={`/tiktok-orders/${r.referenceId}`} variant="inline">
+            Open the order
+          </Link>
+        )}
+      </Row>
+    ) : (
+      (r.referenceId ?? '—')
+    );
   const actions = (r: Reservation) =>
-    r.status === 'ACTIVE' && can('inventory:write') ? (
+    r.status !== 'ACTIVE' || !can('inventory:write') ? null : isTikTok(r) ? (
+      <Text variant="small" tone="muted">
+        Held by a TikTok order: it is released or shipped by TikTok’s status, not by hand.
+      </Text>
+    ) : (
       <Row gap={1} wrap>
         <Button
           size="sm"
@@ -91,7 +114,7 @@ export function ReservationsTab() {
           Fulfil
         </Button>
       </Row>
-    ) : null;
+    );
 
   const columns: Column<Reservation>[] = [
     {
@@ -106,7 +129,7 @@ export function ReservationsTab() {
       header: 'Reference',
       flex: 2,
       minWidth: 140,
-      render: (r) => r.referenceId ?? '—',
+      render: reference,
     },
     {
       key: 'qty',
@@ -144,7 +167,11 @@ export function ReservationsTab() {
               renderCard={(r) => (
                 <Stack gap={2}>
                   <Row justify="between" gap={2}>
-                    <Text weight="medium">{r.referenceId ?? 'Manual hold'}</Text>
+                    {isTikTok(r) ? (
+                      reference(r)
+                    ) : (
+                      <Text weight="medium">{r.referenceId ?? 'Manual hold'}</Text>
+                    )}
                     {badge(r)}
                   </Row>
                   <Text variant="small" tone="muted" numeric>

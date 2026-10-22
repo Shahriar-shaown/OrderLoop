@@ -137,6 +137,23 @@ functions `meta_connection_for` (the webhook's only one), `stale_received_social
 `meta_deletion_targets` and `purge_social_data`, each with owner-only policies for the owner role (the same pattern as
 `stale_pending_imports`). Details and retention in [meta.md](meta.md#data-handling).
 
+## TikTok Shop tables
+
+Migration `20261101100000_tiktok_shop`. Six more tenant tables (forced row-level security, composite `(tenant_id, id)` keys, in
+`TENANT_TABLES`): `tiktok_connections` (a shop: TikTok's shop id with a **partial unique index** where status is not `disconnected`, so a
+shop belongs to one business at a time; cipher, region, currency, status, **sealed** access and refresh tokens, expiries, `grant_id`
+shared by shops authorised together, refresh back-off, last sync and error code; checks keep a mock or disconnected row token-free),
+`tiktok_oauth_sessions` (hashed one-time state, sealed token pair, offered shops, 10 minutes), `tiktok_events` (unique
+`(tenant_id, connection_id, external_event_id)` is the idempotency key; payload ids and a status word only), `tiktok_orders` (the
+mirror in the shop's currency: `bigint` minor-unit amounts with a check against negatives, `stock_state`, `attention`, unique
+`(connection_id, external_order_id)`; **no column can hold buyer data**), `tiktok_sku_links` (unique `(connection_id, external_sku_id)`,
+nullable variant) and `tiktok_stock_holds` (one row per order line that moved stock, unique `(tiktok_order_id, line_key)` and unique
+reservation: the exactly-once barrier). Enums `TikTokConnectionStatus`, `TikTokEventStatus`, `TikTokStockState`, `TikTokSkuLinkSource`,
+`TikTokHoldState`. Cross-business reads are the `SECURITY DEFINER` functions `tiktok_connection_for` (the webhook's only one),
+`stale_received_tiktok_events`, `live_tiktok_connections`, `tiktok_connections_due_for_refresh` and `purge_tiktok_data`, with owner-only
+policies (the pattern of the Meta migration). The same migration replaces `purge_tenant` so the business purge lists the new tables
+before the stock tables they refer to. Details in [tiktok-shop.md](tiktok-shop.md#what-is-stored-and-what-deliberately-is-not).
+
 ## Data deletion
 
 Migration `20261031100000_data_deletion`. Three new columns and no new table: `users.deleted_at` (the account was deleted: the row stays,
@@ -208,7 +225,7 @@ The setup script grants the runtime role access only through `ALTER DEFAULT PRIV
 
 ## Migrations
 
-There are 23 migrations in `packages/db/prisma/migrations` (the folder is the authoritative list, in timestamp order; the stamps run ahead of the calendar, so a new one must sort after the newest, currently `20261031100000_data_deletion`). The table below shows only the first four, which created the identity and tenancy tables; later ones add the catalog, orders, couriers, finance, import sweep functions, idempotency keys, automation, the Meta inbox, tenant-consistency triggers and data deletion.
+There are 24 migrations in `packages/db/prisma/migrations` (the folder is the authoritative list, in timestamp order; the stamps run ahead of the calendar, so a new one must sort after the newest, currently `20261101100000_tiktok_shop`). The table below shows only the first four, which created the identity and tenancy tables; later ones add the catalog, orders, couriers, finance, import sweep functions, idempotency keys, automation, the Meta inbox, tenant-consistency triggers, data deletion and the TikTok Shop mirror.
 
 | Migration                                          | Contents                                                                                                          |
 | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |

@@ -1,4 +1,4 @@
-import { useAuth, useCan, useDraftCount } from '@orderloop/features';
+import { useAuth, useCan, useDraftCount, useTikTokAttentionCount } from '@orderloop/features';
 import {
   Avatar,
   Button,
@@ -28,6 +28,7 @@ export function MoreScreen({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const can = useCan();
   const t = useT();
   const drafts = useDraftCount(can('orders:read'));
+  const tiktok = useTikTokAttentionCount(can('orders:read'));
   if (!session) return null;
   const version = Constants.expoConfig?.version ?? '';
   return (
@@ -57,7 +58,13 @@ export function MoreScreen({ onSignOut }: { onSignOut: () => Promise<void> }) {
               href={i.href}
               label={i.label}
               icon={i.icon}
-              badge={i.href === '/social-orders' ? drafts.data : undefined}
+              badge={
+                i.href === '/social-orders'
+                  ? drafts.data
+                  : i.href === '/tiktok-orders'
+                    ? tiktok.data
+                    : undefined
+              }
             />
           ))}
         </Stack>

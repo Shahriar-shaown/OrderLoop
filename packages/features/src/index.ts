@@ -75,6 +75,10 @@ export { MetaIntegrationsScreen } from './screens/meta/MetaIntegrationsScreen';
 export { SocialOrdersScreen } from './screens/meta/SocialOrdersScreen';
 export { SocialDraftScreen } from './screens/meta/SocialDraftScreen';
 export { useDraftCount } from './lib/meta';
+export { TikTokIntegrationsScreen } from './screens/tiktok/TikTokIntegrationsScreen';
+export { TikTokOrdersScreen } from './screens/tiktok/TikTokOrdersScreen';
+export { TikTokOrderScreen } from './screens/tiktok/TikTokOrderScreen';
+export { useTikTokAttentionCount } from './lib/tiktok';
 export { NotificationBell } from './components/notifications/NotificationBell';
 export { notificationTarget } from './lib/notifications';
 export {

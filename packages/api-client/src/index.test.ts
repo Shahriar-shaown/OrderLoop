@@ -1024,3 +1024,203 @@ describe('Meta calls', () => {
     ).rejects.toBeTruthy();
   });
 });
+
+describe('TikTok Shop calls', () => {
+  const line = (s: Seen) => `${s.init.method} ${s.url}`;
+  const ID = '0197b0a0-0000-7000-8000-000000000001';
+  const NOW = '2026-10-21T00:00:00Z';
+  const connection = {
+    id: ID,
+    shopId: 'mock_abc',
+    shopName: 'Mock TikTok shop',
+    region: 'MY',
+    sellerType: 'LOCAL',
+    currency: 'MYR',
+    status: 'active',
+    mock: true,
+    scopes: [],
+    tokenExpiresAt: null,
+    lastSyncedAt: null,
+    lastErrorCode: null,
+    lastErrorMessage: null,
+    connectedAt: NOW,
+    disconnectedAt: null,
+  };
+  const make = (status: number, body: unknown, seen: Seen[]) =>
+    createApiClient({
+      baseUrl: 'http://x',
+      fetch: stub(status, body, seen).fetchImpl,
+      getAccessToken: () => 't',
+    });
+
+  it('reads the overview, syncs, and starts sign-in, a reconnect and a disconnect', async () => {
+    const seen: Seen[] = [];
+    const overview = {
+      mode: 'mock',
+      liveConfigured: false,
+      webhookUrl: null,
+      redirectUrl: null,
+      connections: [connection],
+      needsMappingOrders: 1,
+      stockShortOrders: 0,
+      attentionOrders: 0,
+      unmappedSkus: 2,
+    };
+    expect((await make(200, overview, seen).tiktokShop.overview()).unmappedSkus).toBe(2);
+    const start = { mode: 'live', authorizeUrl: 'https://api.test/begin?ticket=t' };
+    await make(200, start, seen).tiktokShop.startOauth();
+    await make(200, start, seen).tiktokShop.reconnect(ID);
+    await make(200, connection, seen).tiktokShop.disconnect(ID);
+    await make(
+      200,
+      { mode: 'mock', fetched: 0, updated: 0, reconciled: 1, truncated: false },
+      seen,
+    ).tiktokShop.sync(ID);
+    expect(seen.map(line)).toEqual([
+      'GET http://x/v1/integrations/tiktok-shop',
+      'POST http://x/v1/integrations/tiktok-shop/oauth/start',
+      `POST http://x/v1/integrations/tiktok-shop/connections/${ID}/reconnect`,
+      `DELETE http://x/v1/integrations/tiktok-shop/connections/${ID}`,
+      `POST http://x/v1/integrations/tiktok-shop/connections/${ID}/sync`,
+    ]);
+  });
+
+  it('injects a mock order and changes its status through the mock routes', async () => {
+    const seen: Seen[] = [];
+    const result = {
+      mode: 'mock',
+      mock: true,
+      eventId: ID,
+      notificationId: 'n1',
+      duplicate: false,
+      status: 'processed',
+      orderId: ID,
+      stockState: 'reserved',
+    };
+    const c = make(200, result, seen).tiktokShop;
+    await c.mockOrder({
+      connectionId: ID,
+      items: [{ skuId: 's1', quantity: 1, unitPriceMinor: 0 }],
+    } as never);
+    await c.mockStatus(ID, { status: 'CANCELLED' });
+    expect(seen.map(line)).toEqual([
+      'POST http://x/v1/integrations/tiktok-shop/mock/orders',
+      `POST http://x/v1/integrations/tiktok-shop/mock/orders/${ID}/status`,
+    ]);
+  });
+
+  it('lists orders and SKU links with their filters, and maps or clears a link', async () => {
+    const seen: Seen[] = [];
+    await make(
+      200,
+      { mode: 'mock', items: [], nextCursor: null, counts: {} },
+      seen,
+    ).tiktokOrders.list({
+      stockState: 'needs_mapping',
+    });
+    await make(200, { items: [], nextCursor: null, unmappedCount: 0 }, seen).tiktokSkuLinks.list({
+      unmapped: 'true',
+    });
+    const updated = {
+      link: {
+        id: ID,
+        connectionId: ID,
+        shopName: 'Shop',
+        externalSkuId: 's1',
+        sellerSku: null,
+        productName: null,
+        variant: null,
+        source: 'manual',
+        waitingOrders: 0,
+        updatedAt: NOW,
+      },
+      reconciledOrders: 0,
+    };
+    await make(200, updated, seen).tiktokSkuLinks.update(ID, null);
+    expect(seen.map(line)).toEqual([
+      'GET http://x/v1/tiktok-orders?stockState=needs_mapping&limit=25',
+      'GET http://x/v1/tiktok-sku-links?unmapped=true&limit=50',
+      `PUT http://x/v1/tiktok-sku-links/${ID}`,
+    ]);
+    expect(JSON.parse(seen[2]!.init.body as string)).toEqual({ variantId: null });
+  });
+  it('reads the shops of a sign-in, connects the chosen ones, adds a mock shop and reads one order', async () => {
+    const seen: Seen[] = [];
+    const session = {
+      mode: 'live',
+      id: ID,
+      expiresAt: NOW,
+      reconnectConnectionId: null,
+      shops: [{ id: 'sh1', name: 'Shop', region: 'MY', sellerType: null, alreadyConnected: false }],
+    };
+    expect((await make(200, session, seen).tiktokShop.session(ID)).shops).toHaveLength(1);
+    await make(
+      201,
+      { mode: 'live', connections: [connection], failures: [] },
+      seen,
+    ).tiktokShop.connect({ sessionId: ID, shopIds: ['sh1'] });
+    await make(201, connection, seen).tiktokShop.mockConnection();
+    await make(201, connection, seen).tiktokShop.mockConnection({ region: 'JP', currency: 'JPY' });
+    const order = {
+      id: ID,
+      connectionId: ID,
+      shopName: 'Shop',
+      region: 'MY',
+      externalOrderId: 'TT-1',
+      status: 'AWAITING_SHIPMENT',
+      onHold: false,
+      statusUpdatedAt: null,
+      createdAtTiktok: null,
+      currency: 'MYR',
+      currencyExponent: 2,
+      totalMinor: 100,
+      unitCount: 1,
+      stockState: 'reserved',
+      attention: null,
+      unmappedLineCount: 0,
+      mock: true,
+      mode: 'mock',
+      subtotalMinor: 100,
+      sellerDiscountMinor: 0,
+      platformDiscountMinor: 0,
+      shippingMinor: 0,
+      taxMinor: 0,
+      fulfilmentType: null,
+      lines: [],
+    };
+    expect((await make(200, order, seen).tiktokOrders.get(ID)).stockState).toBe('reserved');
+    expect(seen.map(line)).toEqual([
+      `GET http://x/v1/integrations/tiktok-shop/oauth/sessions/${ID}`,
+      'POST http://x/v1/integrations/tiktok-shop/connections',
+      'POST http://x/v1/integrations/tiktok-shop/mock/connection',
+      'POST http://x/v1/integrations/tiktok-shop/mock/connection',
+      `GET http://x/v1/tiktok-orders/${ID}`,
+    ]);
+    expect(JSON.parse(seen[1]!.init.body as string)).toEqual({ sessionId: ID, shopIds: ['sh1'] });
+    expect(JSON.parse(seen[3]!.init.body as string)).toEqual({ region: 'JP', currency: 'JPY' });
+  });
+
+  it('keeps the error code of a TikTok refusal so a screen can word it', async () => {
+    const seen: Seen[] = [];
+    const refused = {
+      type: 'x',
+      title: 'Reconnect',
+      status: 409,
+      code: 'tiktok_token_invalid',
+    };
+    await expect(make(409, refused, seen).tiktokShop.sync(ID)).rejects.toMatchObject({
+      status: 409,
+      code: 'tiktok_token_invalid',
+    });
+    await expect(
+      make(
+        404,
+        { type: 'x', title: 'Not found', status: 404, code: 'not_found' },
+        seen,
+      ).tiktokShop.mockOrder({
+        connectionId: ID,
+        items: [{ skuId: 's1', quantity: 1, unitPriceMinor: 0 }],
+      } as never),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+});

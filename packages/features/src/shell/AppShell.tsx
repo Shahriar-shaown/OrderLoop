@@ -31,6 +31,7 @@ import { AccountMenu } from './AccountMenu';
 import { GlobalSearch, useSearchShortcut } from './GlobalSearch';
 import { useCreateActions, type CreateAction } from './createActions';
 import { useDraftCount } from '../lib/meta';
+import { useTikTokAttentionCount } from '../lib/tiktok';
 import { BOTTOM_HREFS, WEB_NAV, type ShellNavItem } from './nav';
 import { WorkspaceMenu } from './WorkspaceMenu';
 
@@ -148,6 +149,7 @@ export function AppShell({
   useSearchShortcut(openSearch);
   const pending = usePendingOrders(status === 'authenticated' && can('orders:read'));
   const drafts = useDraftCount(status === 'authenticated' && can('orders:read'));
+  const tiktok = useTikTokAttentionCount(status === 'authenticated' && can('orders:read'));
 
   // While restoring the session (or being sent to sign in) show nothing from the app: no flash of private screens.
   if (status !== 'authenticated' || !current) {
@@ -170,7 +172,13 @@ export function AppShell({
   const items = nav.filter((item) => !item.needs || can(item.needs));
   const groups = [...new Set(items.map((i) => i.group ?? ''))];
   const withBadge = (i: ShellNavItem) =>
-    i.href === '/orders' ? pending.data : i.href === '/social-orders' ? drafts.data : undefined;
+    i.href === '/orders'
+      ? pending.data
+      : i.href === '/social-orders'
+        ? drafts.data
+        : i.href === '/tiktok-orders'
+          ? tiktok.data
+          : undefined;
 
   const sidebar = !isMobile && (
     <View
@@ -234,6 +242,7 @@ export function AppShell({
                 collapsed={!isDesktop}
                 badge={withBadge(i)}
                 exact={i.href === '/settings'}
+                {...(i.match ? { match: i.match } : {})}
               />
             ))}
         </View>
@@ -410,6 +419,7 @@ export function AppShell({
               icon={i.icon ?? 'box'}
               badge={withBadge(i)}
               exact={i.href === '/settings'}
+              {...(i.match ? { match: i.match } : {})}
               onNavigate={() => setMore(false)}
             />
           ))}

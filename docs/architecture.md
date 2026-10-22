@@ -337,3 +337,27 @@ The full design is [meta.md](meta.md). Decisions in short:
   order keeps no chat text, and Meta's deauthorize and data-deletion callbacks are implemented.
 - **Not done on purpose:** an in-app notification for a connection that needs attention (the notification kinds are the
   `AutomationKind` enum; adding one is invasive, see meta.md).
+
+## 16. TikTok Shop order mirror and stock
+
+The full design is [tiktok-shop.md](tiktok-shop.md). Decisions in short:
+
+- **A mirror, not OrderLoop orders.** OrderLoop's orders, money, phones and addresses are Bangladesh/BDT-only and TikTok Shop is not
+  available in Bangladesh, so a TikTok order lives in its own tables, in the shop's currency (`bigint` minor units, never converted,
+  never summed with BDT), with **no buyer personal data at all**. It never reaches `orders`, finance, revenue or COD. Read-only: nothing is
+  written to TikTok.
+- **Meta's structure, copied.** Connections, a CSRF-hardened sign-in (one-time ticket, `begin` step, HttpOnly SameSite=Lax cookie, signed
+  single-use state), a persist-first webhook (raw-body signature, unique event key, deterministic queue job id, `200` with an empty body
+  within TikTok's three seconds even if Redis is down, a sweeper), `SECURITY DEFINER` functions for the few cross-business reads, a
+  daily health check and retention, mock and live modes behind `TIKTOK_MODE`.
+- **Stock is moved by the existing stock functions**, transactionally and exactly once per order line: pure rules in
+  `packages/domain` (`planTikTokStock`), applied in `packages/catalog` (`reconcileTikTokOrder`) with `reserveStock` and
+  `resolveReservation`; the order row is locked, a hold row per line (unique) and an idempotency key per ledger movement are the
+  second and third barriers. All-or-nothing per order (unmapped or short means nothing moves), never backwards (TikTok's `update_time` decides).
+- **`packages/automation` may not depend on `packages/catalog`**, so the worker and the API pass `tiktokOrderSink` in; the pollers and the
+  event processor stay free of stock code.
+- **Tokens**: one sealed pair per sign-in shared by its shops, renewed by a repeatable job under a tried-not-waited advisory lock, both
+  tokens written together in one transaction; inline renewal for a call that finds the token expired.
+- **A catch-up check** every ten minutes per live connection, because TikTok drops a webhook after about twelve hours.
+- **Queues** `tiktok-events` and `tiktok-maintenance` (three repeatable jobs under fixed scheduler ids).
+- **Never run against TikTok.** Written from two SDKs' source; every detail is listed as unverified in tiktok-shop.md.

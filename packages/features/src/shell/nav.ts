@@ -8,6 +8,8 @@ export interface ShellNavItem {
   icon?: IconName;
   /** Section heading in the sidebar. */
   group?: string;
+  /** The menu item also counts as current for every path under this one (Integrations covers both channels). */
+  match?: string;
 }
 
 /** The web menu, in the design's sections. Items a role may not use are left out. */
@@ -18,6 +20,13 @@ export const WEB_NAV: ShellNavItem[] = [
     href: '/social-orders',
     label: 'Social orders',
     icon: 'message',
+    needs: 'orders:read',
+    group: 'Operations',
+  },
+  {
+    href: '/tiktok-orders',
+    label: 'TikTok orders',
+    icon: 'box',
     needs: 'orders:read',
     group: 'Operations',
   },
@@ -64,6 +73,7 @@ export const WEB_NAV: ShellNavItem[] = [
     icon: 'plug',
     needs: 'integrations:read',
     group: 'Workspace',
+    match: '/settings/integrations',
   },
   { href: '/settings', label: 'Settings', icon: 'sliders', group: 'Workspace' },
 ];

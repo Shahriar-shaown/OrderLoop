@@ -13,6 +13,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Platform } from 'react-native';
+import { ChannelSwitcher } from '../../components/integrations/ChannelSwitcher';
 import { ConnectionCard } from '../../components/meta/ConnectionCard';
 import { MockNotice } from '../../components/meta/MockNotice';
 import { MockTools } from '../../components/meta/MockTools';
@@ -22,9 +23,10 @@ import { useApi } from '../../core/runtime';
 import { messageFor } from '../../forms/errors';
 import { leaveApp } from '../../lib/leaveApp';
 import { invalidateMeta, oauthErrorMessage, useMetaOverview } from '../../lib/meta';
+import { META_PATH } from '../../lib/tiktok';
 import { QueryBoundary } from '../../shell/QueryBoundary';
 
-export const INTEGRATIONS_PATH = '/settings/integrations/meta';
+export const INTEGRATIONS_PATH = META_PATH;
 
 /**
  * Integrations: the Facebook Pages and Instagram accounts whose customer messages become draft orders. It is also where
@@ -107,6 +109,7 @@ export function MetaIntegrationsScreen({
         title="Integrations"
         description="Facebook Pages and Instagram accounts whose customer messages become draft orders for you to review. OrderLoop only receives messages: it never replies."
       />
+      <ChannelSwitcher current="meta" />
       <QueryBoundary {...query} refetch={() => query.refetch()} label="Loading integrations">
         {overview && (
           <Stack gap={5}>
