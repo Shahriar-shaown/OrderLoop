@@ -189,6 +189,8 @@ export const Customer = z.object({
   email: z.string().nullable(),
   notes: z.string().nullable(),
   createdAt: z.string(),
+  /** Set once the customer's personal data was erased: the name, phone and the rest are placeholders and cannot be changed. */
+  erasedAt: z.string().nullable(),
   stats: CustomerStats,
 });
 export type Customer = z.infer<typeof Customer>;

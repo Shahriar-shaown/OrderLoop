@@ -25,6 +25,7 @@ import { useAuth } from '../../core/auth';
 import { FormError } from '../../forms/FormError';
 import { FormSelectField } from '../../forms/FormSelectField';
 import { FormTextField } from '../../forms/FormTextField';
+import { DeleteBusinessSection } from '../../components/deletion/DeleteBusinessSection';
 import { QueryBoundary } from '../../shell/QueryBoundary';
 import { messageFor } from '../../forms/errors';
 import { useCan } from '../../core/permissions';
@@ -304,6 +305,7 @@ export function WorkspaceSettingsScreen() {
         <QueryBoundary {...query} refetch={() => query.refetch()} label="Loading settings">
           {query.data ? <ProfileForm business={query.data} canEdit={can('tenant:update')} /> : null}
         </QueryBoundary>
+        <DeleteBusinessSection />
       </View>
       {tab === 'preferences' && (
         <View role="tabpanel">

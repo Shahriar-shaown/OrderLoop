@@ -59,7 +59,7 @@ Symptoms: probe fails, `5xx` flood, web shows "cannot reach OrderLoop".
 3. Process crash-loops: read the **first** log lines at start-up. The API validates its environment and exits listing every bad variable (values are not printed). Typical causes: `NODE_ENV` missing, `JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY` missing or only one set, `MAIL_PROVIDER=console` in production, `COURIER_CREDENTIALS_KEY` not exactly 32 bytes of base64, `META_MODE=live` without all of `META_APP_ID`, `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`, `META_GRAPH_VERSION`, `API_PUBLIC_URL`, `COURIER_CREDENTIALS_KEY`, `API_PUBLIC_URL` not https.
 4. After a deploy: roll back to the previous release tag ([bad deploy](#bad-deploy-rollback)).
 5. 429 for everyone behind a proxy: `TRUST_PROXY` is 0 and every client shares the proxy's address; set it to the hop count and restart.
-6. Verify recovery with the smoke test ([deployment.md](deployment.md#smoke-test-after-deploy)). Web and mobile show offline banners and recover on their own; nothing is queued on the phone (writes are refused while offline), so users re-enter whatever failed.
+6. Verify recovery with the smoke test ([deployment.md](deployment.md#12-smoke-test-after-deploy)). Web and mobile show offline banners and recover on their own; nothing is queued on the phone (writes are refused while offline), so users re-enter whatever failed.
 
 ### Database down
 
@@ -181,6 +181,8 @@ Examples: Outstanding COD or estimated profit disagrees with records; a settleme
 
 ### Data deletion request
 
+> **Update:** the product now has the three capabilities this runbook said were missing: a customer can be erased (`POST /v1/customers/:id/erase`), a person can delete their own account (`POST /v1/me/delete`), and an owner can delete a business (`POST /v1/tenant/delete-request`, then the worker's hourly purge after the grace period). Point the requester at them and keep the output with the request; only a request nobody in the app can make (no owner left) needs the manual steps below. What each removes, keeps and cannot reach, and the SQL to run a purge by hand: [../privacy-and-deletion.md](../privacy-and-deletion.md). These are technical capabilities, not a compliance statement. The text below predates them and is kept for the cases they do not cover.
+
 There are two paths. **Neither a tenant-wide nor a per-customer deletion feature exists in the application** (the API has no endpoint to delete a business, a customer or an order; orders are never deleted by the Meta purge). Everything below the Meta callbacks is a manual, reviewed operation that has **not been built or tested**.
 
 **A. Meta data deletion callback (automatic).** Meta posts a signed request to `https://<api>/v1/webhooks/meta/data-deletion` (and `/deauthorize` on removal of the app). OrderLoop verifies the signature with `META_APP_SECRET`, disconnects the person's connections, deletes stored tokens, **deletes the stored Meta events and drafts** for those connections (or for a customer id seen in conversations), writes an `integration.data_deleted` audit row (ids only), and answers `{url, confirmation_code}`; `GET /v1/webhooks/meta/data-deletion/status?code=` reads `completed`. Orders already confirmed from a draft keep only what a person typed in the order form and are **not** deleted.
@@ -195,6 +197,62 @@ Operations: confirm the callback URLs are configured in the Meta dashboard, chec
 5. Delete or anonymise by a written, peer-reviewed SQL script run by the admin role **inside a transaction after a verified backup**, in dependency order (tenant rows reference many tables through composite `(tenant_id, id)` foreign keys; `audit_logs`, `stock_movements`, `order_status_history`, `shipment_events` and `settlement_item_events` are append-only for the application role and need the owner/admin path). **No such script exists in the repository.** Count rows before and after and keep the script and output with the request.
 6. **Backups still contain the data** until they expire (see retention in [backup-and-restore.md](backup-and-restore.md#backups-contain-personal-data)); logs contain ids, not names, and age out. Tell the requester this, with dates. If a backup is restored later, re-apply pending deletions.
 7. Reply to the requester and record the completion date.
+
+### Alert runbooks
+
+Each alert in [`ops/monitoring/alerts.yml`](../../ops/monitoring/alerts.yml) links here. They come from the monitoring stack described in [monitoring.md](monitoring.md) (Prometheus and Alertmanager from the `monitoring` profile of `deploy/docker-compose.yml`). **The rules and these steps were exercised only in a local test** (`promtool test rules`, and one live alert, the worker heartbeat); thresholds are starting points for a small pilot, not tuned values. Commands assume the compose deployment: `docker compose -f deploy/docker-compose.yml ...`.
+
+#### Alert: ApiDown
+
+Prometheus cannot scrape the API (`up{job="api"} == 0`) for 2 minutes. That is the API process, the network, **or** a `METRICS_TOKEN` mismatch / no `METRICS_TOKEN` (then `/metrics` answers 404 or 401 and the target shows the HTTP status). Check `curl https://api.<domain>/health/live` from outside first: if the API answers there, it is the metrics token or Prometheus's network, not an outage. Otherwise follow [API down](#api-down). While `ApiDown` fires, the alerts derived from API metrics are muted (Alertmanager inhibition).
+
+#### Alert: ApiNotReady
+
+`orderloop_dependency_up{dependency="postgres"|"redis"} == 0`: the readiness probe (`/health/ready`, 503) cannot reach that dependency. PostgreSQL: [Database down](#database-down). Redis: [Redis down](#redis-down). `docker compose ps` and `docker compose logs postgres redis` show whether the container is unhealthy, restarting or out of disk.
+
+#### Alert: WorkerHeartbeatStale
+
+No worker has refreshed its heartbeat in Redis for over 2 minutes, **or** (`WorkerDown`) Prometheus cannot reach the worker's health server. Queued jobs, imports, notifications and Meta events are not processed meanwhile. Steps: `docker compose ps worker` (restarting? unhealthy?), `docker compose logs --tail 100 worker` (start-up failures print every invalid environment variable and a line with `"event":"unhandled_error"`), then follow [Worker stuck or queue backlog](#worker-stuck-or-queue-backlog). The heartbeat key lives in Redis, so a Redis outage also makes it disappear: check [Redis down](#redis-down) first when `ApiNotReady` fires too. Restart with `docker compose restart worker`; it recovers its schedulers by itself.
+
+#### Alert: ApiHigh5xxRate
+
+More than 5% of API requests over 5 minutes answered 5xx (with at least about 3 requests a minute, so a single failure at night does not page). Find the cause in the API log: every unexpected error is one JSON line with `"event":"unhandled_error"` and `"source":"http_handler"` (error class, scrubbed message, top of the stack, no request data), next to the `request completed` lines with `status` 5xx. Typical causes: a dependency problem (check `ApiNotReady`), a bad deploy ([Bad deploy rollback](#bad-deploy-rollback)), a courier or SMTP outage surfacing as 502. The `route` label of `orderloop_http_requests_total` (Grafana, "API requests per second") says which endpoint.
+
+#### Alert: ApiHighLatencyP95
+
+The 95th percentile request duration was above 1.5 s for 10 minutes. Look at "Slowest routes" in the Grafana dashboard, `orderloop_db_ping_seconds` and the PostgreSQL connection count ([PostgresConnectionsHigh](#alert-postgresconnectionshigh)). Courier calls can take up to 60 s by design, so one slow external provider shows up here; check the `request completed` log lines for the route.
+
+#### Alert: QueueOldestJobTooOld
+
+The oldest waiting job in a queue (label `queue`) is over 5 minutes old: the worker is down, stuck, or slower than the arrival rate. Same steps as [Worker stuck or queue backlog](#worker-stuck-or-queue-backlog). `orderloop_queue_jobs{state="waiting"}` shows the depth; add a second worker process if it keeps growing. (`automation-tick` and `meta-health` are excluded: they are repeating schedules.)
+
+#### Alert: AutomationJobsFailed
+
+Jobs in `automation` (rule evaluations) or `automation-delivery` (one notification on one channel) used all 5 attempts and failed during the last 15 minutes. They stay in Redis for a week. The worker log has one `job failed` line per attempt with the reason; `GET /v1/automation/runs?status=failed` and `GET /v1/automation/deliveries?status=failed` show them per business, and `POST .../retry` is idempotent (see [monitoring.md](monitoring.md)). Frequent cause: a push or SMTP provider outage; the failures stop by themselves when it ends.
+
+#### Alert: QueueFailedJobsHigh
+
+More than 10 failed jobs are kept in `imports` or `meta-events`. Failed imports are already marked `FAILED` for the seller; look at the worker log for the shared cause (a code bug shows up as the same error on every job).
+
+#### Alert: BackupStale
+
+No successful backup was reported for 26 hours, or none was ever reported (`BackupNeverReported`, 3 hours after the API started seeing no value; Redis forgets the value when it is reset, and the backup loop re-reports the newest backup when it restarts). Run `docker compose logs --tail 50 backup`: `backup.failed` lines name the step (`preflight`, `snapshot`, `dump`, `upload`) and the reason; exit code 3 means the dump is fine but the off-site upload failed. Fix the cause, then take a backup now with `docker compose exec backup backup.sh`. Procedures: [backup-and-restore.md](backup-and-restore.md). **Until a backup succeeds you have no recent restore point; tell the pilot's owner.**
+
+#### Alert: DiskSpaceLow
+
+Under 15% free (warning) or 5% free (critical, `DiskSpaceCritical`) on a filesystem. PostgreSQL stops accepting writes when its disk is full. What grows: the PostgreSQL volume, the `backups` volume (`BACKUP_KEEP_DAILY`/`BACKUP_KEEP_WEEKLY`), Docker logs and images (`docker system df`). Never delete PostgreSQL files by hand ([Database down](#database-down), step 2); remove old images and logs, lower the backup retention, or grow the disk.
+
+#### Alert: PostgresConnectionsHigh
+
+More than 80% of `max_connections` are in use (the API pool is 10 per process, the worker 5, the backup, exporter and drill add a few). Look at `pg_stat_activity` (`docker compose exec postgres psql -U orderloop -c "select state, count(*) from pg_stat_activity group by 1"`): many `idle in transaction` means a stuck request. Restart the API if it is not releasing connections; raise `max_connections` only after checking memory.
+
+#### Alert: MetricsLabelCapReached
+
+A metric refused new label combinations (`orderloop_metrics_dropped_series_total{metric=...}`): a label is taking too many values. It is a bug, not an incident: nothing is lost except the extra series. Report it with the metric name; route templates, status classes and queue names are the only label values the code uses, never ids or emails.
+
+#### Log alert: unhandled errors
+
+Every unhandled error in the API and the worker is one JSON line on stderr with a stable `"event":"unhandled_error"` (plus `service`, `source`, `errorName`, a scrubbed `message` and the top of the stack; never request bodies, emails or ids). `source` is `http_handler` (a request failed with 500), `uncaughtException`, `unhandledRejection` or `startup` (the process exits and the supervisor restarts it). Alert on it in whatever collects the container logs, for example `docker compose logs --since 10m api worker | grep -c '"event":"unhandled_error"'`, or in Loki/Cloud Logging with the filter `event="unhandled_error"`. No error-tracking service is integrated; see [monitoring.md](monitoring.md#error-tracking).
 
 ## 5. Communication templates
 

@@ -201,6 +201,16 @@ export function createApiClient(options: ApiClientOptions) {
     updatePreferences: (
       language: RouteInput<typeof routes.updatePreferences>['body']['language'],
     ) => call(routes.updatePreferences, { body: { language } }),
+    /** Delete the signed-in person's own account (password and the word DELETE asked). Ends this session too. */
+    deleteAccount: (body: RouteInput<typeof routes.deleteAccount>['body']) =>
+      call(routes.deleteAccount, { body }),
+    /** Deleting the current business: status (any member), request (owner: name and password), cancel (owner, within the grace period). */
+    tenantDeletion: {
+      status: () => call(routes.tenantDeletionStatus),
+      request: (body: RouteInput<typeof routes.requestTenantDeletion>['body']) =>
+        call(routes.requestTenantDeletion, { body }),
+      cancel: () => call(routes.cancelTenantDeletion),
+    },
     tenant: () => call(routes.tenant),
     updateTenant: (body: RouteInput<typeof routes.updateTenant>['body']) =>
       call(routes.updateTenant, { body }),
@@ -276,6 +286,7 @@ export function createApiClient(options: ApiClientOptions) {
     exports: {
       products: () => call(routes.exportProducts),
       stock: () => call(routes.exportStock),
+      customers: () => call(routes.exportCustomers),
       orders: (filters: RouteInput<typeof routes.exportOrders>['query'] = {}) =>
         call(routes.exportOrders, { query: filters }),
     },
@@ -302,6 +313,9 @@ export function createApiClient(options: ApiClientOptions) {
         call(routes.deleteCustomerAddress, { params: { id, addressId } }),
       orders: (id: string, query: RouteInput<typeof routes.listCustomerOrders>['query'] = {}) =>
         call(routes.listCustomerOrders, { params: { id }, query }),
+      /** Irreversible: removes the customer's personal data here and on their orders. 409 `erase_blocked` while an order is in progress. */
+      erase: (id: string, body: RouteInput<typeof routes.eraseCustomer>['body']) =>
+        call(routes.eraseCustomer, { params: { id }, body }),
     },
     orders: {
       list: (query: RouteInput<typeof routes.listOrders>['query'] = {}) =>

@@ -28,7 +28,7 @@ identity or unguessable secrets.
 
 | Table                  | Scope  | Purpose                                                                                                                                                                                                                                                                                                                                                                            |
 | ---------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`                | global | A person. `email` (unique, stored lower-case), `name`, `password_hash`, `email_verified_at` (null until verified), `language` (`en`/`bn`, the person's own preference), `disabled_at` (an account switch that revokes access at once).                                                                                                                                             |
+| `users`                | global | A person. `email` (unique, stored lower-case), `name`, `password_hash`, `deleted_at` (set when the person deleted their account: email becomes `deleted-<id>@deleted.invalid`, name `Deleted user`, hash empty), `email_verified_at` (null until verified), `language` (`en`/`bn`, the person's own preference), `disabled_at` (an account switch that revokes access at once).    |
 | `sessions`             | global | One per sign-in. `user_id`, `active_tenant_id` (the tenant the access token is scoped to), `expires_at` (absolute, 90 days), `revoked_at` and `revoked_reason`, `ip`, `user_agent`.                                                                                                                                                                                                |
 | `refresh_tokens`       | global | `session_id`, `token_hash` (unique), `expires_at`, `used_at` (set when exchanged; presenting a used token is theft), `replaced_by_id` (rotation chain).                                                                                                                                                                                                                            |
 | `user_tokens`          | global | One-time emailed tokens. `user_id`, `purpose` (`EMAIL_VERIFICATION` or `PASSWORD_RESET`), `token_hash` (unique), `expires_at`, `used_at`.                                                                                                                                                                                                                                          |
@@ -137,6 +137,20 @@ functions `meta_connection_for` (the webhook's only one), `stale_received_social
 `meta_deletion_targets` and `purge_social_data`, each with owner-only policies for the owner role (the same pattern as
 `stale_pending_imports`). Details and retention in [meta.md](meta.md#data-handling).
 
+## Data deletion
+
+Migration `20261031100000_data_deletion`. Three new columns and no new table: `users.deleted_at` (the account was deleted: the row stays,
+anonymised), `tenants.deletion_requested_at`, `purge_after` and `deletion_requested_by_id` (an owner asked for the business to be
+deleted; a `CHECK` keeps the first two together; no foreign key on the third because the account may be deleted before the purge) and
+`customers.erased_at`. The work is done by `SECURITY DEFINER` functions owned by the migration role, because orders, shipment and
+settlement events, the stock ledger, status history and the audit log are append-only for `app_user`: `erase_customer`,
+`delete_own_account` (and the private `_anonymise_user`), `tenants_due_for_purge` and `purge_tenant`, plus private `erasure_*` text and
+JSON helpers. `purge_tenant` deletes the tenant's tables children first (the order is in the function; composite foreign keys are
+`RESTRICT`) and refuses a business that was not asked to be deleted or whose grace period has not ended. The owner role has narrow
+extra policies for this (`DELETE` on `audit_logs` and `stock_movements`, `UPDATE` on `stock_movements`, confined to the business the
+function is scoped to; `SELECT`/`UPDATE` on `audit_logs` rows that have an actor, to remove an IP address). What each removes, keeps
+and cannot reach is in [privacy-and-deletion.md](privacy-and-deletion.md).
+
 ## Tenant isolation
 
 Every request that touches tenant data runs inside **one transaction that first sets two transaction-local settings**,
@@ -194,7 +208,7 @@ The setup script grants the runtime role access only through `ALTER DEFAULT PRIV
 
 ## Migrations
 
-There are 22 migrations in `packages/db/prisma/migrations` (the folder is the authoritative list, in timestamp order; the stamps run ahead of the calendar, so a new one must sort after the newest, currently `20261030100000_import_sweep_running`). The table below shows only the first four, which created the identity and tenancy tables; later ones add the catalog, orders, couriers, finance, import sweep functions, idempotency keys, automation, the Meta inbox and tenant-consistency triggers.
+There are 23 migrations in `packages/db/prisma/migrations` (the folder is the authoritative list, in timestamp order; the stamps run ahead of the calendar, so a new one must sort after the newest, currently `20261031100000_data_deletion`). The table below shows only the first four, which created the identity and tenancy tables; later ones add the catalog, orders, couriers, finance, import sweep functions, idempotency keys, automation, the Meta inbox, tenant-consistency triggers and data deletion.
 
 | Migration                                          | Contents                                                                                                          |
 | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |

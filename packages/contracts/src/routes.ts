@@ -118,6 +118,14 @@ import {
   WebhookReceiveAck,
   WebhookVerifyQuery,
 } from './meta.js';
+import {
+  DeleteAccountBody,
+  DeleteAccountResult,
+  EraseCustomerBody,
+  EraseCustomerResult,
+  RequestTenantDeletionBody,
+  TenantDeletionStatus,
+} from './deletion.js';
 import { LiveResponse, ReadyResponse } from './health.js';
 import { Dashboard, DashboardQuery } from './dashboard.js';
 import {
@@ -213,6 +221,11 @@ export interface RouteSpec {
   response: z.ZodType;
   /** Success status. Defaults to 200. */
   status?: number;
+  /**
+   * Still answered while the caller's business is scheduled for deletion (every other protected route is 403 `tenant_deleted`):
+   * what a person needs to see why, cancel the deletion, leave for another business, or sign out.
+   */
+  allowWhenTenantDeleted?: boolean;
 }
 
 function route<const T extends RouteSpec>(spec: T): T {
@@ -285,6 +298,7 @@ export const routes = {
     path: '/v1/auth/logout',
     summary: 'Revoke the current session',
     auth: 'access',
+    allowWhenTenantDeleted: true,
     response: Empty,
   }),
   switchTenant: route({
@@ -294,6 +308,7 @@ export const routes = {
     summary:
       'Start a session in another tenant the user belongs to (the current session keeps its tenant)',
     auth: 'access',
+    allowWhenTenantDeleted: true,
     body: SwitchTenantBody,
     response: AuthResult,
   }),
@@ -351,6 +366,7 @@ export const routes = {
     path: '/v1/me',
     summary: 'Current user, tenant, role and permissions',
     auth: 'access',
+    allowWhenTenantDeleted: true,
     response: Me,
   }),
   updatePreferences: route({
@@ -361,6 +377,49 @@ export const routes = {
     auth: 'access',
     body: UpdatePreferencesBody,
     response: Me,
+  }),
+  deleteAccount: route({
+    id: 'deleteAccount',
+    method: 'POST',
+    path: '/v1/me/delete',
+    summary:
+      'Delete the signed-in person’s own account (password asked again). Ends every session, removes their memberships and anonymises the account. 409 account_delete_blocked while they are the only owner of a business that has other members; a business they alone belong to is scheduled for deletion',
+    auth: 'access',
+    allowWhenTenantDeleted: true,
+    body: DeleteAccountBody,
+    response: DeleteAccountResult,
+  }),
+  tenantDeletionStatus: route({
+    id: 'tenantDeletionStatus',
+    method: 'GET',
+    path: '/v1/tenant/deletion-status',
+    summary:
+      'Whether the current business is scheduled for deletion, and when it will be deleted for good. Any member, even while the business is blocked',
+    auth: 'access',
+    allowWhenTenantDeleted: true,
+    response: TenantDeletionStatus,
+  }),
+  requestTenantDeletion: route({
+    id: 'requestTenantDeletion',
+    method: 'POST',
+    path: '/v1/tenant/delete-request',
+    summary:
+      'Owner only: schedule the business for deletion after the grace period (name and password asked). At once nobody can use it, courier and Meta credentials are deleted and automation stops. Asking again returns the same date',
+    auth: 'access',
+    permission: 'tenant:delete',
+    body: RequestTenantDeletionBody,
+    response: TenantDeletionStatus,
+  }),
+  cancelTenantDeletion: route({
+    id: 'cancelTenantDeletion',
+    method: 'POST',
+    path: '/v1/tenant/cancel-deletion',
+    summary:
+      'Owner only: cancel a scheduled deletion within the grace period. Courier and Meta connections and automation rules are not restored',
+    auth: 'access',
+    permission: 'tenant:delete',
+    allowWhenTenantDeleted: true,
+    response: TenantDeletionStatus,
   }),
   tenant: route({
     id: 'tenant',
@@ -387,6 +446,7 @@ export const routes = {
     path: '/v1/workspaces',
     summary: 'Businesses the signed-in user belongs to, with their role in each',
     auth: 'access',
+    allowWhenTenantDeleted: true,
     response: z.array(Workspace),
   }),
   createWorkspace: route({
@@ -396,6 +456,7 @@ export const routes = {
     summary:
       'Create another business; the caller becomes its owner. Switch into it with switch-tenant',
     auth: 'access',
+    allowWhenTenantDeleted: true,
     body: CreateWorkspaceBody,
     response: Workspace,
     status: 201,
@@ -722,6 +783,16 @@ export const routes = {
     permission: 'catalog:read',
     response: CsvExport,
   }),
+  exportCustomers: route({
+    id: 'exportCustomers',
+    method: 'GET',
+    path: '/v1/exports/customers',
+    summary:
+      'The customer list as CSV (name, phone, email, notes, default address and order counts); customers whose data was erased are left out',
+    auth: 'access',
+    permission: 'orders:read',
+    response: CsvExport,
+  }),
   exportStock: route({
     id: 'exportStock',
     method: 'GET',
@@ -925,6 +996,18 @@ export const routes = {
     permission: 'orders:write',
     params: AddressParams,
     response: Empty,
+  }),
+  eraseCustomer: route({
+    id: 'eraseCustomer',
+    method: 'POST',
+    path: '/v1/customers/:id/erase',
+    summary:
+      'Irreversibly erase a customer’s personal data (name, phone, email, addresses, notes) here and on their orders; totals, statuses and dates stay. 409 erase_blocked while an order is in progress. Repeating it returns the same result',
+    auth: 'access',
+    permission: 'customers:erase',
+    params: IdParam,
+    body: EraseCustomerBody,
+    response: EraseCustomerResult,
   }),
   listCustomerOrders: route({
     id: 'listCustomerOrders',

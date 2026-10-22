@@ -50,6 +50,14 @@ export const canTransition = (from: OrderStatus, to: OrderStatus): boolean =>
 export const isFinalStatus = (status: OrderStatus): boolean =>
   ORDER_TRANSITIONS[status].length === 0;
 
+/**
+ * Orders in these statuses are still being worked on, so the customer's details are still needed: a customer who has one
+ * cannot be erased (`erase_blocked`). The same list is written into the SQL function `erase_customer`.
+ */
+export const IN_PROGRESS_STATUSES: readonly OrderStatus[] = ORDER_STATUSES.filter(
+  (s) => s !== 'delivered' && s !== 'cancelled' && s !== 'returned',
+);
+
 /** Statuses a person can only reach by giving a reason (it is stored in the status history). */
 export const REASON_REQUIRED: readonly OrderStatus[] = [
   'cancelled',

@@ -1,6 +1,7 @@
 import { Module, RequestMethod, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AccountModule } from './account/account.module.js';
 import { AccessGuard } from './auth/access.guard.js';
 import { AuthModule } from './auth/auth.module.js';
 import { AuditModule } from './audit/audit.module.js';
@@ -20,6 +21,7 @@ import { APP_CONFIG, ConfigModule, type AppConfig } from './config/config.module
 import { DatabaseModule } from './db/database.module.js';
 import { HealthModule } from './health/health.module.js';
 import { LoggingModule } from './logging/logging.module.js';
+import { HttpMetricsMiddleware, MetricsModule } from './metrics/metrics.module.js';
 import { RequestLogMiddleware } from './logging/request-log.middleware.js';
 import { MetaModule } from './meta/meta.module.js';
 import { MailModule } from './mail/mail.module.js';
@@ -46,10 +48,12 @@ import { RedisModule } from './redis/redis.module.js';
       }),
     }),
     HealthModule,
+    MetricsModule,
     AuthModule,
     AuditModule,
     MembersModule,
     WorkspacesModule,
+    AccountModule,
     CatalogModule,
     InventoryModule,
     ImportsModule,
@@ -71,6 +75,8 @@ import { RedisModule } from './redis/redis.module.js';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestLogMiddleware).forRoutes({ path: '{*path}', method: RequestMethod.ALL });
+    consumer
+      .apply(HttpMetricsMiddleware, RequestLogMiddleware)
+      .forRoutes({ path: '{*path}', method: RequestMethod.ALL });
   }
 }

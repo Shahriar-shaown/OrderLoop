@@ -71,6 +71,15 @@ export interface EnabledRule {
   timezone: string;
 }
 
+export interface PurgeResult {
+  purged: boolean;
+  rowsDeleted: number;
+  /** Rows deleted per table (only tables that had rows). */
+  counts: Record<string, number>;
+  /** The person who asked was left with no business and their account was anonymised too. */
+  userAnonymised: boolean;
+}
+
 export class Database {
   private readonly client: PrismaClient;
 
@@ -223,6 +232,32 @@ export class Database {
       { drafts: number; events: number; sessions: number }[]
     >`SELECT drafts, events, sessions FROM purge_social_data(${Math.ceil(retentionDays)}::int)`;
     return rows[0] ?? { drafts: 0, events: 0, sessions: 0 };
+  }
+
+  /** Businesses whose deletion was requested and whose grace period is over (oldest first). The worker's purge reads this. */
+  async tenantsDueForPurge(maxRows = 20): Promise<string[]> {
+    const rows = await this.client.$queryRaw<
+      { id: string }[]
+    >`SELECT id FROM tenants_due_for_purge(${Math.floor(maxRows)}::int)`;
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * Delete a business and everything under it. Refused (`purged: false`, nothing changed) unless the business asked to be
+   * deleted and its grace period is over, so repeating it, or racing another worker, is harmless. Row counts per table, no content.
+   */
+  async purgeTenant(tenantId: string): Promise<PurgeResult> {
+    assertUuid('tenantId', tenantId);
+    const rows = await this.client.$queryRaw<
+      { purged: boolean; rows_deleted: number; counts: unknown; user_anonymised: boolean }[]
+    >`SELECT purged, rows_deleted, counts, user_anonymised FROM purge_tenant(${tenantId}::uuid)`;
+    const r = rows[0];
+    return {
+      purged: r?.purged ?? false,
+      rowsDeleted: r?.rows_deleted ?? 0,
+      counts: (r?.counts ?? {}) as Record<string, number>,
+      userAnonymised: r?.user_anonymised ?? false,
+    };
   }
 
   /** Liveness probe for readiness checks. */

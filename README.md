@@ -10,6 +10,7 @@ One loop. Every order. A Bangladesh-first platform for Facebook and Instagram se
 - Data model, tenant isolation, migrations, seed data: [docs/database.md](docs/database.md)
 - All documentation, indexed: [docs/README.md](docs/README.md)
 - Operations: [deployment](docs/operations/deployment.md), [migrations](docs/operations/migrations.md), [backup and restore](docs/operations/backup-and-restore.md), [monitoring](docs/operations/monitoring.md), [incident response](docs/operations/incident-response.md)
+- Deploy, back up, monitor (single Docker host, tested only on a laptop, see the status box in the deployment guide): `deploy/` ([Dockerfile](deploy/Dockerfile), [docker-compose.yml](deploy/docker-compose.yml), [.env.example](deploy/.env.example), `./deploy/generate-secrets.sh`, `./deploy/smoke-test.sh`) and `ops/` (`backup.sh`, `restore-drill.sh`, [monitoring](ops/monitoring))
 - Pilot release: [go/no-go checklist](docs/release/pilot-checklist.md), [dependencies and status](docs/release/dependencies-and-status.md), [known limitations](docs/release/known-limitations.md)
 
 ## What is in the repo
@@ -17,7 +18,7 @@ One loop. Every order. A Bangladesh-first platform for Facebook and Instagram se
 ```
 apps/
   api/        NestJS 12 REST API (ESM). GET /health/live, GET /health/ready
-  worker/     BullMQ worker process: CSV imports, automation (rule evaluation, notification delivery), the Meta event inbox, sweepers that re-queue unfinished work, and a Redis heartbeat
+  worker/     BullMQ worker process: CSV imports, automation (rule evaluation, notification delivery), the Meta event inbox, sweepers that re-queue unfinished work, a Redis heartbeat, and an HTTP health/metrics port
   web/        Next.js 16. Thin routes over the shared screens: sign-in, sign-up, password reset, catalog, stock
   mobile/     Expo SDK 57 + React Native + Expo Router: the iOS and Android app (native tabs and stack, Bangla, offline-safe). See [docs/mobile.md](docs/mobile.md)
 packages/
@@ -27,12 +28,27 @@ packages/
   ui/         Shared components with variants (React Native primitives; web renders them through react-native-web)
   features/   Shared screens and their logic (session, forms, queries); apps only mount them
   config/     Shared tsconfig and ESLint presets
+  observability/  Prometheus-format metrics registry, HTTP/queue/process collectors, the unhandled-error log line (used by api and worker)
 infra/
-  docker-compose.yml   PostgreSQL 16 (host port 5433) and Redis 7 (host port 6379)
-scripts/      Version-drift and import-boundary checks
+  docker-compose.yml   PostgreSQL 16 (host port 5433) and Redis 7 (host port 6379)  (development only)
+deploy/       Production images (Dockerfile), the single-host Compose stack, Caddyfile, deploy/.env.example, generate-secrets.sh, smoke-test.sh
+ops/          backup.sh, restore-drill.sh, backup loop and healthcheck, monitoring/ (Prometheus rules and tests, Alertmanager, Grafana)
+scripts/      Version-drift, import-boundary and deployment-consistency checks
 ```
 
 Import rules (enforced by `check:boundaries`): `web`/`mobile` never import `db`, `courier-sdk`, `api`, `worker` or `@orderloop/contracts/server`. `api` and `worker` never import each other.
+
+## Operations commands
+
+```bash
+pnpm mail:test -- --to you@example.com        # send one real test email through the configured mailer; prints TLS diagnostics, no secrets; non-zero on failure
+COURIER_VERIFY_STEADFAST_API_KEY=... COURIER_VERIFY_STEADFAST_SECRET_KEY=... \
+  pnpm courier:verify -- --provider steadfast  # read-only courier check with credentials you supply (never books or cancels); also --provider pathao
+./deploy/generate-secrets.sh                  # deploy/.env with every secret generated (mode 600, nothing printed)
+docker compose -f deploy/docker-compose.yml up -d    # the single-host stack; see docs/operations/deployment.md section 0
+```
+
+`mail:test` and `courier:verify` have **not** been run against a real mail provider or a real or sandbox courier account.
 
 ## API playground
 

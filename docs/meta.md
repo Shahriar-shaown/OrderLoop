@@ -205,6 +205,9 @@ Use accounts that have a **role on the Meta app** (developer or tester): until A
     - [ ] The dialog type (`config_id` or classic `scope`) your app needs works, and every permission in the table is granted.
     - [ ] "Allow Access to Messages" off produces the expected `meta_messages_access_off` (the wording match is a guess).
     - [ ] Deauthorize and data-deletion callbacks verify with a real `signed_request` from the dashboard's test button.
+    - [ ] The **Data deletion instructions URL** field holds `https://<web app>/data-deletion` (a public page, no sign-in; set
+          `NEXT_PUBLIC_PRIVACY_CONTACT` to a real address first: see [privacy-and-deletion.md](privacy-and-deletion.md)). It is the in-app
+          instructions; the callback URL above is the automatic route. Use one or the other in the dashboard as Meta's form asks.
     - [ ] The daily health check reports the connection `active` and reads the Page token's scopes.
     - [ ] A conversation of three or four messages makes one draft with the right phone, address and items; a long paste or a
           wall of digits (over 500 characters in one message) is cut, not hung on.

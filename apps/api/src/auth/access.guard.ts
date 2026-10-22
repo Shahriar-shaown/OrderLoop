@@ -12,7 +12,8 @@ import { TokenService } from './token.service.js';
  *
  * The access token only identifies a user, tenant and session. The session and the membership (and
  * therefore the role) are re-read from the database on every request, so logout, role changes and
- * removal take effect immediately instead of at token expiry.
+ * removal take effect immediately instead of at token expiry. A business that is scheduled for deletion answers 403
+ * `tenant_deleted` to everything except the few routes that declare `allowWhenTenantDeleted`.
  */
 @Injectable()
 export class AccessGuard implements CanActivate {
@@ -56,7 +57,12 @@ export class AccessGuard implements CanActivate {
         const membership = await tx.membership.findUnique({
           where: { tenantId_userId: { tenantId: claims.tenantId, userId: claims.userId } },
         });
-        return membership ? { role: membership.role } : null;
+        if (!membership) return null;
+        const tenant = await tx.tenant.findUnique({
+          where: { id: claims.tenantId },
+          select: { purgeAfter: true },
+        });
+        return { role: membership.role, deletionScheduled: tenant?.purgeAfter != null };
       },
     );
     if (!found) throw ApiError.unauthorized('Session is no longer valid');
@@ -67,6 +73,12 @@ export class AccessGuard implements CanActivate {
       sessionId: claims.sessionId,
       role: found.role,
     };
+    // Before the permission check on purpose: nobody, whatever their role, gets past a business that is going away.
+    if (found.deletionScheduled && !spec.allowWhenTenantDeleted)
+      throw new ApiError(
+        'tenant_deleted',
+        'This business is scheduled for deletion, so it cannot be used. Its owner can still cancel the deletion.',
+      );
     if (spec.permission && !can(found.role, spec.permission)) throw ApiError.forbidden();
     return true;
   }

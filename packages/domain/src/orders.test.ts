@@ -7,6 +7,7 @@ import {
   editScope,
   formatBdPhone,
   holdsStock,
+  IN_PROGRESS_STATUSES,
   isFinalStatus,
   normalizeBdPhone,
   ORDER_LIMITS,
@@ -318,5 +319,21 @@ describe('the contract and the domain agree', () => {
   });
   it('knows every source a form can offer', () => {
     expect(OrderSource.options).toEqual([...ORDER_SOURCES]);
+  });
+});
+
+describe('IN_PROGRESS_STATUSES (customer erasure is refused while one is open)', () => {
+  it('is every status except delivered, cancelled and returned', () => {
+    expect([...IN_PROGRESS_STATUSES].sort()).toEqual(
+      [
+        'confirmed',
+        'delivery_failed',
+        'in_transit',
+        'pending_confirmation',
+        'ready_to_ship',
+        'return_requested',
+        'shipped',
+      ].sort(),
+    );
   });
 });

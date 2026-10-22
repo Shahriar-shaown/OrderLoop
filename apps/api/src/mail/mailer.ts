@@ -5,6 +5,8 @@ export type MailKind =
   | 'password_changed'
   | 'invitation'
   | 'account_exists'
+  | 'account_deleted'
+  | 'tenant_deletion_scheduled'
   | 'notification';
 
 export interface MailMessage {

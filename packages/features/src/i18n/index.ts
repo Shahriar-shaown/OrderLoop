@@ -1,6 +1,7 @@
 import { registerCatalog } from '@orderloop/ui';
 import { bn } from './bn';
 import { bnAutomation } from './bn.automation';
+import { bnDeletion } from './bn.deletion';
 import { bnExtra } from './bn.extra';
 import { bnMeta } from './bn.meta';
 
@@ -10,3 +11,4 @@ registerCatalog('bn', bnAutomation);
 registerCatalog('bn', bnMeta);
 registerCatalog('bn', bn);
 registerCatalog('bn', bnExtra);
+registerCatalog('bn', bnDeletion);

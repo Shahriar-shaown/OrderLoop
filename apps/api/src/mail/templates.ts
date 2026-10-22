@@ -104,6 +104,29 @@ export const templates = {
     ]);
   },
 
+  /** Sent to the OLD address, once the account is gone. No name, no link with a token: there is nothing to act on. */
+  accountDeleted(to: string): MailMessage {
+    return render('account_deleted', to, 'Your OrderLoop account was deleted', [
+      'The OrderLoop account for this email address was deleted, and you were signed out everywhere. Your personal details were removed from the account, and any workspace you were the only member of is scheduled for deletion.',
+      'If you did not do this, contact the operator of your OrderLoop service right away. The address can be used to register again.',
+    ]);
+  },
+
+  /** `purgeAfter` is shown as a UTC date. No business name: see the note above. */
+  tenantDeletionScheduled(to: string, base: string, purgeAfter: Date): MailMessage {
+    const day = purgeAfter.toISOString().slice(0, 10);
+    return render(
+      'tenant_deletion_scheduled',
+      to,
+      'A workspace you belong to is scheduled for deletion',
+      [
+        `The owner of a workspace you belong to asked for it to be deleted. Nobody can use it any more, and everything in it will be deleted for good on ${day} (UTC) unless the owner cancels before then.`,
+        'You can switch to another workspace or sign out from the screen that opens when you sign in.',
+      ],
+      { label: 'Open OrderLoop', url: `${base}/login` },
+    );
+  },
+
   invitation(to: string, base: string, token: string, role: string): MailMessage {
     return render(
       'invitation',

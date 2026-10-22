@@ -32,6 +32,12 @@ export const COD_PAISA_ADVICE =
 export const REGISTRATION_CLOSED =
   'Sign-up is closed for now. Ask the person who invited you to send an invitation, or contact support.';
 
+export const ACCOUNT_DELETE_BLOCKED =
+  'You are the only owner of a business that has other members. Make someone else an owner or remove the other members first, then delete your account.';
+
+export const TENANT_DELETED =
+  'This business is scheduled for deletion, so it cannot be used. Its owner can still cancel the deletion.';
+
 /** Does the cash to collect on this order have paisa? The API says so; older replies are worked out from the amount. */
 export const hasPaisa = (order: { codHasPaisa?: boolean | undefined; codAmountMinor: number }) =>
   order.codHasPaisa ?? order.codAmountMinor % 100 !== 0;
@@ -82,6 +88,13 @@ export function messageFor(error: unknown): string {
         return REGISTRATION_CLOSED;
       case 'draft_closed':
         return 'This draft was already confirmed or dismissed. Reload to see what happened.';
+      case 'erase_blocked':
+        // The API names how many orders are open; the sentence is translated by pattern.
+        return error.message;
+      case 'account_delete_blocked':
+        return ACCOUNT_DELETE_BLOCKED;
+      case 'tenant_deleted':
+        return TENANT_DELETED;
       case 'meta_not_configured':
       case 'meta_oauth_invalid':
       case 'meta_permission_denied':

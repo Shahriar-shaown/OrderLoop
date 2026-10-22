@@ -13,6 +13,11 @@ ready for a pilot with real customers: the operational prerequisites in [known-l
 monitoring or alerting), B5 (sign-up must be restricted by configuration) and B7 (real email delivery untested) must be closed
 before any pilot; B4, B8, B9 and B10 depend on the pilot's scope (real couriers, push, mobile release, live Meta).
 
+**Update, later on 2026-10-21 (deployment and operations work):** B1, B2, B3, B5 and B7 now have artifacts, tooling or code, and part of B4 has a read-only verification tool. **None of that changes the verdict**, because
+each was exercised on a developer laptop only, and the pilot environment does not exist yet: deployment images and a Compose stack (run locally with `NODE_ENV=production`), an encrypted backup job and a restore drill (run locally, with failure cases),
+metrics, alert rules and a monitoring profile (one alert fired locally, no real receiver), a production-required `REGISTRATION_MODE`, `pnpm mail:test` and `pnpm courier:verify` (never run against a real provider or courier). What was run and what was not is
+in each row of [known-limitations.md](known-limitations.md) section A and in [../operations/deployment.md](../operations/deployment.md#14-what-was-tested-and-what-was-not). The checks in the table below were run **before** this work.
+
 Criteria from the milestone brief, with evidence:
 
 | Criterion                               | Status                                                                                                                                                  |

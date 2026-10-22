@@ -7,10 +7,11 @@ const valid = {
   NODE_ENV: 'development',
 };
 
-/** What production also needs on purpose: a proxy hop, an explicit Meta mode and https origins. */
+/** What production also needs on purpose: a proxy hop, explicit Meta and sign-up modes and https origins. */
 const prodExtras = {
   TRUST_PROXY: '1',
   META_MODE: 'mock',
+  REGISTRATION_MODE: 'open',
   WEB_ORIGINS: 'https://app.example.test',
 };
 
@@ -216,10 +217,45 @@ describe('production safeguards', () => {
 });
 
 describe('registration control', () => {
-  it('is open by default', () => {
+  it('is open by default outside production', () => {
     const env = loadServerEnv(valid);
     expect(env.REGISTRATION_MODE).toBe('open');
     expect(registrationAllowed(env, 'anyone@example.com')).toBe(true);
+    expect(loadServerEnv({ ...valid, NODE_ENV: 'test' }).REGISTRATION_MODE).toBe('open');
+  });
+  describe('in production', () => {
+    const prod = {
+      ...valid,
+      ...prodExtras,
+      NODE_ENV: 'production',
+      JWT_PRIVATE_KEY: 'a',
+      JWT_PUBLIC_KEY: 'b',
+      MAIL_PROVIDER: 'smtp',
+      SMTP_HOST: 'smtp.example.test',
+    };
+    const withoutMode = Object.fromEntries(
+      Object.entries(prod).filter(([k]) => k !== 'REGISTRATION_MODE'),
+    );
+    it('refuses to start when REGISTRATION_MODE is not set, with a clear message', () => {
+      expect(() => loadServerEnv(withoutMode)).toThrow(
+        /REGISTRATION_MODE must be set explicitly in production/,
+      );
+    });
+    it('accepts an explicit open or allowlist choice', () => {
+      expect(loadServerEnv({ ...prod, REGISTRATION_MODE: 'open' }).REGISTRATION_MODE).toBe('open');
+      expect(
+        loadServerEnv({
+          ...prod,
+          REGISTRATION_MODE: 'allowlist',
+          REGISTRATION_ALLOWED_EMAILS: 'owner@shop.test',
+        }).REGISTRATION_MODE,
+      ).toBe('allowlist');
+    });
+    it('still demands the list for allowlist', () => {
+      expect(() => loadServerEnv({ ...prod, REGISTRATION_MODE: 'allowlist' })).toThrow(
+        /REGISTRATION_ALLOWED_EMAILS/,
+      );
+    });
   });
   it('requires a non-empty list in allowlist mode', () => {
     expect(() => loadServerEnv({ ...valid, REGISTRATION_MODE: 'allowlist' })).toThrow(
@@ -258,5 +294,100 @@ describe('registration control', () => {
     expect(registrationAllowed(env, 'x@sub.pilot.example')).toBe(false);
     expect(registrationAllowed(env, 'x@evilpilot.example')).toBe(false);
     expect(registrationAllowed(env, 'no-at-sign')).toBe(false);
+  });
+});
+
+describe('metrics and worker health env', () => {
+  it('leaves /metrics off (no token) and the worker health port at 4010 by default', () => {
+    expect(loadServerEnv(valid)).toMatchObject({ WORKER_HEALTH_PORT: 4010 });
+    expect(loadServerEnv(valid).METRICS_TOKEN).toBeUndefined();
+  });
+  it('accepts a long token and a port, and rejects a short token or a bad port', () => {
+    expect(
+      loadServerEnv({ ...valid, METRICS_TOKEN: 'a-sixteen-char-tok', WORKER_HEALTH_PORT: '4999' }),
+    ).toMatchObject({ METRICS_TOKEN: 'a-sixteen-char-tok', WORKER_HEALTH_PORT: 4999 });
+    expect(() => loadServerEnv({ ...valid, METRICS_TOKEN: 'short' })).toThrow(/METRICS_TOKEN/);
+    expect(() => loadServerEnv({ ...valid, WORKER_HEALTH_PORT: '70000' })).toThrow(
+      /WORKER_HEALTH_PORT/,
+    );
+  });
+  it('never echoes the token in an error', () => {
+    try {
+      loadServerEnv({ ...valid, METRICS_TOKEN: 'short-secret' });
+      expect.unreachable();
+    } catch (e) {
+      expect(String(e)).not.toContain('short-secret');
+    }
+  });
+});
+
+describe('blank variables', () => {
+  it('are treated as not set, so Compose or an env file can pass `KEY=` safely', () => {
+    const env = loadServerEnv({
+      ...valid,
+      SMTP_USER: '',
+      SMTP_PASSWORD: '  ',
+      SMTP_HOST: '',
+      JWT_PRIVATE_KEY: '',
+      JWT_PUBLIC_KEY: '',
+      METRICS_TOKEN: '',
+      LOG_LEVEL: '',
+      REGISTRATION_ALLOWED_EMAILS: '',
+    });
+    expect(env.SMTP_USER).toBeUndefined();
+    expect(env.METRICS_TOKEN).toBeUndefined();
+    expect(env.LOG_LEVEL).toBe('info');
+  });
+  it('do not rescue a variable that is required: blank NODE_ENV or DATABASE_URL still fails', () => {
+    expect(() => loadServerEnv({ ...valid, NODE_ENV: '' })).toThrow(/NODE_ENV/);
+    expect(() => loadServerEnv({ ...valid, DATABASE_URL: '' })).toThrow(/DATABASE_URL/);
+  });
+  it('still fail production without an explicit REGISTRATION_MODE when it is blank', () => {
+    expect(() =>
+      loadServerEnv({
+        ...valid,
+        ...prodExtras,
+        NODE_ENV: 'production',
+        REGISTRATION_MODE: '',
+        JWT_PRIVATE_KEY: 'a',
+        JWT_PUBLIC_KEY: 'b',
+        MAIL_PROVIDER: 'smtp',
+        SMTP_HOST: 'smtp.example.test',
+      }),
+    ).toThrow(/REGISTRATION_MODE must be set explicitly/);
+  });
+});
+
+describe('the worker', () => {
+  const workerProd = {
+    ...valid,
+    NODE_ENV: 'production',
+    META_MODE: 'mock',
+    MAIL_PROVIDER: 'smtp',
+    SMTP_HOST: 'smtp.example.test',
+  };
+  it('is not asked for the API-only production settings: signing keys, proxy hops, https origins, sign-up mode', () => {
+    expect(() => loadServerEnv(workerProd)).toThrow(/JWT_PRIVATE_KEY/); // the API still demands them
+    const env = loadServerEnv(workerProd, { service: 'worker' });
+    expect(env).toMatchObject({ NODE_ENV: 'production', META_MODE: 'mock' });
+    expect(env.JWT_PRIVATE_KEY).toBeUndefined();
+  });
+  it('still gets every shared production safeguard', () => {
+    const withoutMeta = Object.fromEntries(
+      Object.entries(workerProd).filter(([k]) => k !== 'META_MODE'),
+    );
+    expect(() => loadServerEnv(withoutMeta, { service: 'worker' })).toThrow(/META_MODE/);
+    expect(() =>
+      loadServerEnv({ ...workerProd, MAIL_PROVIDER: 'console' }, { service: 'worker' }),
+    ).toThrow(/MAIL_PROVIDER/);
+    expect(() =>
+      loadServerEnv(
+        { ...workerProd, API_PUBLIC_URL: 'http://api.example.test' },
+        { service: 'worker' },
+      ),
+    ).toThrow(/API_PUBLIC_URL/);
+    expect(() =>
+      loadServerEnv({ ...workerProd, METRICS_TOKEN: 'short' }, { service: 'worker' }),
+    ).toThrow(/METRICS_TOKEN/);
   });
 });

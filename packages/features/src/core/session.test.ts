@@ -194,6 +194,19 @@ describe('withTokenRetry', () => {
     }
   });
 
+  it('does not retry a 401 that says the password was wrong (deleting an account asks for it again)', async () => {
+    const wrong = () =>
+      new Response(JSON.stringify({ code: 'invalid_credentials', status: 401 }), { status: 401 });
+    const base = vi.fn<typeof fetch>().mockResolvedValue(wrong());
+    const refresh = vi.fn(async () => session('new'));
+    const response = await withTokenRetry(base, { refresh })('http://api/v1/me/delete', authed);
+    expect(response.status).toBe(401);
+    expect(refresh).not.toHaveBeenCalled();
+    expect(base).toHaveBeenCalledTimes(1);
+    // the body is still readable by the caller
+    expect((await response.json()).code).toBe('invalid_credentials');
+  });
+
   it('does not retry requests that carried no token, or when the refresh fails', async () => {
     const base = vi.fn<typeof fetch>().mockResolvedValue(unauthorized());
     const refresh = vi.fn(async () => session('new'));

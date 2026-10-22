@@ -24,6 +24,9 @@ describe('route registry', () => {
       'listWorkspaces',
       'createWorkspace',
       'resendVerification',
+      // The person's own account, and a read-only status every member needs to see why their business is blocked.
+      'deleteAccount',
+      'tenantDeletionStatus',
       // Notifications belong to the person, not to the business's data: any member lists and reads their own.
       'listNotifications',
       'getUnreadNotificationCount',
@@ -40,6 +43,35 @@ describe('route registry', () => {
       if (spec.auth === 'access' && !openToAnyMember.has(spec.id))
         expect('permission' in spec).toBe(true);
     }
+  });
+});
+
+describe('a business scheduled for deletion', () => {
+  it('answers only the pinned routes: seeing why, cancelling, leaving, signing out, deleting your own account', () => {
+    const open = Object.values(routes)
+      .filter((r) => 'allowWhenTenantDeleted' in r && r.allowWhenTenantDeleted)
+      .map((r) => r.id)
+      .sort();
+    expect(open).toEqual(
+      [
+        'cancelTenantDeletion',
+        'createWorkspace',
+        'deleteAccount',
+        'listWorkspaces',
+        'logout',
+        'me',
+        'switchTenant',
+        'tenantDeletionStatus',
+      ].sort(),
+    );
+    for (const id of open) expect(routes[id as keyof typeof routes].auth).toBe('access');
+  });
+
+  it('keeps the deletion routes permissioned: only an owner asks or cancels, a customer erase needs its own permission', () => {
+    expect(routes.requestTenantDeletion.permission).toBe('tenant:delete');
+    expect(routes.cancelTenantDeletion.permission).toBe('tenant:delete');
+    expect(routes.eraseCustomer.permission).toBe('customers:erase');
+    expect(routes.exportCustomers.permission).toBe('orders:read');
   });
 });
 

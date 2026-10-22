@@ -28,6 +28,10 @@ import { automationProcessors, logFailedJob, registerTick } from './automation.j
 import { metaProcessors, onEventJobFailed, registerHealthSchedule } from './meta.js';
 import { describe } from './describe-error.js';
 import { startHeartbeat } from './heartbeat.js';
+import { TENANT_PURGE_QUEUE, registerTenantPurge, runTenantPurge } from './tenant-purge.js';
+import { startHealthServer } from './health-server.js';
+import { installProcessErrorHandlers, logUnhandled } from './unhandled.js';
+import { createWorkerMetrics } from './worker-metrics.js';
 import { SmtpEmailSender, consoleEmailSender } from './smtp-email.js';
 
 /** What the API puts on the queue: ids only. Re-validated here, because the worker must not trust what comes out of Redis. */
@@ -35,8 +39,9 @@ const ImportJobData = z.object({ tenantId: z.string().uuid(), importId: z.string
 type ImportJobData = z.infer<typeof ImportJobData>;
 
 async function main(): Promise<void> {
+  installProcessErrorHandlers();
   loadDotEnv();
-  const env = loadServerEnv();
+  const env = loadServerEnv(process.env, { service: 'worker' });
 
   const db = new Database(env.DATABASE_URL, { max: 5 });
   const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
@@ -208,19 +213,62 @@ async function main(): Promise<void> {
     `[worker] Meta ready (${env.META_MODE}): queue "${META_QUEUES.events}", daily health check${metaLive ? '' : ' (idle: no live Meta app configured)'}`,
   );
 
-  // Liveness signal without an HTTP port: docs/operations/monitoring.md shows how to read it.
+  // ---- business deletion ------------------------------------------------------------------------------------------------
+  // An owner's deletion request marks the business; once its grace period is over this hourly job deletes it for good (the
+  // database function re-checks, so cancelled or already purged businesses are skipped). See docs/privacy-and-deletion.md.
+  const purgeQueue = new Queue(TENANT_PURGE_QUEUE, { connection });
+  const purgeWorker = new Worker(
+    TENANT_PURGE_QUEUE,
+    async () => {
+      await runTenantPurge({ db, log: jsonLogger });
+    },
+    { connection, concurrency: 1 },
+  );
+  purgeWorker.on('error', (err) => console.error('[worker] tenant-purge error:', describe(err)));
+  await registerTenantPurge(purgeQueue);
+  console.log(`[worker] tenant purge ready: queue "${TENANT_PURGE_QUEUE}", hourly`);
+
+  // Liveness signal in Redis (read by the API's /metrics as the worker heartbeat age), plus an HTTP health and metrics server
+  // for the container healthcheck and Prometheus: /health/live, /health/ready (Redis, PostgreSQL, heartbeat) and /metrics.
   const heartbeat = startHeartbeat({
     redis: connection,
     log: (message) => console.error(`[worker] ${message}`),
   });
+  const metrics = createWorkerMetrics({
+    redis: connection,
+    db,
+    lastHeartbeatAt: heartbeat.lastSuccessAt,
+  });
+  metrics.instrument('imports', imports);
+  automationWorkers.forEach((w, i) =>
+    metrics.instrument([QUEUES.tick, QUEUES.evaluate, QUEUES.deliver][i]!, w),
+  );
+  metaWorkers.forEach((w, i) =>
+    metrics.instrument([META_QUEUES.events, META_QUEUES.health][i]!, w),
+  );
+  metrics.instrument(TENANT_PURGE_QUEUE, purgeWorker);
+  const health = await startHealthServer(env.WORKER_HEALTH_PORT, {
+    redis: connection,
+    db,
+    lastHeartbeatAt: heartbeat.lastSuccessAt,
+    registry: metrics.registry,
+    metricsToken: env.METRICS_TOKEN,
+  });
+  console.log(
+    `[worker] health server on :${env.WORKER_HEALTH_PORT} (/health/live, /health/ready, /metrics${env.METRICS_TOKEN ? '' : ' disabled: METRICS_TOKEN not set'})`,
+  );
 
   const shutdown = async (signal: string) => {
     console.log(`[worker] ${signal} received, finishing the current job and shutting down`);
     heartbeat.stop();
+    metrics.stop();
+    health.close();
     clearInterval(sweep);
     clearInterval(purge);
     clearInterval(metaSweep);
     clearInterval(metaPurge);
+    await purgeWorker.close();
+    await purgeQueue.close();
     await Promise.all(metaWorkers.map((w) => w.close()));
     await Promise.all([metaEventsQueue, metaHealthQueue].map((q) => q.close()));
     await queue.close();
@@ -237,5 +285,6 @@ async function main(): Promise<void> {
 
 main().catch((err: Error) => {
   console.error('[worker] failed to start:', describe(err));
+  logUnhandled('startup', err);
   process.exit(1);
 });

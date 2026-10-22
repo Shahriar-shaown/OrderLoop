@@ -38,4 +38,18 @@ describe('email templates', () => {
     const m = templates.passwordChanged('a@b.test');
     expect(m.text).not.toMatch(/token=|https?:\/\//);
   });
+
+  it('the deletion emails carry no token and no business name', () => {
+    const closed = templates.accountDeleted('a@b.test');
+    expect(closed.text).not.toMatch(/token=|https?:\/\//);
+    expect(closed.kind).toBe('account_deleted');
+    const scheduled = templates.tenantDeletionScheduled(
+      'a@b.test',
+      'https://app.example.test',
+      new Date('2026-11-05T10:00:00Z'),
+    );
+    expect(scheduled.text).toContain('2026-11-05');
+    expect(scheduled.text).not.toMatch(/token=/);
+    expect(templates.tenantDeletionScheduled.length).toBe(3); // (to, base, date): no name parameter
+  });
 });

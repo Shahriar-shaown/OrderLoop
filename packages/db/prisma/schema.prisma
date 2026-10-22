@@ -41,6 +41,9 @@ model User {
   emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
   /// The person's own interface language; a business has its own default (tenants.default_language).
   language        Language  @default(en)
+  /// Set when the person deleted their account: the row is kept (history refers to its id) but holds no personal data
+  /// (migration 20261031100000_data_deletion).
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   memberships     Membership[]
   sessions        Session[]
@@ -72,6 +75,12 @@ model Tenant {
   /// IANA zone name.
   timezone        String   @default("Asia/Dhaka")
   defaultLanguage Language @default(en) @map("default_language")
+  /// Set when the owner asked for the business to be deleted. Everything stays (nobody may use it) until `purgeAfter`;
+  /// the worker then deletes the business and all its rows. Cleared by cancelling within the grace period.
+  deletionRequestedAt   DateTime? @map("deletion_requested_at") @db.Timestamptz(3)
+  purgeAfter            DateTime? @map("purge_after") @db.Timestamptz(3)
+  /// The person who asked (no foreign key: the account may be deleted before the purge).
+  deletionRequestedById String?   @map("deletion_requested_by_id") @db.Uuid
 
   memberships          Membership[]
   invitations          Invitation[]
@@ -527,6 +536,8 @@ model Customer {
   phone     String
   email     String?
   notes     String?
+  /// Set when the customer's personal data was erased (POST /v1/customers/:id/erase). The row stays so orders keep a customer.
+  erasedAt  DateTime? @map("erased_at") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 

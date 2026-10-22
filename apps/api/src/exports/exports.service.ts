@@ -256,4 +256,101 @@ export class ExportsService {
       LONG_TX,
     );
   }
+
+  /**
+   * The customer list, so an owner can take their customers with them (and see what an erasure would remove). One row per
+   * customer with the default address and plain order counts. Customers whose data was erased are left out: nothing is left to
+   * export for them.
+   */
+  customers(auth: AuthContext, ip: string | null): Promise<CsvExport> {
+    return this.db.withContext(
+      { tenantId: auth.tenantId, userId: auth.userId },
+      async (tx) => {
+        const [counted] = await tx.$queryRaw<{ n: bigint }[]>`
+        SELECT count(*) AS n FROM customers WHERE tenant_id = ${auth.tenantId}::uuid AND erased_at IS NULL`;
+        assertExportable(counted?.n ?? 0);
+        const lines = await tx.$queryRaw<
+          {
+            name: string;
+            phone: string;
+            email: string | null;
+            notes: string | null;
+            created_at: Date;
+            line1: string | null;
+            area: string | null;
+            district: string | null;
+            division: string | null;
+            postal_code: string | null;
+            orders: number;
+            delivered: number;
+            delivered_value: bigint;
+            last_order_at: Date | null;
+          }[]
+        >`
+        SELECT c.name, c.phone, c.email, c.notes, c.created_at,
+               a.line1, a.area, a.district, a.division, a.postal_code,
+               COALESCE(s.orders, 0)::int AS orders, COALESCE(s.delivered, 0)::int AS delivered,
+               COALESCE(s.delivered_value, 0) AS delivered_value, s.last_order_at
+        FROM customers c
+        LEFT JOIN LATERAL (
+          SELECT line1, area, district, division, postal_code FROM customer_addresses
+          WHERE tenant_id = c.tenant_id AND customer_id = c.id
+          ORDER BY is_default DESC, created_at ASC LIMIT 1) a ON true
+        LEFT JOIN LATERAL (
+          SELECT count(*) AS orders,
+                 count(*) FILTER (WHERE status = 'delivered') AS delivered,
+                 sum(total_minor) FILTER (WHERE status = 'delivered') AS delivered_value,
+                 max(created_at) AS last_order_at
+          FROM orders WHERE tenant_id = c.tenant_id AND customer_id = c.id) s ON true
+        WHERE c.tenant_id = ${auth.tenantId}::uuid AND c.erased_at IS NULL
+        ORDER BY c.created_at, c.id`;
+        const header = [
+          'name',
+          'phone',
+          'email',
+          'notes',
+          'address_line',
+          'area',
+          'district',
+          'division',
+          'postal_code',
+          'orders',
+          'delivered_orders',
+          'delivered_value',
+          'last_order_at',
+          'created_at',
+        ];
+        const rows = lines.map((l) => [
+          l.name,
+          // Local form (01712345678): a leading + would be read as a formula by spreadsheets.
+          l.phone.replace(/^\+880/, '0'),
+          l.email,
+          l.notes,
+          l.line1,
+          l.area,
+          l.district,
+          l.division,
+          l.postal_code,
+          l.orders,
+          l.delivered,
+          paisaToBdtString(assertPaisa(Number(l.delivered_value))),
+          l.last_order_at?.toISOString() ?? null,
+          l.created_at.toISOString(),
+        ]);
+        await this.audit.record(tx, {
+          tenantId: auth.tenantId,
+          actorUserId: auth.userId,
+          action: 'export.customers',
+          metadata: { rows: rows.length },
+          ip,
+        });
+        return {
+          filename: `customers-${stamp()}.csv`,
+          rowCount: rows.length,
+          csv: toCsv([header, ...rows]),
+        };
+      },
+      LONG_TX,
+    );
+  }
 }

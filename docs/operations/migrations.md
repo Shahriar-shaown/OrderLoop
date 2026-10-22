@@ -57,6 +57,7 @@ pnpm --filter @orderloop/db run migrate:status        # read-only: pending, fail
 - **Run it from exactly one place, once per release, before starting the new application version.** Two concurrent `migrate deploy` runs are serialised by Prisma's advisory lock, but do not rely on it.
 - `pnpm db:setup` (roles) needs `DATABASE_ADMIN_URL` (superuser) and is run once per cluster, not per release.
 - Production database names, roles and passwords come from your secrets; `.env.example` values are development defaults.
+- **In the Compose deployment (`deploy/docker-compose.yml`) this is the `migrate` service**: a one-shot container that runs on every `docker compose up`, does the role setup (idempotent, no `<db>_test` database), `prisma migrate deploy` as `app_migrator` and `migrate status`, and exits 0 only if all passed; api, worker and the backup loop do not start until it has. It was run on an empty database locally (23 migrations applied). **It was not run as an upgrade of a database that holds data**, and nothing in it takes a backup first: take one (`docker compose exec backup backup.sh`) before a release that has a migration.
 
 ## Rules
 
@@ -92,7 +93,7 @@ pnpm --filter @orderloop/db run migrate:status        # read-only: pending, fail
 - [ ] A fresh backup taken and verified **immediately before** the production run; its time recorded.
 - [ ] `pnpm --filter @orderloop/db run migrate:status` shows exactly the expected pending migrations and nothing failed or drifted.
 - [ ] Rollback plan written for this change (below).
-- [ ] After applying: `migrate:status` up to date; `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` prints `No difference detected.` (run from `packages/db` through `node scripts/with-root-env.mjs`; it was run against the dev database on 2026-10-21 and printed that); `/health/ready` is 200; smoke test ([deployment.md](deployment.md#smoke-test-after-deploy)).
+- [ ] After applying: `migrate:status` up to date; `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` prints `No difference detected.` (run from `packages/db` through `node scripts/with-root-env.mjs`; it was run against the dev database on 2026-10-21 and printed that); `/health/ready` is 200; smoke test ([deployment.md](deployment.md#12-smoke-test-after-deploy)).
 
 ## Rollback strategy
 

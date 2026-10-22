@@ -74,6 +74,15 @@ export function AccountMenu({ onSignOut, leaving }: { onSignOut: () => void; lea
           />
           <MenuRow
             item={{
+              key: 'account',
+              label: 'Your account',
+              icon: 'user',
+              href: '/account',
+            }}
+            onDone={close}
+          />
+          <MenuRow
+            item={{
               key: 'settings',
               label: 'Business settings',
               icon: 'sliders',

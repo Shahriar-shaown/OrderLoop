@@ -1837,6 +1837,7 @@
                         "enum": [
                           "tenant:read",
                           "tenant:update",
+                          "tenant:delete",
                           "members:read",
                           "members:invite",
                           "members:manage",
@@ -1848,6 +1849,7 @@
                           "orders:read",
                           "orders:write",
                           "orders:close",
+                          "customers:erase",
                           "couriers:read",
                           "couriers:manage",
                           "finance:read",
@@ -2058,6 +2060,7 @@
                         "enum": [
                           "tenant:read",
                           "tenant:update",
+                          "tenant:delete",
                           "members:read",
                           "members:invite",
                           "members:manage",
@@ -2069,6 +2072,7 @@
                           "orders:read",
                           "orders:write",
                           "orders:close",
+                          "customers:erase",
                           "couriers:read",
                           "couriers:manage",
                           "finance:read",
@@ -2162,6 +2166,469 @@
             "bearerAuth": []
           }
         ]
+      }
+    },
+    "/v1/me/delete": {
+      "post": {
+        "operationId": "deleteAccount",
+        "summary": "Delete the signed-in person’s own account (password asked again). Ends every session, removes their memberships and anonymises the account. 409 account_delete_blocked while they are the only owner of a business that has other members; a business they alone belong to is scheduled for deletion",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "confirm": {
+                    "type": "string",
+                    "const": "DELETE"
+                  }
+                },
+                "required": ["password", "confirm"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "businessesScheduled": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "purgeAfter": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["id", "name", "purgeAfter"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["deleted", "businessesScheduled"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["me"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tenant/deletion-status": {
+      "get": {
+        "operationId": "tenantDeletionStatus",
+        "summary": "Whether the current business is scheduled for deletion, and when it will be deleted for good. Any member, even while the business is blocked",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "businessName": {
+                      "type": "string"
+                    },
+                    "scheduled": {
+                      "type": "boolean"
+                    },
+                    "requestedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "purgeAfter": {
+                      "type": ["string", "null"]
+                    },
+                    "graceDays": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "canCancel": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "businessName",
+                    "scheduled",
+                    "requestedAt",
+                    "purgeAfter",
+                    "graceDays",
+                    "canCancel"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["tenant"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tenant/delete-request": {
+      "post": {
+        "operationId": "requestTenantDeletion",
+        "summary": "Owner only: schedule the business for deletion after the grace period (name and password asked). At once nobody can use it, courier and Meta credentials are deleted and automation stops. Asking again returns the same date",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "confirmName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "required": ["confirmName", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "businessName": {
+                      "type": "string"
+                    },
+                    "scheduled": {
+                      "type": "boolean"
+                    },
+                    "requestedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "purgeAfter": {
+                      "type": ["string", "null"]
+                    },
+                    "graceDays": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "canCancel": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "businessName",
+                    "scheduled",
+                    "requestedAt",
+                    "purgeAfter",
+                    "graceDays",
+                    "canCancel"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["tenant"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "tenant:delete"
+      }
+    },
+    "/v1/tenant/cancel-deletion": {
+      "post": {
+        "operationId": "cancelTenantDeletion",
+        "summary": "Owner only: cancel a scheduled deletion within the grace period. Courier and Meta connections and automation rules are not restored",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "businessName": {
+                      "type": "string"
+                    },
+                    "scheduled": {
+                      "type": "boolean"
+                    },
+                    "requestedAt": {
+                      "type": ["string", "null"]
+                    },
+                    "purgeAfter": {
+                      "type": ["string", "null"]
+                    },
+                    "graceDays": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "canCancel": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "businessName",
+                    "scheduled",
+                    "requestedAt",
+                    "purgeAfter",
+                    "graceDays",
+                    "canCancel"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["tenant"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "tenant:delete"
       }
     },
     "/v1/tenant": {
@@ -7947,6 +8414,95 @@
         "x-required-permission": "catalog:read"
       }
     },
+    "/v1/exports/customers": {
+      "get": {
+        "operationId": "exportCustomers",
+        "summary": "The customer list as CSV (name, phone, email, notes, default address and order counts); customers whose data was erased are left out",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "filename": {
+                      "type": "string"
+                    },
+                    "rowCount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "csv": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["filename", "rowCount", "csv"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["exports"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "orders:read"
+      }
+    },
     "/v1/exports/stock": {
       "get": {
         "operationId": "exportStock",
@@ -10247,6 +10803,9 @@
                           "createdAt": {
                             "type": "string"
                           },
+                          "erasedAt": {
+                            "type": ["string", "null"]
+                          },
                           "stats": {
                             "type": "object",
                             "properties": {
@@ -10290,7 +10849,16 @@
                             "additionalProperties": false
                           }
                         },
-                        "required": ["id", "name", "phone", "email", "notes", "createdAt", "stats"],
+                        "required": [
+                          "id",
+                          "name",
+                          "phone",
+                          "email",
+                          "notes",
+                          "createdAt",
+                          "erasedAt",
+                          "stats"
+                        ],
                         "additionalProperties": false
                       }
                     },
@@ -10448,6 +11016,9 @@
                     "createdAt": {
                       "type": "string"
                     },
+                    "erasedAt": {
+                      "type": ["string", "null"]
+                    },
                     "stats": {
                       "type": "object",
                       "properties": {
@@ -10551,6 +11122,7 @@
                     "email",
                     "notes",
                     "createdAt",
+                    "erasedAt",
                     "stats",
                     "addresses"
                   ],
@@ -10662,6 +11234,9 @@
                     "createdAt": {
                       "type": "string"
                     },
+                    "erasedAt": {
+                      "type": ["string", "null"]
+                    },
                     "stats": {
                       "type": "object",
                       "properties": {
@@ -10765,6 +11340,7 @@
                     "email",
                     "notes",
                     "createdAt",
+                    "erasedAt",
                     "stats",
                     "addresses"
                   ],
@@ -10922,6 +11498,9 @@
                     "createdAt": {
                       "type": "string"
                     },
+                    "erasedAt": {
+                      "type": ["string", "null"]
+                    },
                     "stats": {
                       "type": "object",
                       "properties": {
@@ -11025,6 +11604,7 @@
                     "email",
                     "notes",
                     "createdAt",
+                    "erasedAt",
                     "stats",
                     "addresses"
                   ],
@@ -11600,6 +12180,132 @@
           }
         ],
         "x-required-permission": "orders:write"
+      }
+    },
+    "/v1/customers/{id}/erase": {
+      "post": {
+        "operationId": "eraseCustomer",
+        "summary": "Irreversibly erase a customer’s personal data (name, phone, email, addresses, notes) here and on their orders; totals, statuses and dates stay. 409 erase_blocked while an order is in progress. Repeating it returns the same result",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "confirm": {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": ["confirm"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "customerId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "erasedAt": {
+                      "type": "string"
+                    },
+                    "ordersAnonymised": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": ["customerId", "erasedAt", "ordersAnonymised"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["path", "message"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["type", "title", "status", "code"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "tags": ["customers"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-permission": "customers:erase"
       }
     },
     "/v1/customers/{id}/orders": {

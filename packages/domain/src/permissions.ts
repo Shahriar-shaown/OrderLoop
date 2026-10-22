@@ -3,6 +3,7 @@ import type { Permission, Role } from '@orderloop/contracts';
 const ALL: readonly Permission[] = [
   'tenant:read',
   'tenant:update',
+  'tenant:delete',
   'members:read',
   'members:invite',
   'members:manage',
@@ -14,6 +15,7 @@ const ALL: readonly Permission[] = [
   'orders:read',
   'orders:write',
   'orders:close',
+  'customers:erase',
   'couriers:read',
   'couriers:manage',
   'finance:read',
@@ -28,7 +30,8 @@ const ALL: readonly Permission[] = [
 /** What each role may do inside its tenant. Roles are per membership, never global. */
 export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
   OWNER: ALL,
-  ADMIN: ALL,
+  // Deleting the whole business is the owner's alone.
+  ADMIN: ALL.filter((p) => p !== 'tenant:delete'),
   MANAGER: [
     'tenant:read',
     'members:read',

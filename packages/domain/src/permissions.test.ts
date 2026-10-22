@@ -76,6 +76,7 @@ describe('the documented permission matrix (docs/permissions.md)', () => {
   const matrix = {
     'tenant:read': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTANT'],
     'tenant:update': ['OWNER', 'ADMIN'],
+    'tenant:delete': ['OWNER'],
     'members:read': ['OWNER', 'ADMIN', 'MANAGER', 'ACCOUNTANT'],
     'members:invite': ['OWNER', 'ADMIN'],
     'members:manage': ['OWNER', 'ADMIN'],
@@ -87,6 +88,7 @@ describe('the documented permission matrix (docs/permissions.md)', () => {
     'orders:read': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTANT'],
     'orders:write': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'],
     'orders:close': ['OWNER', 'ADMIN', 'MANAGER'],
+    'customers:erase': ['OWNER', 'ADMIN'],
     'couriers:read': ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTANT'],
     'couriers:manage': ['OWNER', 'ADMIN'],
     'finance:read': ['OWNER', 'ADMIN', 'MANAGER', 'ACCOUNTANT'],

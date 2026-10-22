@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import './index';
 import { bn as features } from './bn';
 import { bnAutomation } from './bn.automation';
+import { bnDeletion } from './bn.deletion';
 import { bnExtra } from './bn.extra';
 import { bnMeta } from './bn.meta';
 
@@ -13,6 +14,7 @@ describe.each([
   ['features (mobile shell)', bnExtra],
   ['features (automation)', bnAutomation],
   ['features (Meta integration)', bnMeta],
+  ['features (deletion and erasure)', bnDeletion],
 ])('the Bangla catalogue (%s)', (_name, catalogue) => {
   const entries = Object.entries(catalogue);
 

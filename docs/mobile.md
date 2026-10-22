@@ -187,6 +187,15 @@ The order screens are the shared ones (see [web.md](web.md#orders-returns-closin
 
 Social orders (list and review, `/social-orders`) and Integrations (`/settings/integrations/meta`) are the same shared screens as on the web (see [web.md](web.md) and [meta.md](meta.md)). Signing in with Meta needs a browser, so on the phone Integrations shows each account's status, lets an owner or admin disconnect, and says "Connect from the web app" for connecting and reconnecting. In mock mode the mock account and test-message tools work here too, under the same "Mock integration: not connected to Meta" notice. The draft review form scrolls above the keyboard like every other form.
 
+## Deleting data
+
+The same screens as the web: **More > Your account** (delete my account), **Settings > Delete this business** (owners), **Customers >
+a customer > Erase personal data**, and the export of the customer list. A business that is scheduled for deletion is replaced, inside the
+signed-in layout, by one screen with the date, _Cancel deletion_ for an owner, other businesses and Sign out (`TenantDeletedScreen`). Deleting
+the account clears the refresh token from secure storage and returns to sign-in. Nothing is kept on the device that an erasure would need to
+remove: the app stores only the refresh token, the language and the push registration (removed with the account). See
+[privacy-and-deletion.md](privacy-and-deletion.md).
+
 ## Sessions, offline and expiry
 
 - **Tokens.** The refresh token lives in the platform's secure storage (Keychain / Keystore, `expo-secure-store`); the short

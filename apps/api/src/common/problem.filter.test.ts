@@ -27,10 +27,11 @@ function run(exception: unknown) {
 }
 
 const logged: string[] = [];
+const text = (m: unknown) => (typeof m === 'string' ? m : JSON.stringify(m));
 const capture: LoggerService = {
-  log: (m) => logged.push(String(m)),
-  error: (m) => logged.push(String(m)),
-  warn: (m) => logged.push(String(m)),
+  log: (m) => logged.push(text(m)),
+  error: (m) => logged.push(text(m)),
+  warn: (m) => logged.push(text(m)),
 };
 afterEach(() => {
   Logger.overrideLogger(['log', 'error', 'warn']);
@@ -78,6 +79,12 @@ describe('ProblemFilter', () => {
     );
     expect(logged).toHaveLength(1);
     expect(logged[0]).toContain('boom while handling');
+    // The stable field the unhandled-error alert matches.
+    expect(JSON.parse(logged[0]!)).toMatchObject({
+      event: 'unhandled_error',
+      source: 'http_handler',
+      errorName: 'Error',
+    });
     for (const leak of ['x'.repeat(40), jwt, 'hunter2hunter2'])
       expect(logged[0]).not.toContain(leak);
   });

@@ -67,6 +67,26 @@ and Meta-draft races, orphan courier bookings, manual `delivered`/`returned` (`o
 - **Deadlock retry re-runs the transaction body** (up to 3 attempts, `Database.withContext`), so bodies must work through `tx`
   only. Today's callers do (queue adds use a job id, so a repeat is harmless).
 
+## Data deletion (see [privacy-and-deletion.md](privacy-and-deletion.md))
+
+Technical capabilities, not a compliance statement. What is still open:
+
+- **Free text is scrubbed only for exact spellings.** Erasing a customer replaces their exact name, phone spellings (`8801...`, `01...`),
+  email and address lines in the free-text columns it knows (status reasons, cost notes, notifications, failed CSV imports and so on), and
+  courier or statement payloads by key. A nickname, a misspelling, a number written with spaces, or another person's details typed into a note
+  stay. Names shorter than four characters are not scrubbed from free text.
+- **District and division stay on an erased customer's orders**, as coarse delivery areas (delivery statistics read them).
+- **Backups keep deleted data until they expire** (14 daily and 8 weekly dumps in the proposed schedule); a restore brings it back and pending
+  deletions must be re-applied. Couriers, Meta and earlier exports keep their own copies.
+- **A business's Meta subscription is not removed at the Page** when the business is scheduled for deletion (the token is deleted and the
+  connection disconnected; events for a disconnected account are ignored). The owner can remove the app in Meta's settings.
+- **Cancelling a business deletion does not restore** courier credentials, Meta connections or automation rules.
+- **No export of settlements, costs or the audit log**; only customers, orders, products and stock.
+- **A member whose only business was purged cannot sign in** until they are invited or join another one (their account is not touched
+  unless they asked for the deletion).
+- **Account deletion of a sole member leaves nobody to cancel** the business deletion that follows.
+- **Shortening a grace period needs the database owner role**: no API call can do it, by design.
+
 ## Needs more design
 
 - **Pathao COD fee**: the unit of `cod_percentage` is unverified (see `docs/couriers.md`); the estimate says so.

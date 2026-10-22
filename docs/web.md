@@ -109,6 +109,21 @@ The backend is in [meta.md](meta.md); the screens are shared with the phone (`pa
 - A tab reloaded or closed while its refresh is in flight no longer ends the session everywhere: the API accepts the previous token again for a short grace window (see [known-issues.md](known-issues.md)). A refresh sends `expectedTenantId`, so a tab does not follow another tab's business switch (`409 tenant_changed` makes it ask again instead).
 - Registration can be closed on a server (`403 registration_closed`): the sign-up screen shows a clear alert with the next step and a link to sign-in.
 
+## Deleting data
+
+- **Customer detail:** _Erase personal data_ (owners and admins; `customers:erase`) with a plain explanation, a typed `ERASE` and an optional reason. An
+  erased customer shows a notice and loses Edit, Create order and the address buttons. **Customers** has _Export customers CSV_.
+- **Your account** (`/account`, from the account menu; mobile: More > Your account): who you are and _Delete my account_ (password asked again, the word
+  `DELETE`, the blocking businesses listed if the API refuses).
+- **Business settings > Delete this business** (owners only): the exports, a typed business name and the password. While a business is scheduled,
+  `AppShell` (web) and the signed-in layout (mobile) replace the whole business with one screen (`TenantDeletedScreen`): the date, **Cancel deletion**
+  for an owner, other businesses to switch to, and Sign out. It reads `GET /v1/tenant/deletion-status`.
+- `/data-deletion` is a **public static page** (no sign-in) for people who cannot use the app, and is Meta's "Data deletion instructions URL"
+  ([meta.md](meta.md)). Set `NEXT_PUBLIC_PRIVACY_CONTACT` to the operator's real address; until then it shows a clearly fake one.
+- All three dialogs are one component, `DangerDialog` (typed confirmation, password, optional reason; a wrong password sits on the password box).
+  `withTokenRetry` does not refresh and retry a `401 invalid_credentials`, so a wrong password never signs anyone out or counts twice.
+  What each removes, keeps and cannot reach: [privacy-and-deletion.md](privacy-and-deletion.md).
+
 ## Running it
 
 ```bash

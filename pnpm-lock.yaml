@@ -59,6 +59,9 @@ importers:
       '@orderloop/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@orderloop/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       bullmq:
         specifier: ^6.3.15
         version: 6.3.15(ioredis@5.11.1(supports-color@8.1.1))(pg@8.23.1)
@@ -335,6 +338,9 @@ importers:
       '@orderloop/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@orderloop/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       bullmq:
         specifier: ^6.3.15
         version: 6.3.15(ioredis@5.11.1(supports-color@8.1.1))(pg@8.23.1)
@@ -586,6 +592,21 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(jsdom@26.1.0(supports-color@8.1.1))(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.51.2)(yaml@2.9.1)
+
+  packages/observability:
+    devDependencies:
+      '@orderloop/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.5
+      eslint:
+        specifier: ^10.0.0
+        version: 10.12.0(jiti@2.7.0)(supports-color@8.1.1)
       vitest:
         specifier: ^3.0.0
         version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(jsdom@26.1.0(supports-color@8.1.1))(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.51.2)(yaml@2.9.1)

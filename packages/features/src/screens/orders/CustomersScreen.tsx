@@ -17,6 +17,7 @@ import {
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { CustomerDialog } from '../../components/orders/CustomerDialog';
+import { ExportButtons } from '../../shell/ExportButtons';
 import { QueryBoundary } from '../../shell/QueryBoundary';
 import { formatDayTime } from '../../lib/format';
 import { useDebounced } from '../../lib/hooks';
@@ -121,11 +122,14 @@ export function CustomersScreen({ openNew = false }: { openNew?: boolean } = {})
         title="Customers"
         description="People who order from you. A phone number is one customer."
         actions={
-          can('orders:write') ? (
-            <Button icon="plus" onPress={() => setAdding(true)}>
-              New customer
-            </Button>
-          ) : undefined
+          <>
+            <ExportButtons kinds={['customers']} />
+            {can('orders:write') ? (
+              <Button icon="plus" onPress={() => setAdding(true)}>
+                New customer
+              </Button>
+            ) : null}
+          </>
         }
       />
       <Row>

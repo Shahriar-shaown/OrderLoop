@@ -19,7 +19,9 @@
     "meta:demo": "tsc -p tsconfig.build.json && node dist/scripts/meta-demo.js",
     "meta:send-webhook": "tsc -p tsconfig.build.json && node dist/scripts/meta-send-webhook.js",
     "inventory:verify": "tsc -p tsconfig.build.json && node dist/scripts/inventory-verify.js",
-    "sessions:revoke": "tsc -p tsconfig.build.json && node dist/scripts/sessions-revoke.js"
+    "sessions:revoke": "tsc -p tsconfig.build.json && node dist/scripts/sessions-revoke.js",
+    "mail:test": "tsc -p tsconfig.build.json && node dist/scripts/mail-test.js",
+    "courier:verify": "tsc -p tsconfig.build.json && node dist/scripts/courier-verify.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.1.3",
@@ -32,6 +34,7 @@
     "@orderloop/courier-sdk": "workspace:*",
     "@orderloop/db": "workspace:*",
     "@orderloop/domain": "workspace:*",
+    "@orderloop/observability": "workspace:*",
     "bullmq": "^6.3.15",
     "express": "^5.0.0",
     "helmet": "^8.0.0",

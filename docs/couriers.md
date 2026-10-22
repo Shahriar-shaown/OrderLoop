@@ -265,6 +265,9 @@ returns `201` with the shipment and its `status` and `failureReason`.
 
 ## First contact with a real courier
 
+Before step 1 you can run the read-only part from a terminal: `pnpm courier:verify -- --provider pathao|steadfast` checks sign-in, store and place lookups, a price quote and a tracking lookup with credentials you pass in
+environment variables, prints a redacted table, and never books or cancels ([how](operations/deployment.md#verify-a-courier-with-real-credentials-first-contact)). **It has not been run against any real or sandbox account yet.**
+
 Do these once, in this order, and fix the code against what the courier actually returns:
 
 1. **Pathao sandbox**: save credentials, **Test Pathao** (checks login and store listing), load the city/zone lists, book one

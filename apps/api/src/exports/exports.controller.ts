@@ -28,6 +28,12 @@ export class ExportsController {
     return this.exports.stock(auth, req.ip ?? null);
   }
 
+  @Endpoint(routes.exportCustomers)
+  async customers(@Auth() auth: AuthContext, @Req() req: AppRequest): Promise<CsvExport> {
+    await this.limit(auth, 'export-customers');
+    return this.exports.customers(auth, req.ip ?? null);
+  }
+
   @Endpoint(routes.exportOrders)
   async orders(
     @Auth() auth: AuthContext,

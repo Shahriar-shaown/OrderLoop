@@ -218,7 +218,8 @@ export class SessionManager {
 
 /**
  * Wrap fetch so a 401 on an authenticated request triggers one refresh and one retry with the new token. The auth
- * endpoints themselves are never retried (a 401 from login means wrong password, not an expired session).
+ * endpoints themselves are never retried (a 401 from login means wrong password, not an expired session), and neither is a 401 that says
+ * `invalid_credentials` (the password asked again before deleting an account or a business: the session is fine).
  */
 export function withTokenRetry(
   base: typeof fetch,
@@ -236,6 +237,12 @@ export function withTokenRetry(
     ) {
       return response;
     }
+    // A wrong password asked again for something irreversible (delete account, delete business) is a 401 too, but the session is fine.
+    const problem: unknown = await response
+      .clone()
+      .json()
+      .catch(() => null);
+    if ((problem as { code?: string } | null)?.code === 'invalid_credentials') return response;
     const fresh = await manager.refresh().catch(() => null);
     if (!fresh) return response;
     return base(input, {

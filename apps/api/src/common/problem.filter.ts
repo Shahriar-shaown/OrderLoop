@@ -1,6 +1,7 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@nestjs/common';
 import type { ErrorCode, Problem } from '@orderloop/contracts';
 import type { Response } from 'express';
+import { unhandledErrorEntry } from '@orderloop/observability';
 import { scrubSecrets } from '../logging/scrub.js';
 import { bodyParserProblem } from './body-parser-problem.js';
 import { ApiError } from './api-error.js';
@@ -47,12 +48,15 @@ export class ProblemFilter implements ExceptionFilter {
         detail: status === 429 ? 'Too many requests, slow down' : exception.message,
       };
     } else {
-      // Driver and library messages can echo secrets (SQL parameters, tokens): scrub before they reach any logger.
-      this.logger.error(
-        scrubSecrets(
-          exception instanceof Error ? (exception.stack ?? exception.message) : String(exception),
-        ),
+      // Driver and library messages can echo secrets (SQL parameters, tokens): scrub before they reach any logger. The stable
+      // `event` field is what the alert on unhandled errors matches (docs/operations/monitoring.md); no request data is added.
+      const { event, source, errorName, message, stack } = unhandledErrorEntry(
+        'orderloop-api',
+        'http_handler',
+        exception,
+        scrubSecrets,
       );
+      this.logger.error({ event, source, errorName, message, ...(stack ? { stack } : {}) });
       problem = {
         type: 'urn:orderloop:error:internal_error',
         title: 'internal_error',

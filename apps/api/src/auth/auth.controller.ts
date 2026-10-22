@@ -7,8 +7,8 @@ import { Auth, Endpoint, Input, type AppRequest, type AuthContext } from '../com
 import { APP_CONFIG, type AppConfig } from '../config/config.module.js';
 import { AuthService, type Issued } from './auth.service.js';
 
-const COOKIE = 'ol_rt';
-const COOKIE_PATH = '/v1/auth';
+export const COOKIE = 'ol_rt';
+export const COOKIE_PATH = '/v1/auth';
 /** Credential-checking endpoints get a much tighter per-IP budget than the global default. */
 const STRICT = { default: { limit: 10, ttl: 60_000 } };
 

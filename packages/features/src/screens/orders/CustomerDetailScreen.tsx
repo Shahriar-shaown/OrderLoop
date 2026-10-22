@@ -23,6 +23,7 @@ import {
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { AddressDialog } from '../../components/orders/AddressDialog';
+import { EraseCustomerSection } from '../../components/deletion/EraseCustomerSection';
 import { CustomerDialog } from '../../components/orders/CustomerDialog';
 import { OrderCard, orderColumns } from '../../components/orders/OrderListParts';
 import { QueryBoundary } from '../../shell/QueryBoundary';
@@ -44,7 +45,7 @@ export function CustomerDetailScreen({ id }: { id: string }) {
   const [removing, setRemoving] = useState<AddressRecord | null>(null);
   const [busy, setBusy] = useState(false);
   const customer = query.data;
-  const writable = can('orders:write');
+  const writable = can('orders:write') && !customer?.erasedAt;
 
   const history = useInfiniteQuery({
     queryKey: ['customerOrders', id],
@@ -115,6 +116,7 @@ export function CustomerDetailScreen({ id }: { id: string }) {
           <Text variant="caption" tone="muted">
             Plain counts of what has happened. OrderLoop never labels or scores a customer.
           </Text>
+          <EraseCustomerSection customer={customer} />
           <Split
             asideWidth={400}
             main={

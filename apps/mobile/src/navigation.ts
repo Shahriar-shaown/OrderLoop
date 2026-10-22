@@ -41,6 +41,7 @@ export const MORE_ITEMS: MoreItem[] = [
   { href: '/automation', label: 'Automation', icon: 'zap', needs: 'automation:read' },
   { href: '/settings', label: 'Business settings', icon: 'sliders' },
   { href: '/workspaces', label: 'Switch or add a business', icon: 'store' },
+  { href: '/account', label: 'Your account', icon: 'user' },
 ];
 
 /** Every href the app promises to have a screen for. */

@@ -70,6 +70,12 @@ const MEANING: Record<ErrorCode, string> = {
   meta_unavailable:
     'Meta could not be reached, is limiting requests, or answered badly. Try again shortly.',
   draft_closed: 'The draft was already confirmed or dismissed, so it can no longer be changed.',
+  erase_blocked:
+    'The customer still has orders in progress (not delivered, cancelled or returned). Finish or cancel them first; `detail` says how many.',
+  account_delete_blocked:
+    'The person is the only owner of a business that has other members. Transfer ownership or remove the members first; `detail` names the businesses.',
+  tenant_deleted:
+    'The business is scheduled for deletion, so nothing in it can be used. Only its owner can cancel, within the grace period (`GET /v1/tenant/deletion-status`).',
   rate_limited:
     'Too many requests, failed sign-ins, or a per-business budget (imports, exports, invitations). See `Retry-After`.',
   internal_error: 'Unexpected. Quote the `x-request-id`.',

@@ -4,6 +4,7 @@ import {
   type AddressRecord,
   type CustomerDetail,
   type CustomerPage,
+  type EraseCustomerResult,
   type OrderPage,
   type ParsedInput,
 } from '@orderloop/contracts';
@@ -50,6 +51,15 @@ export class CustomersController {
     @Req() req: AppRequest,
   ): Promise<CustomerDetail> {
     return this.customers.update(auth, input.params.id, input.body, req.ip ?? null);
+  }
+
+  @Endpoint(routes.eraseCustomer)
+  erase(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.eraseCustomer>,
+    @Req() req: AppRequest,
+  ): Promise<EraseCustomerResult> {
+    return this.customers.erase(auth, input.params.id, input.body, req.ip ?? null);
   }
 
   @Endpoint(routes.addCustomerAddress)

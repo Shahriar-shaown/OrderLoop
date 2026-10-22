@@ -3,11 +3,60 @@
 What to back up, how, and how to prove a backup works. Everything here is written against this repository (PostgreSQL 16, Redis 7,
 roles from `pnpm db:setup`). Numbers called "proposed" are suggestions for the pilot, not commitments.
 
-> **Status.** The project has run **one** restore drill, on a developer laptop against the local Docker PostgreSQL, on
-> 2026-10-21 (full output in [Local drill](#local-drill-performed-on-2026-10-21)). **No restore from a production or staging
-> backup has been performed**, no WAL archiving or point-in-time recovery has been set up or tested, and no backup job exists in
-> this repository. Treat the production procedure below as untested until your own drill is recorded in the
-> [checklist](#restore-test-checklist).
+> **Status.** The repository now has a backup job and a restore drill ([`ops/backup.sh`](../../ops/backup.sh),
+> [`ops/restore-drill.sh`](../../ops/restore-drill.sh), a `backup` service in [`deploy/docker-compose.yml`](../../deploy/docker-compose.yml)). Both ran
+> on a developer laptop on **2026-10-21** against a throwaway PostgreSQL seeded through the API, including four failure cases that must fail
+> loudly and did ([drill output](#drill-performed-on-2026-10-21-local)). **Not done:** a restore from a production or staging backup, an
+> off-site copy to a real bucket (the code path exists, was not run against a real S3-compatible service), WAL archiving or point-in-time recovery,
+> a measured recovery time on realistic data, and a drill on a Linux host. Treat the production procedure as untested until your own drill is recorded in the
+> [checklist](#restore-test-checklist). An earlier, manual drill (same day) is kept [below](#earlier-manual-drill-performed-on-2026-10-21).
+
+## What the tooling does
+
+| Piece                                    | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ops/backup.sh`                          | One run = one backup. Refuses a role that does not bypass row-level security. Reads the row counts and the dump from **one snapshot**, so they agree even while the system is written to. `pg_dump -Fc`, piped straight into `age` (no plaintext file). Writes `orderloop-<UTC stamp>.dump.age` and `.manifest.json` (sizes, `sha256` of the encrypted file, migration version, per-table row counts, forced-RLS count, `SECURITY DEFINER` function list, `pg_dump` and server versions, a fingerprint of the key it was encrypted to; no secret). Optionally copies both files to an S3-compatible remote with `rclone`. Applies retention. Records the success time in Redis for the API's backup-age metric. Logs one JSON object per line; any failure is `backup.failed` on stderr and a non-zero exit (1 failed, 2 configuration, 3 dump fine but upload failed). |
+| `ops/backup-loop.sh`                     | The `backup` container's process: a daily run at `BACKUP_AT` (UTC), an immediate run at start if no backup is younger than `BACKUP_MAX_AGE_HOURS`, a retry every `BACKUP_RETRY_MINUTES` after a failure, and a re-report of the newest backup to Redis at start (Redis is not durable).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `ops/backup-health.sh`                   | The container healthcheck: unhealthy when the newest backup is older than `BACKUP_MAX_AGE_HOURS` (26 h), or when none exists after a two-hour start-up grace.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `ops/restore-drill.sh`                   | Restores the newest backup (or a file you name) into a **scratch database** and verifies it; see [the drill](#the-restore-drill). Never touches the live database; always drops the scratch one.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| the `app_backup` and `app_monitor` roles | Created by the migrate job ([`deploy/setup-ops-roles.mjs`](../../deploy/setup-ops-roles.mjs)); see [the backup role](#the-backup-role).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+
+**Encryption is `age` with a public recipient key** (chosen over `openssl enc`: authenticated, so a corrupted or truncated file is detected on decryption, and the backup host holds only the public key). `./deploy/generate-secrets.sh`
+creates the key pair: the public half goes in `deploy/.env` (`BACKUP_AGE_RECIPIENT`), the **private half in `deploy/backup-age-identity.txt`, which you must move off the host and keep safely (two custodians, with `COURIER_CREDENTIALS_KEY` kept somewhere else)**. Without it no backup can be restored. A stolen
+backup volume is useless without it; a lost identity file makes every backup useless.
+
+**Retention:** the newest backup of each of the last `BACKUP_KEEP_DAILY` (7) UTC days plus the newest of each of the last `BACKUP_KEEP_WEEKLY` (4) ISO weeks; the backup just written is never deleted, a dump without a manifest is never touched. Unit-tested in `ops/tests/retention.test.sh`. These defaults are shorter than the "proposed" 14 days/8 weeks below: raise them for the pilot if disk allows.
+**Backups contain personal data and outlive deletion requests by the retention period** (see [below](#backups-contain-personal-data)).
+
+**Off-site copy** (optional): set `BACKUP_RCLONE_REMOTE=offsite:bucket/path` and the four `RCLONE_CONFIG_OFFSITE_*` variables in `deploy/.env.example`. A failed upload keeps the local copy, logs `backup.failed` with `step: upload` and exits 3, and the success time is **not** reported. Only the encrypted file and the manifest are uploaded.
+**Not run against any real S3-compatible service**; the code path was only syntax-checked.
+
+## The backup role
+
+Every tenant table has `FORCE ROW LEVEL SECURITY`, so a dump taken by the table owner, or with `--enable-row-security`, **silently omits every tenant's rows** (the next section shows it with numbers). The migrate job therefore creates `app_backup`:
+`LOGIN NOSUPERUSER BYPASSRLS`, member of `pg_read_all_data`, `CONNECT` on the database. It can read everything and write nothing; it is not the owner and not a superuser. `ops/backup.sh` checks `rolsuper OR rolbypassrls` for the role it connects as before doing anything and **refuses to run as any other** (tested: as `app_user` it exits 1 with `role app_user does not bypass row-level security`).
+Its password is `DATABASE_BACKUP_PASSWORD`. If your PostgreSQL has no superuser (a managed service), you cannot create such a role yourself: use the provider's snapshots/PITR, or ask which role can dump past forced RLS and verify with the drill before trusting it.
+
+## The restore drill
+
+```bash
+docker compose -f deploy/docker-compose.yml --profile ops run --rm \
+  -v "$PWD/deploy/backup-age-identity.txt:/run/secrets/age-identity:ro" drill          # newest backup
+# or a particular file:  ... drill restore-drill.sh /backups/orderloop-<stamp>.dump.age
+```
+
+It needs the age **private** key (mounted for the run only), the PostgreSQL superuser password (`DRILL_ADMIN_PASSWORD`, set from `POSTGRES_PASSWORD` by the compose file) and the `app_user` password. Steps and checks, each printed `[PASS]` or `[FAIL]`, final `RESULT: PASS|FAIL`, exit 0 only if all passed:
+
+1. **file checksum**: `sha256` of the `.dump.age` equals the manifest's.
+2. **decrypt + restore**: `age -d | pg_restore --exit-on-error` into a new database `orderloop_drill_<time>` owned by `app_migrator` (streamed, no plaintext file).
+3. **migrations**: the restored `_prisma_migrations` ends at the manifest's version, the same number applied, none unfinished (the equivalent of `prisma migrate status`).
+4. **row counts**: every table's count equals the manifest's (taken from the same snapshot as the dump), no table missing or extra.
+5. **forced RLS**: every table with a `tenant_id` column has row-level security enabled **and** forced, and the forced count equals the manifest's.
+6. **definer functions**: the `SECURITY DEFINER` functions equal the manifest's list and each pins its `search_path`.
+7. **tenant isolation**, connecting as `app_user` to the restored copy, on the tenant table with the most rows: with no tenant context 0 rows are visible; with one tenant's context exactly that tenant's rows; with a random other tenant's id 0 rows.
+   **A backup with no tenant rows at all fails this check** (that is what an RLS-filtered dump looks like), unless `DRILL_ALLOW_EMPTY=1` for a system that really holds no data yet.
+
+Then the scratch database is dropped. Not covered by the drill: the application's behaviour on the restored data (start a scratch API per section 6, step 7), `COURIER_CREDENTIALS_KEY` correctness, restoring on a cluster where the roles do not exist yet (run the migrate job, or `pnpm db:setup`, first), and timing on real volumes.
 
 ## 1. What holds state
 
@@ -41,7 +90,7 @@ Use **both**, if the host allows it:
 1. **Continuous**: your managed provider's automated backups with point-in-time recovery, or self-managed base backups plus WAL
    archiving (`archive_mode=on`, `archive_command`, e.g. with pgBackRest or WAL-G). Not set up by this repository and **not tested**.
 2. **Logical**: a nightly `pg_dump`, copied off the database host, encrypted, with a recorded restore test. This is the only
-   method the project has exercised (locally).
+   method the project provides and has exercised (locally): `ops/backup.sh` and `ops/restore-drill.sh` above.
 
 A logical dump alone gives an RPO of up to a day and cannot restore to a point in time.
 
@@ -57,15 +106,16 @@ Every tenant table has `FORCE ROW LEVEL SECURITY`, so **even the table owner is 
 | `app_user`                                  | Cannot dump (no `BYPASSRLS`, not owner); would see nothing.                                                                                                                                                                                                                                             |
 | A superuser (or a role with `BYPASSRLS`)    | **Complete.** This is the role to back up with.                                                                                                                                                                                                                                                         |
 
-So: **back up as a superuser or a dedicated backup role with `BYPASSRLS`** (a read-only role such as one with `pg_read_all_data`
-**and** `BYPASSRLS`; creating it is not done by `pnpm db:setup`, and it is **not tested**). Never use `--enable-row-security`
+So: **back up as a superuser or a dedicated backup role with `BYPASSRLS`**: the migrate job creates exactly that, `app_backup` (`pg_read_all_data` **and** `BYPASSRLS`; `pnpm db:setup` alone does not).
+Reproduced again on 2026-10-21 with the compose stack (2 businesses, 4 products): `pg_dump --data-only --table=products --enable-row-security` as `app_migrator` produced **0** rows, as `app_backup` **4**.
+Never use `--enable-row-security`
 for backups. On managed PostgreSQL where no superuser exists, use the provider's snapshot/PITR, or confirm with the provider
 which role can dump past forced RLS, and verify with the row-count check in [section 6](#6-restore-drill-procedure) before
 trusting it.
 
-### Take a logical backup
+### Take a logical backup by hand
 
-Run from a machine that can reach the database; `--format=custom` is compressed and lets `pg_restore` select and parallelise.
+`docker compose exec backup backup.sh` takes one now with the provided tooling. For another setup (or a manual fallback), run from a machine that can reach the database; `--format=custom` is compressed and lets `pg_restore` select and parallelise.
 Use a `~/.pgpass` file or a secret-injected `PGPASSWORD`, never a password on the command line.
 
 ```bash
@@ -149,8 +199,8 @@ log for `automation.tick` lines every minute.
 
 ### Roles (what must exist before `pg_restore`)
 
-`pnpm db:setup` creates the cluster-level roles (script: `packages/db/scripts/setup-roles.mjs`, run with
-`DATABASE_ADMIN_URL`). The dump references them in its ACLs, so on a **new cluster** run `pnpm db:setup` (or create the two roles
+`pnpm db:setup` (in the compose deployment, the migrate job) creates the cluster-level roles (script: `packages/db/scripts/setup-roles.mjs`, run with
+`DATABASE_ADMIN_URL`; the migrate job also creates `app_backup` and `app_monitor`, which a restore does not need). The dump references them in its ACLs, so on a **new cluster** run `pnpm db:setup` (or create the two roles
 equivalently) first. Without them the grants fail to restore (**not tested**).
 
 | Role           | Properties                                                               | Role in restore                                                         |
@@ -200,6 +250,9 @@ Do not overwrite the damaged instance until the new one is verified. The exact p
 **not documented or tested here**.
 
 ## 6. Restore drill procedure
+
+**`ops/restore-drill.sh` automates the file check, the restore and steps 3 to 6 below (and the migration check in step 6, and the tenant-isolation part of step 5) and prints PASS or FAIL ([the drill](#the-restore-drill)); do the manual steps for what it does not cover (step 7) and when you restore by hand.**
+The expected numbers quoted in the manual steps are from the schema of the earlier manual drill (20 migrations); the schema now has 23 migrations, 39 forced-RLS tables and 17 `SECURITY DEFINER` functions (the drill reads these from the manifest, so it needs no numbers typed in).
 
 Do this on a scratch server or scratch database, never on the live one. Name scratch databases `orderloop_restore_drill*` so
 they are obvious. Record the date, dump name, timings and results in the [checklist](#restore-test-checklist).
@@ -295,9 +348,135 @@ Copy this block into the release record each time. Unchecked means not done.
 - [ ] Redis replacement rehearsed: worker restart re-registers schedulers; a `RUNNING` import re-queued by the sweeper after 15 min.
 - [ ] Retention and deletion statement written (backups outlive deletion requests by the retention period).
 
-## Local drill (performed on 2026-10-21)
+**Evidenced by the local run on 2026-10-21** (a real deployment still has to do each of these itself): backup job exists and runs, its age is a metric and a healthcheck; the backup role gives a complete dump (row counts match); the dump is encrypted;
+drill restore into a scratch database with all checks; isolation as `app_user`; `migrate status` equivalent; scratch database dropped. **Not evidenced:** off-host storage, two named key custodians, a measured RTO, a smoke test of a scratch API on the restored copy, PITR, Redis replacement, a written retention and deletion statement.
 
-Performed on a developer laptop with the dev Docker PostgreSQL (`orderloop-postgres-1`, image `postgres:16`, `pg_dump` 16.15),
+## Drill performed on 2026-10-22 (local)
+
+Re-run after a session restart, from scratch (images rebuilt, new throwaway project `orderloop-smoke`, fresh secrets and database, seeded through the API: 2 businesses, 4 products), by `./deploy/smoke-test.sh` (all sections, exit 0). Same limits as the 2026-10-21 run below: laptop, Docker Desktop, tiny data, no real host, no real off-site upload. Real output, container-start lines trimmed:
+
+```
+$ docker compose exec backup backup.sh
+{"level":"info","service":"orderloop-backup","event":"backup.completed","file":"orderloop-20261022T082748Z.dump.age","bytes":250750,"sha256":"1ea45318...72f0","migration":"20261031100000_data_deletion","tables":45,"rows":51,"upload":"none",...}
+manifest: migrations_applied 23, rls_forced_tables 39, definer_functions 17, tables 45, rows 51, tenants 2, products 4, users 2
+
+owner role (app_migrator, --enable-row-security): rows dumped from products = 0
+backup role (app_backup):                         rows dumped from products = 4
+
+$ docker compose --profile ops run --rm -v .../backup-age-identity.txt:/run/secrets/age-identity:ro drill
+drill: orderloop-20261022T082748Z.dump.age  (backup made 2026-10-22T08:27:48Z)
+[PASS] file checksum          sha256 matches the manifest (250750 bytes)
+[PASS] decrypt + restore      restored into scratch database orderloop_drill_20261022082749
+[PASS] migrations             23 applied, latest 20261031100000_data_deletion, none unfinished
+[PASS] row counts             all 45 tables match the manifest (51 rows)
+[PASS] forced RLS             39 tables with forced row-level security (manifest: 39); all 38 tenant tables are covered
+[PASS] definer functions      17 SECURITY DEFINER functions, same as the manifest, all with a pinned search_path
+[PASS] tenant isolation       as app_user on audit_logs (8 rows, 2 tenant(s)): no context -> 0, own tenant -> 5 of 5, another tenant -> 0
+scratch database orderloop_drill_20261022082749 dropped
+RESULT: PASS
+
+-- failure: wrong age key
+[PASS] file checksum          sha256 matches the manifest (250750 bytes)
+[FAIL] decrypt                age could not decrypt the backup (wrong key, or the file is corrupt): age: error: no identity matched any of the recipients
+RESULT: FAIL (1 check(s) failed)                        exit code 1
+-- failure: corrupted copy, manifest mismatch
+[FAIL] file checksum          sha256 differs from the manifest: the file is corrupt or was altered     -> RESULT: FAIL, exit code 1
+-- failure: corrupted copy with the checksum "fixed"
+[FAIL] decrypt                ... age: error: failed to decrypt and authenticate payload chunk          -> RESULT: FAIL, exit code 1
+-- failure: backup.sh as app_user
+{"level":"error","event":"backup.failed","step":"preflight","message":"role app_user does not bypass row-level security: ..."}      exit code 1
+-- failure: no encryption key
+{"level":"error","event":"backup.failed","step":"config","message":"BACKUP_AGE_RECIPIENT is not set: refusing to write an unencrypted backup"}   exit code 2
+orderloop_backup_last_success_timestamp_seconds 1792657668        (API /metrics)
+```
+
+The same run, in the same script, re-confirmed: migrate job exit 0 (23 migrations), every service healthy, HTTPS through Caddy (internal CA), `/metrics` 404 through the proxy and token-protected inside, 403 `registration_closed` then 201 for an allowlisted sign-up, a product created, the verification email delivered over STARTTLS, all 6 Prometheus targets up, and `WorkerDown` and `WorkerHeartbeatStale` firing and reaching Alertmanager after the worker was stopped (no receiver configured). Also re-run: `promtool check rules` (16 rules) and `promtool test rules` (SUCCESS), `docker compose config` with and without profiles, and the unit tests (contracts 97, observability 17, worker 42, api 114, repository scripts 22).
+
+## Drill performed on 2026-10-21 (local)
+
+Run by `./deploy/smoke-test.sh --only backup` on a developer laptop (Docker Desktop, arm64; PostgreSQL 16.15, `age` 1.1.1, `pg_dump` 16.15), against a **throwaway** compose project (`orderloop-smoke`) that was
+seeded **through the API** (two businesses, four products, fictional data; the developer's own database was not read), then torn down with `down -v` for that project only. It proves the procedure and the database-level
+properties on a tiny database, **not production volume, timing or a real host**. All output below is the real output of that run (container-start lines and the long JSON lines trimmed).
+
+**1. A real backup**
+
+```
+$ docker compose exec backup backup.sh
+{"level":"info","service":"orderloop-backup","event":"backup.completed","file":"orderloop-20261021T155156Z.dump.age","bytes":250743,
+ "sha256":"4c08bd90...7bdd","migration":"20261031100000_data_deletion","tables":45,"rows":51,"upload":"none","removed_old":1,"kept":1,"seconds":1}
+-rw------- 1 postgres postgres 250743 orderloop-20261021T155156Z.dump.age
+-rw------- 1 postgres postgres   2749 orderloop-20261021T155156Z.manifest.json
+manifest: migrations_applied 23, rls_forced_tables 39, definer_functions 17, tables 45, rows 51, tenants 2, products 4, users 2
+```
+
+**2. The row-level-security trap, with data in the database**
+
+```
+owner role (app_migrator, --enable-row-security): rows dumped from products = 0
+backup role (app_backup):                         rows dumped from products = 4
+```
+
+**3. The drill: PASS**
+
+```
+$ docker compose --profile ops run --rm -v .../backup-age-identity.txt:/run/secrets/age-identity:ro drill
+drill: orderloop-20261021T155156Z.dump.age  (backup made 2026-10-21T15:51:57Z)
+[PASS] file checksum          sha256 matches the manifest (250743 bytes)
+[PASS] decrypt + restore      restored into scratch database orderloop_drill_20261021155158
+[PASS] migrations             23 applied, latest 20261031100000_data_deletion, none unfinished
+[PASS] row counts             all 45 tables match the manifest (51 rows)
+[PASS] forced RLS             39 tables with forced row-level security (manifest: 39); all 38 tenant tables are covered
+[PASS] definer functions      17 SECURITY DEFINER functions, same as the manifest, all with a pinned search_path
+[PASS] tenant isolation       as app_user on audit_logs (8 rows, 2 tenant(s)): no context -> 0, own tenant -> 5 of 5, another tenant -> 0
+scratch database orderloop_drill_20261021155158 dropped
+
+RESULT: PASS
+```
+
+**4. Failure cases: each one must fail loudly (non-zero exit, `RESULT: FAIL`, or an error), and did**
+
+```
+-- the wrong age key
+drill: orderloop-20261021T155156Z.dump.age  (backup made 2026-10-21T15:51:57Z)
+[PASS] file checksum          sha256 matches the manifest (250743 bytes)
+[FAIL] decrypt                age could not decrypt the backup (wrong key, or the file is corrupt): age: error: no identity matched any of the recipients
+scratch database orderloop_drill_20261021155159 dropped
+RESULT: FAIL (1 check(s) failed)                                   exit code 1
+
+-- a copy of the backup with one byte changed (checksum no longer matches the manifest)
+drill: corrupt-a.dump.age  (backup made 2026-10-21T15:51:57Z)
+[FAIL] file checksum          sha256 differs from the manifest: the file is corrupt or was altered
+RESULT: FAIL (1 check(s) failed)                                   exit code 1
+
+-- the same corruption with the manifest's checksum "fixed" to match (only the encryption can notice)
+[PASS] file checksum          sha256 matches the manifest (250743 bytes)
+[FAIL] decrypt                age could not decrypt the backup (wrong key, or the file is corrupt): age: error: failed to decrypt and authenticate payload chunk
+scratch database orderloop_drill_20261021155201 dropped
+RESULT: FAIL (1 check(s) failed)                                   exit code 1
+
+-- backup.sh as a role that is subject to row-level security (app_user)
+{"level":"error","service":"orderloop-backup","event":"backup.failed","step":"preflight","message":"role app_user does not bypass row-level security: a dump by it would
+ silently omit every tenant's rows. Use app_backup (BYPASSRLS) or a superuser.","seconds":0}                                                       exit code 1
+
+-- backup.sh with no encryption key configured
+{"level":"error","service":"orderloop-backup","event":"backup.failed","step":"config","message":"BACKUP_AGE_RECIPIENT is not set: refusing to write an unencrypted backup","seconds":0}   exit code 2
+```
+
+An earlier run of the same script, against a stack **with no data**, ended `[FAIL] tenant isolation ... the backup holds NO tenant rows` (the intended behaviour for an empty or RLS-filtered dump). The first full run also found two bugs in the tooling that
+were fixed before the output above: `redis-cli -u redis://:password@...` is refused by Redis 7 (the backup time was not being reported to the API; fixed by parsing the URL), and a failing pipeline fired the error trap before its specific message (the wrong-key case reported "unexpected error" instead of "decrypt").
+
+**5. The backup is visible to monitoring**
+
+```
+orderloop_backup_last_success_timestamp_seconds 1792597917        (from the API's /metrics)
+healthcheck: ok: newest backup orderloop-20261021T155156Z.dump.age is 0 min old
+```
+
+**What this did not exercise:** restoring on a different host or cluster, a real off-site upload, the age private key held somewhere other than the laptop's temp directory, a database larger than a few hundred KB, timing, WAL/PITR, Redis loss, and the application started against the restored data.
+
+## Earlier manual drill (performed on 2026-10-21)
+
+This was done by hand, before the tooling above existed. Performed on a developer laptop with the dev Docker PostgreSQL (`orderloop-postgres-1`, image `postgres:16`, `pg_dump` 16.15),
 using throwaway databases `orderloop_restore_drill` and `orderloop_restore_drill2`. The development database `orderloop` was only
 **read** (dump and counts); no write, no schema change. Both scratch databases and the dump file were removed afterwards
 (`SELECT datname FROM pg_database` afterwards: `orderloop`, `orderloop_test`, `postgres`, `template0`, `template1`). The data is fictional development data

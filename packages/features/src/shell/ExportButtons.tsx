@@ -5,10 +5,21 @@ import { useCan } from '../core/permissions';
 import { useApi } from '../core/runtime';
 import { saveTextFile } from '../lib/saveFile';
 
-type Kind = 'products' | 'stock';
-const LABEL: Record<Kind, string> = { products: 'Export catalog CSV', stock: 'Export stock CSV' };
+type Kind = 'products' | 'stock' | 'customers' | 'orders';
+const LABEL: Record<Kind, string> = {
+  products: 'Export catalog CSV',
+  stock: 'Export stock CSV',
+  customers: 'Export customers CSV',
+  orders: 'Export orders CSV',
+};
+const NEEDS = {
+  products: 'catalog:read',
+  stock: 'inventory:read',
+  customers: 'orders:read',
+  orders: 'orders:read',
+} as const;
 
-/** Downloading the catalog or the stock levels as CSV; only for what the person's role may read. Shared by the buttons and menus. */
+/** Downloading the catalog, the stock levels or the customer list as CSV; only for what the person's role may read. Shared by the buttons and menus. */
 export function useCsvExport(kinds: Kind[]) {
   const api = useApi();
   const can = useCan();
@@ -18,7 +29,7 @@ export function useCsvExport(kinds: Kind[]) {
   async function run(kind: Kind) {
     setBusy(kind);
     try {
-      const file = kind === 'products' ? await api.exports.products() : await api.exports.stock();
+      const file = await api.exports[kind]();
       await saveTextFile(file.filename, file.csv);
       toast.success(`${file.filename}: ${file.rowCount} rows`);
     } catch (error) {
@@ -28,7 +39,7 @@ export function useCsvExport(kinds: Kind[]) {
     }
   }
 
-  const allowed = kinds.filter((k) => can(k === 'products' ? 'catalog:read' : 'inventory:read'));
+  const allowed = kinds.filter((k) => can(NEEDS[k]));
   return {
     busy,
     kinds: allowed,
@@ -46,7 +57,7 @@ export function useCsvExport(kinds: Kind[]) {
   };
 }
 
-/** Download the catalog or the stock levels as CSV. Only offered for what the person's role may read. */
+/** Download the catalog, the stock levels or the customer list as CSV. Only offered for what the person's role may read. */
 export function ExportButtons({ kinds }: { kinds: Kind[] }) {
   const exporter = useCsvExport(kinds);
   return (

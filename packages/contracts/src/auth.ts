@@ -7,6 +7,7 @@ export type Role = z.infer<typeof Role>;
 export const Permission = z.enum([
   'tenant:read',
   'tenant:update',
+  'tenant:delete',
   'members:read',
   'members:invite',
   'members:manage',
@@ -18,6 +19,7 @@ export const Permission = z.enum([
   'orders:read',
   'orders:write',
   'orders:close',
+  'customers:erase',
   'couriers:read',
   'couriers:manage',
   'finance:read',

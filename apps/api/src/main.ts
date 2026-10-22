@@ -8,8 +8,12 @@ import { configureApp } from './app.setup.js';
 import { mountApiDocs } from './docs.js';
 import { PinoLoggerService } from './logging/pino-logger.service.js';
 import { APP_CONFIG, type AppConfig } from './config/config.module.js';
+import { metricsHandler } from './metrics/metrics.endpoint.js';
+import { MetricsService } from './metrics/metrics.service.js';
+import { installProcessErrorHandlers, logUnhandled } from './logging/unhandled.js';
 
 async function bootstrap() {
+  installProcessErrorHandlers();
   loadDotEnv();
   loadServerEnv(); // fail fast with every invalid variable listed
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -25,6 +29,14 @@ async function bootstrap() {
     app.getHttpAdapter().getInstance().set('trust proxy', config.TRUST_PROXY);
   if (config.NODE_ENV !== 'production') mountApiDocs(app); // before helmet: the playground needs inline scripts
   app.use(helmet());
+  // Prometheus scrape endpoint: 404 unless METRICS_TOKEN is set, then bearer-token only. Not part of the business API.
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .get(
+      '/metrics',
+      metricsHandler({ registry: app.get(MetricsService).registry, token: config.METRICS_TOKEN }),
+    );
   app.enableCors({
     origin: config.WEB_ORIGINS,
     credentials: true,
@@ -43,4 +55,7 @@ async function bootstrap() {
   await app.listen(config.API_PORT);
 }
 
-void bootstrap();
+bootstrap().catch((error: unknown) => {
+  logUnhandled('startup', error);
+  process.exit(1);
+});

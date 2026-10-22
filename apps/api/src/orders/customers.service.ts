@@ -11,6 +11,8 @@ import type {
   CustomerQuery,
   CustomerStats,
   CustomerUpdate,
+  EraseCustomerBody,
+  EraseCustomerResult,
 } from '@orderloop/contracts';
 import { Database, isUniqueViolation, type Tx } from '@orderloop/db';
 import { nameKey } from '@orderloop/domain';
@@ -35,8 +37,14 @@ type CustomerRow = {
   phone: string;
   email: string | null;
   notes: string | null;
+  erasedAt: Date | null;
   createdAt: Date;
 };
+
+const ERASED = () =>
+  ApiError.conflict(
+    'This customer’s personal data was erased, so the customer can no longer be changed.',
+  );
 
 const EMPTY_STATS: CustomerStats = {
   ordersCount: 0,
@@ -54,6 +62,7 @@ const toCustomer = (c: CustomerRow, stats: CustomerStats): Customer => ({
   email: c.email,
   notes: c.notes,
   createdAt: c.createdAt.toISOString(),
+  erasedAt: c.erasedAt?.toISOString() ?? null,
   stats,
 });
 
@@ -137,11 +146,12 @@ export class CustomersService {
   // ---- used by order creation ----------------------------------------------------------------------------------------
 
   async requireId(tx: Tx, tenantId: string, customerId: string, path: string): Promise<string> {
-    const found = await tx.customer.findFirst({
-      where: { id: customerId, tenantId },
-      select: { id: true },
-    });
+    // FOR SHARE: an erasure running at the same moment waits for this order, or this order sees the customer erased.
+    const [found] = await tx.$queryRaw<{ id: string; erased_at: Date | null }[]>`
+      SELECT id, erased_at FROM customers
+      WHERE tenant_id = ${tenantId}::uuid AND id = ${customerId}::uuid FOR SHARE`;
     if (!found) throw validation(path, 'Customer not found');
+    if (found.erased_at) throw validation(path, 'This customer’s personal data was erased');
     return found.id;
   }
 
@@ -311,9 +321,10 @@ export class CustomersService {
         async (tx) => {
           const found = await tx.customer.findFirst({
             where: { id, tenantId: auth.tenantId },
-            select: { id: true },
+            select: { id: true, erasedAt: true },
           });
           if (!found) throw ApiError.notFound('Customer not found');
+          if (found.erasedAt) throw ERASED();
           await tx.customer.update({
             where: { id },
             data: {
@@ -341,6 +352,58 @@ export class CustomersService {
     }
   }
 
+  // ---- erasure -------------------------------------------------------------------------------------------------------
+
+  /**
+   * Irreversibly remove a customer's personal data: the customer row, saved addresses, the name/phone/address copies on their
+   * orders, what couriers and statements said about their deliveries, and their Meta conversations. Totals, statuses, ids and
+   * dates stay so finance still adds up. The work is the SQL function `erase_customer` (orders, shipments and settlements are
+   * append-only for the app role, so only a definer function may rewrite them); this method refuses while an order is in
+   * progress, records the audit entry in the same transaction, and answers the same way when repeated.
+   */
+  async erase(
+    auth: AuthContext,
+    id: string,
+    body: EraseCustomerBody,
+    ip: string | null,
+  ): Promise<EraseCustomerResult> {
+    return this.db.withContext({ tenantId: auth.tenantId, userId: auth.userId }, async (tx) => {
+      const [r] = await tx.$queryRaw<
+        {
+          outcome: 'erased' | 'already' | 'blocked' | 'missing';
+          erased_on: Date | null;
+          order_count: number;
+          blocking_orders: number;
+          change_counts: Record<string, number>;
+          clean_reason: string | null;
+        }[]
+      >`SELECT outcome, erased_on, order_count, blocking_orders, change_counts, clean_reason
+        FROM erase_customer(${auth.tenantId}::uuid, ${id}::uuid, ${body.reason ?? null})`;
+      if (!r || r.outcome === 'missing') throw ApiError.notFound('Customer not found');
+      if (r.outcome === 'blocked')
+        throw new ApiError(
+          'erase_blocked',
+          `This customer has ${r.blocking_orders} order(s) in progress. Finish or cancel them first, then erase the customer.`,
+        );
+      if (r.outcome === 'erased')
+        await this.audit.record(tx, {
+          tenantId: auth.tenantId,
+          actorUserId: auth.userId,
+          action: 'customer.erased',
+          targetType: 'customer',
+          targetId: id,
+          // Numbers and the reason (with the customer's own name and number already taken out): no personal data.
+          metadata: { ...r.change_counts, ...(r.clean_reason ? { reason: r.clean_reason } : {}) },
+          ip,
+        });
+      return {
+        customerId: id,
+        erasedAt: r.erased_on!.toISOString(),
+        ordersAnonymised: r.order_count,
+      };
+    });
+  }
+
   // ---- addresses -----------------------------------------------------------------------------------------------------
 
   async addAddress(
@@ -354,9 +417,10 @@ export class CustomersService {
     return idempotent(this.db, ctx, { scope, key: body.idempotencyKey, body }, async (tx) => {
       const c = await tx.customer.findFirst({
         where: { id: customerId, tenantId: auth.tenantId },
-        select: { id: true },
+        select: { id: true, erasedAt: true },
       });
       if (!c) throw ApiError.notFound('Customer not found');
+      if (c.erasedAt) throw ERASED();
       // Serialise a customer's address changes so "only one default" cannot be broken by two requests at once.
       await tx.$queryRaw`SELECT id FROM customers WHERE tenant_id = ${auth.tenantId}::uuid AND id = ${customerId}::uuid FOR UPDATE`;
       const existing = await tx.customerAddress.count({

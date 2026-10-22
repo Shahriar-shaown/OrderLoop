@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, View, type ViewStyle } from 'react-native';
 import { useAuth, useRequireAuth, useSignOut } from '../core/auth';
+import { TenantDeletionGate } from '../components/deletion/TenantDeletionGate';
 import { NotificationBell } from '../components/notifications/NotificationBell';
 import { OfflineBanner } from './OfflineBanner';
 import { RestoreFailed } from './RestoreFailed';
@@ -394,7 +395,7 @@ export function AppShell({
           <Stack gap={5} style={isMobile ? { paddingBottom: layout.bottomBar + 8 } : undefined}>
             <OfflineBanner />
             <VerifyBanner />
-            {children}
+            <TenantDeletionGate>{children}</TenantDeletionGate>
           </Stack>
         </Screen>
       </View>
