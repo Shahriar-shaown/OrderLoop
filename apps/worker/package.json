@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@orderloop/contracts": "workspace:*",
-    "bullmq": "^6.3.15",
+    "bullmq": "^6.3.16",
     "ioredis": "^5.0.0",
     "@orderloop/catalog": "workspace:*",
     "@orderloop/db": "workspace:*",
@@ -21,7 +21,7 @@
     "@orderloop/automation": "workspace:*",
     "@orderloop/domain": "workspace:*",
     "@orderloop/observability": "workspace:*",
-    "nodemailer": "^10.1.1"
+    "nodemailer": "^10.1.6"
   },
   "devDependencies": {
     "@orderloop/config": "workspace:*",
