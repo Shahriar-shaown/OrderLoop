@@ -71,7 +71,7 @@ const ORDER_WORDS = [
 const STOPWORDS = new Set(
   (
     'pcs pc piece pieces পিস টা টি ta ti খানা set সেট dozen ডজন order অর্ডার চাই chai নিব নিবো nibo lagbe লাগবে ' +
-    'দিবেন দিন dibo dien dan please pls plz want need i me my to a an the of and or for ar আর এবং এই ঐ ' +
+    'দিবেন দিন dibo dien dan please pls plz want need send give get take bring would like i me my to a an the of and or for ar আর এবং এই ঐ ' +
     'ভাই আপু bhai vai apu dada sir madam hi hello hey assalamualaikum আসসালামু আলাইকুম জন্য qty quantity পরিমাণ আমি আমার আমাকে ami amake ' +
     'name নাম phone mobile number নম্বর নাম্বার mob price দাম taka tk bdt টাকা ৳ x'
   ).split(' '),
@@ -153,6 +153,13 @@ const NAME_RE =
   /(?:^|[\s,;|])(?:name|নাম)(?:\s*[:\-–=]\s*|\s+(?:is\s+|হলো\s+|হল\s+)?)([^\n,;|।]{2,60})/iu;
 const NOTE_RE =
   /(?:^|[\s,;|])(?:note|notes|নোট|বিঃদ্রঃ|দ্রষ্টব্য|instruction)\s*[:\-–=]\s*([^\n]{2,300})/iu;
+/** "Thana: Mirpur", "উপজেলা: সাভার", or the label followed by a plain name ("থানা মিরপুর"). */
+const THANA_RE =
+  /^(?:thana|upazila|upazilla|থানা|উপজেলা)(?:\s*[:\-–=]\s*|\s+(?=[^\d]{2,40}$))([^\d]{2,40}?)[\s.]*$/iu;
+/** A district given with its label, which is not part of the street address ("District: Dhaka."). */
+const DISTRICT_LABEL_RE = /^(?:district|জেলা)\s*[:\-–=]/iu;
+/** What kind of item, when the customer gives it on its own line: "Size: L & XL", "Colour: red". Kept in the note. */
+const VARIANT_LABEL_RE = /^(?:size|সাইজ|colou?r|রং|রঙ|variant)\s*[:\-–=]\s*([^\n]{1,80}?)[\s.]*$/iu;
 const GREETINGS = new Set([
   'hi',
   'hello',
@@ -305,6 +312,21 @@ function quantityOf(text: string): Quantity {
   const lead = /^(\d{1,3})\s+(?=\p{L})/u.exec(text);
   if (lead)
     return { quantity: Number(lead[1]), rest: text.slice(lead[0].length).trim(), explicit: true };
+  // the same after filler words only: "I want 2 red tee", "ami 2 ta chai" is caught above, "please send 3 red tee"
+  const parts = text.split(/\s+/);
+  for (let i = 0; i < parts.length - 1; i++) {
+    const word = parts[i]!;
+    if (/^\d{1,3}$/.test(word)) {
+      if (i > 0 && /^\p{L}/u.test(parts[i + 1]!))
+        return {
+          quantity: Number(word),
+          rest: parts.filter((_, k) => k !== i).join(' '),
+          explicit: true,
+        };
+      break;
+    }
+    if (!STOPWORDS.has(fold(word).replace(/[^\p{L}\p{M}\p{N}]/gu, ''))) break;
+  }
   return { quantity: 1, rest: text, explicit: false };
 }
 
@@ -387,6 +409,8 @@ export function extractDraft(
   const phones = new Map<string, { n: number; ids: Set<string>; first: number }>();
   const addressParts: { text: string; id: string }[] = [];
   const districtVotes: { name: string; id: string }[] = [];
+  let areaVote: { value: string; id: string } | null = null;
+  const variantNotes: { text: string; id: string }[] = [];
   const itemByKey = new Map<string, ExtractedItem>();
   const itemOrder: string[] = [];
   let order = 0;
@@ -432,9 +456,20 @@ export function extractDraft(
           !NOTE_RE.test(s.text) &&
           !(s.hadPhone && !cueAt[i])
         ) {
+          const thana = THANA_RE.exec(s.bare);
+          if (thana) {
+            // the thana has a field of its own: it is not part of the street address
+            inAddress.add(i);
+            areaVote = { value: thana[1]!.trim(), id: message.id };
+            continue;
+          }
+          if (DISTRICT_LABEL_RE.test(s.bare)) {
+            inAddress.add(i);
+            continue;
+          }
           inAddress.add(i);
           addressParts.push({
-            text: s.bare.replace(/^(?:address|ঠিকানা)\s*[:\-–=]?\s*/iu, ''),
+            text: s.bare.replace(/^(?:address|ঠিকানা)\s*[:\-–=]?\s*/iu, '').replace(/[\s.]+$/, ''),
             id: message.id,
           });
         }
@@ -452,6 +487,11 @@ export function extractDraft(
     segs.forEach((s, i) => {
       if (inAddress.has(i)) return;
       if (NAME_RE.test(s.text) || NOTE_RE.test(s.text)) return;
+      const kind = VARIANT_LABEL_RE.exec(s.text);
+      if (kind) {
+        variantNotes.push({ text: s.text.replace(/[\s.]+$/, ''), id: message.id });
+        return;
+      }
       const text = s.bare;
       if (!text) return;
       const q = quantityOf(text);
@@ -527,6 +567,22 @@ export function extractDraft(
       sourceEventIds: [...new Set(parts.map((p) => p.id))],
     };
   } else warnings.add('no_address');
+
+  if (areaVote)
+    draft.area = { value: areaVote.value, confidence: 0.8, sourceEventIds: [areaVote.id] };
+
+  if (variantNotes.length > 0) {
+    // "Size: L & XL" is for the person packing the order: keep it in the note, beside any note the customer wrote
+    const extra = [...new Set(variantNotes.map((v) => v.text))].join('; ');
+    const ids = [
+      ...new Set([...(draft.note?.sourceEventIds ?? []), ...variantNotes.map((v) => v.id)]),
+    ];
+    draft.note = {
+      value: (draft.note ? `${draft.note.value}; ${extra}` : extra).slice(0, 300),
+      confidence: 0.8,
+      sourceEventIds: ids,
+    };
+  }
 
   const district = districtVotes.at(-1);
   if (district)

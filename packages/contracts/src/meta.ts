@@ -58,7 +58,7 @@ export const ExtractedDraft = z.object({
   phone: field(z.string()).optional(),
   address: field(z.string()).optional(),
   district: field(z.string()).optional(),
-  /** Thana or upazila. Extraction never fills it: a person types it (kept for the shape of an override). */
+  /** Thana or upazila. Extraction fills it only from a labelled line ("Thana: Mirpur", "থানা: মিরপুর"); otherwise a person types it. */
   area: field(z.string()).optional(),
   /** 4 digits. Extraction never fills it: a person types it. */
   postalCode: field(z.string()).optional(),

@@ -298,3 +298,66 @@ describe('customer name written the way people write in chat', () => {
     expect(nameOf(text)).toBe(name);
   });
 });
+
+describe('a labelled order form pasted into chat', () => {
+  const jersey: CatalogVariant[] = [
+    { variantId: 'v-jersey', sku: '22', productName: 'Braca Jersey', variantName: 'red' },
+  ];
+  const text = [
+    'I want 2 Braca Jersey ,',
+    'Size: L & XL ',
+    '',
+    'Name: Rafi Mahmuda, ',
+    'Product name: Braca Jersey',
+    'Mobile number:01712345678, Address:house 12, road 5, Mirpur-10',
+    'Thana:Mirpur.',
+    'District: Dhaka.',
+  ].join('\n');
+  const d = extractDraft([msg(text, 'form')], jersey);
+
+  it('reads the quantity after "I want"', () => {
+    expect(d.items).toHaveLength(1);
+    expect(d.items[0]).toMatchObject({ variantId: 'v-jersey', quantity: 2 });
+  });
+  it('fills the thana from its own label, and keeps it out of the street address', () => {
+    expect(d.area?.value).toBe('Mirpur');
+    expect(d.area?.confidence).toBeGreaterThanOrEqual(0.7);
+    expect(d.address?.value).toBe('house 12, road 5, Mirpur-10');
+  });
+  it('still finds the person, number and district', () => {
+    expect(d.customerName?.value).toBe('Rafi Mahmuda');
+    expect(d.phone?.value).toBe('+8801712345678');
+    expect(d.district?.value).toBe('Dhaka');
+  });
+  it('keeps the size in the note so it is not lost', () => {
+    expect(d.note?.value).toBe('Size: L & XL');
+  });
+  it('appends the size to a note the customer wrote', () => {
+    const e = extractDraft([msg('2 Braca Jersey\nSize: L\nNote: call before coming', 'n')], jersey);
+    expect(e.note?.value).toBe('call before coming; Size: L');
+  });
+});
+
+describe('quantity after filler words, and thana in Bangla', () => {
+  it.each([
+    ['I want 3 Cotton T-Shirt Red M', 3],
+    ['please send 4 Cotton T-Shirt Red M', 4],
+    ['ami 2 Cotton T-Shirt Red M chai', 2],
+  ])('%s', (text, quantity) => {
+    expect(one(text).items[0]).toMatchObject({ variantId: 'v-red', quantity });
+  });
+  it('does not take a house number or a phone number for a quantity', () => {
+    expect(one('Cotton T-Shirt Red M, house 12, road 5').items[0]?.quantity).toBe(1);
+    expect(one('Cotton T-Shirt Red M 01712345678').items[0]?.quantity).toBe(1);
+  });
+  it.each([
+    ['থানা: মিরপুর', 'মিরপুর'],
+    ['Thana Savar', 'Savar'],
+    ['Upazila: Savar.', 'Savar'],
+  ])('reads the area from "%s"', (line, area) => {
+    expect(one(`name: Rina\n01712345678\nroad 5\n${line}\nDhaka`).area?.value).toBe(area);
+  });
+  it('leaves the area empty when no thana is named', () => {
+    expect(one('name: Rina\n01712345678\nroad 5, Mirpur-10, Dhaka').area).toBeUndefined();
+  });
+});

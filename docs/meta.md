@@ -273,12 +273,16 @@ browsers). If Redis is down, `start` answers `meta_unavailable` (no state is usa
 - **Address**: filled **only** when a line or comma-part carries an address word (বাসা, রোড, ঠিকানা, থানা, house, road, holding,
   thana, flat, block, village, ...) or a district name; the run from the first to the last such part is kept, minus phone and name
   parts. Otherwise empty (`no_address`). **District** from a list of the 64 districts (English spellings and Bangla names, also with
-  Bangla endings such as ঢাকায়), with a suggested division.
+  Bangla endings such as ঢাকায়), with a suggested division. A line labelled `Thana:` / `Upazila:` / `থানা:` / `উপজেলা:` (or the
+  label followed by a plain name) fills **Thana / upazila** (confidence 0.8) and is kept out of the street address, as is a line
+  labelled `District:` / `জেলা:`. A thana written without a label stays in the address and the field stays empty. **Postal code** is
+  never filled.
 - **Name**: from `name:` / `নাম:`; otherwise a bare name line in a message that also has a number, at confidence 0.5.
 - **Items**: SKU exactly (confidence 1) or normalised name tokens (Bangla and English) against this business's variants. A match is
   accepted only at score 0.65 or more **and** clearly ahead of the runner-up; otherwise the text stays a free-text line
   (`variantId: null`, `unmatched_item`) for the reviewer to map. Quantities: `2 pcs`, `২টা`, `x2`, `2x`, `qty 3`, `দুই`, `two`,
-  `1 dozen`. A later mention of the same item corrects its quantity.
+  `1 dozen`, and a bare number after filler words (`I want 2 Braca Jersey`, `please send 3 ...`). A later mention of the same item
+  corrects its quantity. A line like `Size: L & XL` or `Colour: red` is kept in the **note** (it is not matched to a variant).
 - **Prices are never trusted**: the draft has no price; a price in the chat only adds `price_ignored`. The order's prices come from
   the catalogue.
 - A draft is created only when the conversation **looks order-like** (a phone number, a matched product, or an order word such as
@@ -407,7 +411,7 @@ attachmentTypes[], at }], duplicates[PotentialDuplicate], dismissedReason, revie
   unknown variant.
 - **Confirm**: `POST /v1/social-drafts/:id/confirm` with the **order create body** (`customer`, `address`, `items`, `confirm?`,
   `idempotencyKey`, ...) -> `{ draft, order }`. Generate the idempotency key once per attempt and reuse it on retry. Prefill the form from
-  `fields` (including `area`, the thana, and `postalCode`: both are typed by a person, extraction leaves them empty) and `suggestedDivision`. Second confirm returns the same order. **Dismiss**: `POST .../dismiss { reason? }` -> draft.
+  `fields` (including `area`, the thana, filled only from a labelled line, and `postalCode`, which a person types) and `suggestedDivision`. Second confirm returns the same order. **Dismiss**: `POST .../dismiss { reason? }` -> draft.
 - **Error codes** (all in [api.md](api.md#errors)): `meta_not_configured` 409, `meta_oauth_invalid` 400, `meta_permission_denied` 422,
   `meta_instagram_not_linked` 422, `meta_messages_access_off` 422, `meta_token_invalid` 409, `meta_unavailable` 502, `conflict` 409
   (account already connected elsewhere), `draft_closed` 409, `idempotency_conflict` 409, plus the usual order errors
