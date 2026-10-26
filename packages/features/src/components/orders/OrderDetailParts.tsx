@@ -74,7 +74,7 @@ function nextText(order: OrderDetail, live: Shipment | undefined): { title: stri
     case 'delivered':
       return {
         title: 'Delivered',
-        text: 'Cash on delivery counts as collected only when a courier statement reports it.',
+        text: 'Cash on delivery counts as collected when a courier statement reports it, or when you record the cash you collected yourself.',
       };
     case 'delivery_failed':
       return {
@@ -176,11 +176,13 @@ export function CashTiles({
         label="Collected"
         value={formatPrice(cash.collectedMinor)}
         hint={
-          reported
-            ? `Reported by ${by} statement`
-            : cash.hasCourierShipment || order.status !== 'delivered'
-              ? 'Not yet reported'
-              : 'No real courier parcel, so no statement can confirm this cash.'
+          cash.manualCollectedMinor > 0
+            ? `Includes ${formatPrice(cash.manualCollectedMinor)} recorded by your team`
+            : reported
+              ? `Reported by ${by} statement`
+              : cash.hasCourierShipment || order.status !== 'delivered'
+                ? 'Not yet reported'
+                : 'No courier parcel, so no statement can confirm this cash. Record it when you collect it.'
         }
       />,
       <StatCard

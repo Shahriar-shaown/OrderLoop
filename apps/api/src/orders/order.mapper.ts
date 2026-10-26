@@ -115,9 +115,9 @@ export interface SummaryRow {
 }
 
 /**
- * The order's cash in a seller's words. Delivered is never "collected": only cash a courier statement reports is. An order
- * with nothing to collect is prepaid; a cancelled or returned one owes nothing; a delivered one with no real courier
- * shipment cannot be confirmed by any statement.
+ * The order's cash in a seller's words. Delivered is never "collected": only cash a courier statement reports, or a person
+ * recorded as collected, is. An order with nothing to collect is prepaid; a cancelled or returned one owes nothing; a
+ * delivered one with no real courier shipment stays untracked until a person records some cash for it.
  */
 export function paymentState(r: {
   status: OrderStatus;
@@ -129,7 +129,8 @@ export function paymentState(r: {
   if (r.status === 'cancelled' || r.status === 'returned' || r.status === 'return_requested')
     return 'not_due';
   if (r.status !== 'delivered') return 'cod_pending';
-  if (!r.realCourier) return 'cod_untracked';
+  // No courier shipment: no statement can report the cash, so it is untracked until a person records some as collected.
+  if (!r.realCourier && r.collected === 0) return 'cod_untracked';
   const pos = cashPosition({
     status: r.status,
     codAmountMinor: r.cod,

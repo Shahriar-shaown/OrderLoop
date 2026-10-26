@@ -133,6 +133,7 @@ const outstanding: OutstandingCod = {
   onTheWayMinor: 70_000,
   untrackedDeliveredCount: 0,
   untrackedDeliveredMinor: 0,
+  untrackedRows: [],
   byProvider: [],
   rows: [],
   truncated: false,

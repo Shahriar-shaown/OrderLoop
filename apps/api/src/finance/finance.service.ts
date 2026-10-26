@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import type {
+  CodReceipt as CodReceiptDto,
+  CreateCodReceiptBody,
   CreateCostBody,
   Discrepancy as DiscrepancyDto,
   Analytics,
@@ -13,9 +15,11 @@ import type {
 } from '@orderloop/contracts';
 import { Database, isUniqueViolation, Prisma, type Tx } from '@orderloop/db';
 import {
+  assertPaisa,
   calculateProfit,
   cashPosition,
   countedManualCostsMinor,
+  formatBdt,
   grossProfitMinor,
   revenueMinor,
   type OrderStatusName,
@@ -64,6 +68,20 @@ const costDto = (
   voidedAt: c.voidedAt?.toISOString() ?? null,
   voidReason: c.voidReason,
   createdAt: c.createdAt.toISOString(),
+});
+
+const codReceiptDto = (
+  r: Prisma.CodReceiptGetPayload<{ include: { order: { select: { orderNumber: true } } } }>,
+): CodReceiptDto => ({
+  id: r.id,
+  orderId: r.orderId,
+  orderNumber: r.order.orderNumber,
+  amountMinor: r.amountMinor,
+  receivedOn: r.receivedOn.toISOString().slice(0, 10),
+  note: r.note,
+  voidedAt: r.voidedAt?.toISOString() ?? null,
+  voidReason: r.voidReason,
+  createdAt: r.createdAt.toISOString(),
 });
 
 @Injectable()
@@ -201,6 +219,11 @@ export class FinanceService {
         FROM settlement_items i JOIN o ON o.id = i.order_id
         WHERE i.tenant_id = ${tenantId}::uuid AND i.match_status = 'matched' AND i.kind = 'cod'
         GROUP BY i.order_id),
+      m AS (
+        SELECT r.order_id, sum(r.amount_minor) AS manual
+        FROM cod_receipts r JOIN o ON o.id = r.order_id
+        WHERE r.tenant_id = ${tenantId}::uuid AND r.voided_at IS NULL
+        GROUP BY r.order_id),
       h AS (
         SELECT h.order_id, max(h.created_at) AS delivered_at
         FROM order_status_history h JOIN o ON o.id = h.order_id
@@ -208,10 +231,11 @@ export class FinanceService {
         GROUP BY h.order_id)
       SELECT o.id AS order_id, o.order_number, o.status, o.cod_amount_minor AS cod,
              s.id AS shipment_id, s.provider, s.simulated,
-             COALESCE(c.collected, 0) AS collected, h.delivered_at
+             COALESCE(c.collected, 0) + COALESCE(m.manual, 0) AS collected, h.delivered_at
       FROM o
       JOIN s ON s.order_id = o.id AND s.simulated = false
       LEFT JOIN c ON c.order_id = o.id
+      LEFT JOIN m ON m.order_id = o.id
       LEFT JOIN h ON h.order_id = o.id`;
 
     const now = Date.now();
@@ -258,12 +282,46 @@ export class FinanceService {
         (a.deliveredAt ?? '').localeCompare(b.deliveredAt ?? '') || a.orderNumber - b.orderNumber,
     );
 
-    const untracked = await tx.$queryRaw<{ n: bigint; cod: bigint }[]>`
-      SELECT count(*) AS n, COALESCE(sum(o.cod_amount_minor), 0) AS cod
+    // Delivered COD orders with no courier shipment: a statement can never report their cash, so only a person can say it was
+    // collected. Listed (oldest first) until the recorded cash covers the COD.
+    const untrackedRows = await tx.$queryRaw<
+      {
+        order_id: string;
+        order_number: number;
+        cod: number;
+        received: bigint;
+        delivered_at: Date | null;
+      }[]
+    >`
+      SELECT o.id AS order_id, o.order_number, o.cod_amount_minor AS cod, r.received, h.delivered_at
       FROM orders o
-      WHERE o.tenant_id = ${tenantId}::uuid AND o.status = 'delivered' AND o.cod_amount_minor > 0
-        AND NOT EXISTS (SELECT 1 FROM shipments sh WHERE sh.tenant_id = o.tenant_id AND sh.order_id = o.id
-                        AND sh.status::text = ANY(${LIVE_SHIPMENT}) AND sh.simulated = false)`;
+      CROSS JOIN LATERAL (
+        SELECT COALESCE(sum(x.amount_minor), 0) AS received FROM cod_receipts x
+        WHERE x.tenant_id = o.tenant_id AND x.order_id = o.id AND x.voided_at IS NULL) r
+      LEFT JOIN LATERAL (
+        SELECT max(sh.created_at) AS delivered_at FROM order_status_history sh
+        WHERE sh.tenant_id = o.tenant_id AND sh.order_id = o.id AND sh.to_status = 'delivered') h ON true
+      WHERE o.tenant_id = ${tenantId}::uuid AND o.status = 'delivered' AND o.cod_amount_minor > r.received
+        AND NOT EXISTS (SELECT 1 FROM shipments s2 WHERE s2.tenant_id = o.tenant_id AND s2.order_id = o.id
+                        AND s2.status::text = ANY(${LIVE_SHIPMENT}) AND s2.simulated = false)
+      ORDER BY h.delivered_at NULLS LAST, o.order_number`;
+    const untrackedList: OutstandingCod['untrackedRows'] = untrackedRows.map((r) => ({
+      orderId: r.order_id,
+      orderNumber: r.order_number,
+      deliveredAt: r.delivered_at?.toISOString() ?? null,
+      ageDays: r.delivered_at
+        ? Math.max(0, Math.floor((now - r.delivered_at.getTime()) / 86_400_000))
+        : null,
+      expectedMinor: r.cod,
+      collectedMinor: num(r.received),
+      outstandingMinor: r.cod - num(r.received),
+    }));
+    const untracked = [
+      {
+        n: untrackedList.length,
+        cod: untrackedList.reduce((n, r) => n + r.outstandingMinor, 0),
+      },
+    ];
     const LIMIT = 500;
     return {
       asOf: new Date().toISOString(),
@@ -273,6 +331,7 @@ export class FinanceService {
       onTheWayMinor: onTheWay,
       untrackedDeliveredCount: num(untracked[0]?.n),
       untrackedDeliveredMinor: num(untracked[0]?.cod),
+      untrackedRows: untrackedList.slice(0, LIMIT),
       byProvider: [...byProvider.entries()].map(([provider, v]) => ({
         provider: provider as OutstandingRow['provider'],
         ...v,
@@ -358,6 +417,16 @@ export class FinanceService {
         FROM settlement_items
         WHERE tenant_id = ${t}::uuid AND match_status NOT IN ('duplicate', 'ignored')
           AND item_date >= ${from}::date AND item_date <= ${to}::date`;
+
+        // Cash a person recorded as collected, by the day it was received.
+        const received = await tx.codReceipt.aggregate({
+          where: {
+            tenantId: t,
+            voidedAt: null,
+            receivedOn: { gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T00:00:00Z`) },
+          },
+          _sum: { amountMinor: true },
+        });
 
         const manual = await tx.manualCost.groupBy({
           by: ['kind'],
@@ -462,6 +531,14 @@ export class FinanceService {
             note: 'Statement lines that are unmatched or in doubt. Not counted as collected until a person ties them to an order.',
           }),
           fig({
+            key: 'cash_manual',
+            group: 'cash',
+            label: 'Cash you recorded as collected',
+            amountMinor: received._sum.amountMinor ?? 0,
+            source: 'manual_receipts',
+            note: 'Cash a person on your team recorded as collected for delivered orders (your own rider, a hand-over), by the day it was received. Not reported by a courier and not verified against any bank or wallet.',
+          }),
+          fig({
             key: 'cash_advance',
             group: 'cash',
             label: 'Advance payments on orders placed',
@@ -563,7 +640,7 @@ export class FinanceService {
           'Revenue is dated by delivery; courier charges and recorded costs by the date on the statement or cost. Their periods can differ at the edges.',
           ...(outstanding.untrackedDeliveredCount
             ? [
-                `${outstanding.untrackedDeliveredCount} delivered order(s) with COD have no real courier shipment, so no statement can ever confirm their cash. They are not in outstanding COD.`,
+                `${outstanding.untrackedDeliveredCount} delivered order(s) with COD have no real courier shipment, so no statement can ever confirm their cash. They are not in outstanding COD: record the cash you collect for them by hand.`,
               ]
             : []),
           ...(partialReturns
@@ -620,6 +697,11 @@ export class FinanceService {
         where: { tenantId: auth.tenantId, orderId, matchStatus: 'matched', kind: 'cod' },
         _sum: { collectedMinor: true },
       });
+      const manualSum = await tx.codReceipt.aggregate({
+        where: { tenantId: auth.tenantId, orderId, voidedAt: null },
+        _sum: { amountMinor: true },
+      });
+      const manualMinor = manualSum._sum.amountMinor ?? 0;
       const real = await tx.shipment.count({
         where: {
           tenantId: auth.tenantId,
@@ -631,13 +713,14 @@ export class FinanceService {
       const pos = cashPosition({
         status: o.status as OrderStatusName,
         codAmountMinor: o.codAmountMinor,
-        collectedMinor: cod._sum.collectedMinor ?? 0,
+        collectedMinor: (cod._sum.collectedMinor ?? 0) + manualMinor,
       });
       const s = sums._sum;
       return {
         state: pos.state,
         expectedMinor: o.codAmountMinor,
         collectedMinor: pos.collectedMinor,
+        manualCollectedMinor: manualMinor,
         chargesMinor:
           (s.deliveryChargeMinor ?? 0) +
           (s.codFeeMinor ?? 0) +
@@ -939,6 +1022,157 @@ export class FinanceService {
         ip,
       });
       return costDto(updated);
+    });
+  }
+
+  // ---- cash the business collected itself ----------------------------------------------------------------------------
+
+  listOrderCodReceipts(auth: AuthContext, orderId: string): Promise<CodReceiptDto[]> {
+    return this.db.withContext({ tenantId: auth.tenantId }, async (tx) => {
+      if (!(await tx.order.findFirst({ where: { id: orderId, tenantId: auth.tenantId }, select: { id: true } })))
+        throw ApiError.notFound('Order not found');
+      const rows = await tx.codReceipt.findMany({
+        where: { tenantId: auth.tenantId, orderId },
+        orderBy: [{ receivedOn: 'desc' }, { createdAt: 'desc' }],
+        include: { order: { select: { orderNumber: true } } },
+      });
+      return rows.map(codReceiptDto);
+    });
+  }
+
+  createCodReceipt(
+    auth: AuthContext,
+    orderId: string,
+    body: CreateCodReceiptBody,
+    ip: string | null,
+  ): Promise<CodReceiptDto> {
+    const note = body.note?.trim() ? body.note.trim() : null;
+    const requestHash = createHash('sha256')
+      .update(JSON.stringify([orderId, body.amountMinor, body.receivedOn, note]))
+      .digest('hex');
+    const include = { order: { select: { orderNumber: true } } } as const;
+    return this.db.withContext({ tenantId: auth.tenantId, userId: auth.userId }, async (tx) => {
+      const replay = await tx.codReceipt.findFirst({
+        where: { tenantId: auth.tenantId, idempotencyKey: body.idempotencyKey },
+        include,
+      });
+      if (replay) {
+        if (replay.requestHash !== requestHash)
+          throw new ApiError(
+            'idempotency_conflict',
+            'This idempotency key was already used for a different cash entry.',
+          );
+        return codReceiptDto(replay);
+      }
+      if (new Date(`${body.receivedOn}T00:00:00Z`).toISOString().slice(0, 10) !== body.receivedOn)
+        throw new ApiError('validation_failed', 'Request validation failed', [
+          { path: 'body.receivedOn', message: 'That date does not exist' },
+        ]);
+      const tenant = await tx.tenant.findUnique({
+        where: { id: auth.tenantId },
+        select: { timezone: true },
+      });
+      if (body.receivedOn > dayIn(tenant?.timezone ?? 'Asia/Dhaka', new Date()))
+        throw new ApiError('validation_failed', 'Request validation failed', [
+          { path: 'body.receivedOn', message: 'The cash cannot have been received in the future' },
+        ]);
+
+      // One entry at a time per order, so two people cannot both record the last of the COD.
+      const locked = await tx.$queryRaw<{ status: string; cod: number; order_number: number }[]>`
+        SELECT status::text AS status, cod_amount_minor AS cod, order_number FROM orders
+        WHERE tenant_id = ${auth.tenantId}::uuid AND id = ${orderId}::uuid FOR UPDATE`;
+      const order = locked[0];
+      if (!order) throw ApiError.notFound('Order not found');
+      if (order.status !== 'delivered')
+        throw new ApiError(
+          'conflict',
+          'Cash can only be recorded as collected once the order is delivered.',
+        );
+      if (order.cod <= 0)
+        throw new ApiError('conflict', 'This order has no cash on delivery to collect.');
+      const statement = await tx.settlementItem.aggregate({
+        where: { tenantId: auth.tenantId, orderId, matchStatus: 'matched', kind: 'cod' },
+        _sum: { collectedMinor: true },
+      });
+      const manual = await tx.codReceipt.aggregate({
+        where: { tenantId: auth.tenantId, orderId, voidedAt: null },
+        _sum: { amountMinor: true },
+      });
+      const remaining =
+        order.cod - (statement._sum.collectedMinor ?? 0) - (manual._sum.amountMinor ?? 0);
+      if (remaining <= 0)
+        throw new ApiError('conflict', 'The cash for this order is already fully collected.');
+      if (body.amountMinor > remaining)
+        throw new ApiError('validation_failed', 'Request validation failed', [
+          {
+            path: 'body.amountMinor',
+            message: `That is more than the ${formatBdt(assertPaisa(remaining))} still due`,
+          },
+        ]);
+      try {
+        const created = await tx.codReceipt.create({
+          data: {
+            tenantId: auth.tenantId,
+            orderId,
+            amountMinor: body.amountMinor,
+            receivedOn: new Date(`${body.receivedOn}T00:00:00Z`),
+            note,
+            idempotencyKey: body.idempotencyKey,
+            requestHash,
+            createdById: auth.userId,
+          },
+          include,
+        });
+        await this.audit.record(tx, {
+          tenantId: auth.tenantId,
+          actorUserId: auth.userId,
+          action: 'finance.cod_receipt_created',
+          targetType: 'cod_receipt',
+          targetId: created.id,
+          metadata: { orderNumber: order.order_number, amountMinor: body.amountMinor },
+          ip,
+        });
+        await evaluate(tx, this.audit, auth.tenantId, { orderIds: [orderId] });
+        return codReceiptDto(created);
+      } catch (error) {
+        if (isUniqueViolation(error))
+          throw new ApiError(
+            'conflict',
+            'This cash entry is being recorded right now. Check the order before trying again.',
+          );
+        throw error;
+      }
+    });
+  }
+
+  voidCodReceipt(
+    auth: AuthContext,
+    id: string,
+    reason: string,
+    ip: string | null,
+  ): Promise<CodReceiptDto> {
+    return this.db.withContext({ tenantId: auth.tenantId, userId: auth.userId }, async (tx) => {
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM cod_receipts WHERE tenant_id = ${auth.tenantId}::uuid AND id = ${id}::uuid FOR UPDATE`;
+      if (!locked[0]) throw ApiError.notFound('Cash entry not found');
+      const r = await tx.codReceipt.findFirstOrThrow({ where: { id, tenantId: auth.tenantId } });
+      if (r.voidedAt) throw new ApiError('conflict', 'This cash entry is already voided.');
+      const updated = await tx.codReceipt.update({
+        where: { id },
+        data: { voidedAt: new Date(), voidedById: auth.userId, voidReason: reason },
+        include: { order: { select: { orderNumber: true } } },
+      });
+      await this.audit.record(tx, {
+        tenantId: auth.tenantId,
+        actorUserId: auth.userId,
+        action: 'finance.cod_receipt_voided',
+        targetType: 'cod_receipt',
+        targetId: id,
+        metadata: { orderNumber: updated.order.orderNumber, amountMinor: r.amountMinor },
+        ip,
+      });
+      await evaluate(tx, this.audit, auth.tenantId, { orderIds: [r.orderId] });
+      return codReceiptDto(updated);
     });
   }
 }

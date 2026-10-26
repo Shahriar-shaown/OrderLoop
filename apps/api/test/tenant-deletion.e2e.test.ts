@@ -159,6 +159,34 @@ async function fullBusiness(tenantName: string) {
       idempotencyKey: key('cost'),
     })
     .expect(201);
+  // cash the business collected itself, for a second order that went out without a courier
+  const handed = await api
+    .post('/v1/orders', {
+      customer: { name: 'Rahim Uddin', phone: '01712345678' },
+      address: {
+        recipientName: 'Rahim Uddin',
+        phone: '01712345678',
+        line1: 'House 12, Road 5, Dhanmondi',
+        area: 'Dhanmondi',
+        district: 'Dhaka',
+        division: 'Dhaka',
+      },
+      items: [{ variantId: variant.id, quantity: 1 }],
+      deliveryChargeMinor: 6_000,
+      idempotencyKey: key('ord'),
+      confirm: true,
+    })
+    .expect(201);
+  for (const status of ['ready_to_ship', 'shipped', 'in_transit', 'delivered'])
+    await api.post(`/v1/orders/${handed.body.id}/status`, { status }).expect(200);
+  await api
+    .post(`/v1/orders/${handed.body.id}/cod-receipts`, {
+      amountMinor: 30_000,
+      receivedOn: d,
+      note: 'Handed over at the shop',
+      idempotencyKey: key('rc'),
+    })
+    .expect(201);
   await api
     .post('/v1/members/invitations', { email: uniqueEmail('invitee'), role: 'STAFF' })
     .expect(201);
@@ -662,7 +690,7 @@ describe('the purge', () => {
     const result = await t.db.purgeTenant(doomed.tenantId);
     expect(result.purged).toBe(true);
     expect(result.rowsDeleted).toBeGreaterThan(30);
-    expect(result.counts['orders']).toBe(1);
+    expect(result.counts['orders']).toBe(2);
     expect(Object.keys(result.counts).sort()).toEqual(
       Object.keys(result.counts)
         .sort()

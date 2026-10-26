@@ -24,8 +24,10 @@ const CommaList = <T extends z.ZodEnum<Record<string, string>>>(item: T) =>
 export const OrderCash = z.object({
   state: CashState,
   expectedMinor: Minor,
-  /** Cash couriers' statements report for this order (matched lines only). */
+  /** Cash collected for this order: what couriers' statements report (matched lines only) plus cash a person recorded by hand. */
   collectedMinor: Minor,
+  /** The part of `collectedMinor` a person recorded by hand (voided entries left out). */
+  manualCollectedMinor: Minor,
   /** What couriers kept, per those lines. */
   chargesMinor: Minor,
   /** collected − charges: what the courier pays out for this order. */

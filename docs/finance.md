@@ -24,6 +24,30 @@ constraints, so even a bug in the application cannot store a line whose net is n
 Each figure on the Finance screen and in `GET /v1/finance/summary` carries its **source** and a plain-words note of what it
 leaves out. They are never added together except where stated.
 
+### Cash you collected yourself
+
+Not every COD order goes through a courier: your own rider, a hand-over or a pick-up leaves no statement. A person with
+`finance:adjust` records that cash on the order (**Cash you collected → Record cash collected**) or from the COD page
+(**Delivered without a courier → Record cash**).
+
+- Only a **delivered** order with COD can take cash. The amount starts as everything still due; a smaller one is a part
+  payment. **More than is still due is refused**, and so is a date in the future. One entry at a time per order, so two people
+  cannot both record the last of it.
+- An entry counts as collected exactly like a matched statement line: it reduces **outstanding COD**, moves the order to
+  **COD · Partial** or **COD · Collected**, and shows as its own figure (**Cash you recorded as collected**, source "Cash
+  recorded by your team", dated by the day it was received) in the summary. It is never mixed into **Cash collected by
+  couriers**.
+- Delivered orders **with no courier shipment** were never in outstanding COD (no statement can ever report them). They are
+  now listed under **Delivered without a courier** until recorded cash covers their COD, and are still not part of the
+  outstanding total.
+- **Double counting.** If a courier statement later reports cash for an order that already has recorded cash and the two
+  together exceed the COD, the usual **overpaid** discrepancy opens and says the same cash may have been counted twice. Void
+  your entry if the statement already includes it; the discrepancy closes by itself.
+- Entries are never edited or deleted. A mistake is **voided** with a reason (all or nothing: who, when and why are stored
+  with it), and the database refuses any other change. Each entry and each void is in the audit trail (order number and
+  amount; never the note). The optional note is free text: it is scrubbed by customer erasure and removed with the business.
+- Nothing here is proof the money reached a bank or wallet. It is what a person on your team says they received.
+
 ### Delivered is not paid
 
 An order being delivered says nothing about cash. A delivered courier order with no matching statement line stays in
@@ -143,11 +167,11 @@ they have no effect and do not block reconciliation.
 
 ## Manual decisions and permissions
 
-| Action                                                                                         | Permission       | Who by default                    |
-| ---------------------------------------------------------------------------------------------- | ---------------- | --------------------------------- |
-| See settlements, outstanding COD, discrepancies, costs and the summary                         | `finance:read`   | owner, admin, manager, accountant |
-| Import a statement, re-check, reconcile a clean settlement                                     | `finance:import` | owner, admin, accountant          |
-| Match / undo a match / set a line aside, resolve or waive a discrepancy, record or void a cost | `finance:adjust` | owner, admin                      |
+| Action                                                                                                                            | Permission       | Who by default                    |
+| --------------------------------------------------------------------------------------------------------------------------------- | ---------------- | --------------------------------- |
+| See settlements, outstanding COD, discrepancies, costs and the summary                                                            | `finance:read`   | owner, admin, manager, accountant |
+| Import a statement, re-check, reconcile a clean settlement                                                                        | `finance:import` | owner, admin, accountant          |
+| Match / undo a match / set a line aside, resolve or waive a discrepancy, record or void a cost, record or void cash you collected | `finance:adjust` | owner, admin                      |
 
 Every manual decision requires a **reason of at least three characters**, is added to the line's history (with who and when),
 and is written to the audit trail. Staff cannot see finance at all.
@@ -158,7 +182,8 @@ and is written to the audit trail. Staff cannot see finance at all.
 `POST /v1/settlements/batches/:id/reconcile`, `GET /v1/settlements/unmatched`, `GET /v1/settlements/items/:id`,
 `POST /v1/settlements/items/:id/match | unmatch | ignore`, `GET /v1/finance/discrepancies`,
 `POST /v1/finance/discrepancies/:id/resolve`, `POST /v1/finance/recheck`, `GET /v1/finance/outstanding`,
-`GET /v1/finance/summary`, `GET/POST /v1/finance/costs`, `POST /v1/finance/costs/:id/void`. See `docs/openapi.json`.
+`GET /v1/finance/summary`, `GET/POST /v1/finance/costs`, `POST /v1/finance/costs/:id/void`, `GET/POST /v1/orders/:id/cod-receipts`,
+`POST /v1/finance/cod-receipts/:id/void`. See `docs/openapi.json`.
 
 ## Tests
 
@@ -170,7 +195,10 @@ and is written to the audit trail. Staff cannot see finance at all.
   with exact totals), idempotent imports (same file five times at once, resaved file, overlapping files, transaction ids),
   refusal of bad files, exact paisa, manual matching with history and audit, permissions, waiving, reconciliation refusal and
   reopening, later cash closing a shortfall, profit worked out to the paisa, withheld profit, cancelled and returned orders,
-  idempotent costs, tenant isolation, and the database refusing duplicates, bad sums and deletions.
+  idempotent costs, tenant isolation, and the database refusing duplicates, bad sums and deletions; and **cash you collected
+  yourself** (part payments up to the COD, the cap, idempotent entries, not-delivered and future-date refusals, voiding, a
+  courier order and the double-count flag, the summary figure, isolation, and the database refusing an edited amount or a
+  deletion).
 - `apps/web/e2e/finance.spec.ts`: import, check, repeat import, settle each line and reconcile; the overview's separate
   figures and sources; costs; empty states; accessibility and phone width.
 

@@ -342,6 +342,7 @@ const outstanding: OutstandingCod = {
   onTheWayMinor: 500_000,
   untrackedDeliveredCount: 0,
   untrackedDeliveredMinor: 0,
+  untrackedRows: [],
   byProvider: [],
   rows: [
     {
@@ -392,6 +393,77 @@ const codApi = (over: Record<string, unknown> = {}) => ({
     resolveDiscrepancy: vi.fn(async () => undefined),
     ...over,
   },
+});
+
+describe('cash the business collected itself', () => {
+  const untracked = {
+    ...outstanding,
+    untrackedDeliveredCount: 1,
+    untrackedDeliveredMinor: 80_000,
+    untrackedRows: [
+      {
+        orderId: uuid(901),
+        orderNumber: 1901,
+        deliveredAt: '2026-10-12T06:00:00.000Z',
+        ageDays: 6,
+        expectedMinor: 100_000,
+        collectedMinor: 20_000,
+        outstandingMinor: 80_000,
+      },
+    ],
+  };
+
+  it('lists delivered orders with no courier and records the cash collected, once, with the amount still due as the start', async () => {
+    const createCodReceipt = vi.fn(async () => ({}));
+    mount(
+      <CodReconciliationScreen />,
+      codApi({ outstanding: vi.fn(async () => untracked), createCodReceipt }),
+    );
+    expect(await screen.findByText('Delivered without a courier')).toBeTruthy();
+    await userEvent.click(await screen.findByRole('button', { name: 'Record cash' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: /Record cash collected: order #1901/,
+    });
+    const amount = within(dialog).getByLabelText(/Amount received/) as HTMLInputElement;
+    expect(amount.value).toBe('800.00');
+    await userEvent.clear(amount);
+    await userEvent.type(amount, '500');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Record cash' }));
+    await waitFor(() => expect(createCodReceipt).toHaveBeenCalledTimes(1));
+    expect(createCodReceipt).toHaveBeenCalledWith(
+      uuid(901),
+      expect.objectContaining({ amountMinor: 50_000, idempotencyKey: expect.any(String) }),
+    );
+  });
+
+  it('refuses more than is still due, and a missing amount, without sending anything', async () => {
+    const createCodReceipt = vi.fn();
+    mount(
+      <CodReconciliationScreen />,
+      codApi({ outstanding: vi.fn(async () => untracked), createCodReceipt }),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Record cash' }));
+    const dialog = await screen.findByRole('dialog', { name: /Record cash collected/ });
+    const amount = within(dialog).getByLabelText(/Amount received/);
+    await userEvent.clear(amount);
+    await userEvent.type(amount, '800.01');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Record cash' }));
+    expect(await within(dialog).findByText('That is more than the ৳800.00 still due')).toBeTruthy();
+    await userEvent.clear(amount);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Record cash' }));
+    expect(await within(dialog).findByText(/Enter an amount in taka/)).toBeTruthy();
+    expect(createCodReceipt).not.toHaveBeenCalled();
+  });
+
+  it('offers no way to record cash to a role that cannot adjust finance', async () => {
+    mount(
+      <CodReconciliationScreen />,
+      codApi({ outstanding: vi.fn(async () => untracked) }),
+      'STAFF',
+    );
+    expect(await screen.findByText('Delivered without a courier')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Record cash' })).toBeNull();
+  });
 });
 
 describe('COD reconciliation', () => {
@@ -462,6 +534,17 @@ describe('COD reconciliation', () => {
     expect(importSettlement).toHaveBeenCalledWith(
       expect.objectContaining({ dryRun: true, provider: 'steadfast', csv: 'a,b' }),
     );
+  });
+
+  it('asks for the CSV instead of sending an empty statement', async () => {
+    const importSettlement = vi.fn();
+    mount(<CodReconciliationScreen />, codApi({ importSettlement }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Import courier statement' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Import courier statement' });
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Import' }));
+    expect(await within(sheet).findByText('Paste the statement CSV first.')).toBeTruthy();
+    expect(within(sheet).queryByText('Import failed')).toBeNull();
+    expect(importSettlement).not.toHaveBeenCalled();
   });
 
   it('shows the import warnings in the result, not only in a toast', async () => {

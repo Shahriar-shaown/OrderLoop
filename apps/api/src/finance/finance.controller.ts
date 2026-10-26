@@ -4,6 +4,7 @@ import {
   type Analytics,
   type Discrepancy,
   type FinanceSummary,
+  type CodReceipt,
   type ManualCost,
   type OrderCash,
   type OutstandingCod,
@@ -174,5 +175,31 @@ export class FinanceController {
     @Input() input: ParsedInput<typeof routes.getAnalytics>,
   ): Promise<Analytics> {
     return this.finance.getAnalytics(auth, input.query);
+  }
+
+  @Endpoint(routes.listOrderCodReceipts)
+  codReceipts(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.listOrderCodReceipts>,
+  ): Promise<CodReceipt[]> {
+    return this.finance.listOrderCodReceipts(auth, input.params.id);
+  }
+
+  @Endpoint(routes.createCodReceipt)
+  createCodReceipt(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.createCodReceipt>,
+    @Req() req: AppRequest,
+  ): Promise<CodReceipt> {
+    return this.finance.createCodReceipt(auth, input.params.id, input.body, req.ip ?? null);
+  }
+
+  @Endpoint(routes.voidCodReceipt)
+  voidCodReceipt(
+    @Auth() auth: AuthContext,
+    @Input() input: ParsedInput<typeof routes.voidCodReceipt>,
+    @Req() req: AppRequest,
+  ): Promise<CodReceipt> {
+    return this.finance.voidCodReceipt(auth, input.params.id, input.body.reason, req.ip ?? null);
   }
 }

@@ -180,7 +180,9 @@ export class OrdersService {
                (SELECT count(*) FROM order_items i WHERE i.tenant_id = o.tenant_id AND i.order_id = o.id) AS line_count,
                sh.provider AS courier_provider, sh.status AS courier_status, sh.simulated AS courier_simulated,
                COALESCE((SELECT sum(si.collected_minor) FROM settlement_items si
-                          WHERE si.tenant_id = o.tenant_id AND si.order_id = o.id AND si.match_status = 'matched' AND si.kind = 'cod'), 0) AS collected,
+                          WHERE si.tenant_id = o.tenant_id AND si.order_id = o.id AND si.match_status = 'matched' AND si.kind = 'cod'), 0)
+               + COALESCE((SELECT sum(cr.amount_minor) FROM cod_receipts cr
+                            WHERE cr.tenant_id = o.tenant_id AND cr.order_id = o.id AND cr.voided_at IS NULL), 0) AS collected,
                ${sortColumn(query.sort)} AS sv
         FROM orders o JOIN customers c ON c.tenant_id = o.tenant_id AND c.id = o.customer_id
         LEFT JOIN LATERAL (

@@ -1089,6 +1089,8 @@ export const bn: Record<string, string> = {
   Started: 'শুরু হয়েছে',
   'Starting the import': 'ইমপোর্ট শুরু হচ্ছে',
   'Statement CSV': 'স্টেটমেন্ট CSV',
+  'Paste the statement CSV first.': 'আগে স্টেটমেন্টের CSV পেস্ট করুন।',
+  'Paste the contents of the CSV file here': 'CSV ফাইলের লেখাগুলো এখানে পেস্ট করুন',
   'Statement lines': 'স্টেটমেন্টের লাইন',
   'Statement lines not tied to an order': 'অর্ডারের সাথে না-মেলা স্টেটমেন্টের লাইন',
   'Statement reference (optional)': 'স্টেটমেন্টের রেফারেন্স (ঐচ্ছিক)',
@@ -1542,4 +1544,42 @@ export const bn: Record<string, string> = {
     'স্টেটমেন্ট আমদানির আগে হাতে লেখা কুরিয়ার চার্জ এই সময়ে ধরা হয়নি, কারণ স্টেটমেন্টেই এই সময়ের কুরিয়ার চার্জ আছে।',
   'No costs are recorded for this period, so profit before costs is shown as-is.':
     'এই সময়ের কোনো খরচ লেখা নেই, তাই খরচের আগের মুনাফা যেমন আছে তেমনই দেখানো হচ্ছে।',
+  // Cash the business collected itself
+  'Cash you collected': 'আপনার সংগ্রহ করা নগদ',
+  'Cash your team received for this order, for example by your own rider. It counts toward what is collected.':
+    'এই অর্ডারের জন্য আপনার টিম যে নগদ টাকা পেয়েছে, যেমন নিজের রাইডারের মাধ্যমে। এটি সংগ্রহ হওয়া টাকার সঙ্গে ধরা হয়।',
+  'Record cash collected': 'সংগ্রহ করা নগদ লিখুন',
+  'Record cash': 'নগদ লিখুন',
+  'Record cash collected: order #{a}': 'সংগ্রহ করা নগদ লিখুন: অর্ডার #{a}',
+  'Still due: {a}. Record only cash you have actually received. A smaller amount is a part payment.':
+    'এখনও বাকি: {a}। শুধু যে নগদ সত্যিই হাতে পেয়েছেন তা লিখুন। কম অঙ্ক হলে সেটি আংশিক পেমেন্ট।',
+  'Amount received (৳)': 'পাওয়া পরিমাণ (৳)',
+  'Date received (YYYY-MM-DD)': 'পাওয়ার তারিখ (YYYY-MM-DD)',
+  'Note (optional)': 'নোট (ঐচ্ছিক)',
+  "For example who handed it over. Do not put a customer's phone number here.":
+    'যেমন কে টাকা দিয়েছে। এখানে গ্রাহকের ফোন নম্বর লিখবেন না।',
+  'That is more than the {a} still due': 'এটি এখনও বাকি {a}-এর চেয়ে বেশি',
+  'Cash recorded for order #{a}': 'অর্ডার #{a}-এর নগদ লেখা হয়েছে',
+  'Loading cash entries': 'নগদের তালিকা লোড হচ্ছে',
+  'No cash recorded yet.': 'এখনও কোনো নগদ লেখা হয়নি।',
+  'Cash collected entries': 'সংগ্রহ করা নগদের তালিকা',
+  'Recorded by your team': 'আপনার টিম লিখেছে',
+  Note: 'নোট',
+  'Void this cash entry': 'এই নগদ এন্ট্রি অকার্যকর করুন',
+  'Void entry': 'এন্ট্রি অকার্যকর করুন',
+  'Cash entry voided': 'নগদ এন্ট্রি অকার্যকর করা হয়েছে',
+  'Delivered without a courier': 'কুরিয়ার ছাড়া ডেলিভারি হয়েছে',
+  'These delivered orders went out without a courier, so no statement can report their cash. Record it here when you collect it.':
+    'এই ডেলিভারি হওয়া অর্ডারগুলো কুরিয়ার ছাড়া গেছে, তাই কোনো স্টেটমেন্টে এর নগদ আসবে না। টাকা পেলে এখানে লিখুন।',
+  '{a} order(s), {b} still to collect. Not counted in the outstanding total above.':
+    '{a}টি অর্ডার, {b} এখনও সংগ্রহ বাকি। উপরের বকেয়া মোটে ধরা হয়নি।',
+  'Still to collect': 'এখনও সংগ্রহ বাকি',
+  'To collect {a}': 'সংগ্রহ বাকি {a}',
+  'Cash you recorded as collected': 'আপনার লেখা সংগ্রহ করা নগদ',
+  'Cash recorded by your team': 'আপনার টিমের লেখা নগদ',
+  'Cash on delivery counts as collected when a courier statement reports it, or when you record the cash you collected yourself.':
+    'কুরিয়ার স্টেটমেন্টে জানালে, অথবা নিজে সংগ্রহ করা নগদ আপনি লিখলে, ক্যাশ অন ডেলিভারি সংগ্রহ হয়েছে ধরা হয়।',
+  'Includes {a} recorded by your team': 'এতে আপনার টিমের লেখা {a} আছে',
+  'No courier parcel, so no statement can confirm this cash. Record it when you collect it.':
+    'কোনো কুরিয়ার পার্সেল নেই, তাই কোনো স্টেটমেন্ট এই নগদ নিশ্চিত করতে পারে না। সংগ্রহ করলে এখানে লিখুন।',
 };

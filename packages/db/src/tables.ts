@@ -30,6 +30,7 @@ export const TENANT_TABLES = [
   'settlement_item_events',
   'discrepancies',
   'manual_costs',
+  'cod_receipts',
   'idempotency_keys',
   'automation_rules',
   'automation_runs',

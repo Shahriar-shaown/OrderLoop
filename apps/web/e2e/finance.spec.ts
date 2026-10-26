@@ -6,7 +6,7 @@ import {
   signInToApp,
   test,
 } from './fixtures';
-import { apiClient } from './support/ui';
+import { apiClient, seedReadyToShipOrder } from './support/ui';
 
 const HEAD =
   'transaction_id,consignment_id,tracking_code,reference,phone,date,type,collected,delivery_charge,cod_fee,return_charge,other_deduction,net,note';
@@ -145,5 +145,53 @@ test.describe('COD reconciliation', () => {
     await expect(page.getByRole('group', { name: 'Open discrepancies: 0' })).toBeVisible();
     await expectAccessible(page);
     await expectNoHorizontalOverflow(page);
+  });
+});
+
+test.describe('cash you collected yourself', () => {
+  test('a delivered order with no courier is listed, its cash recorded once, and the entry voided from the order page', async ({
+    page,
+    request,
+  }) => {
+    const { email } = await createAccount(request, 'finance-cash');
+    const seeded = await seedReadyToShipOrder(request, email);
+    const id = seeded.orderUrl.split('/').pop()!;
+    const api = await apiClient(request, email);
+    for (const status of ['shipped', 'in_transit', 'delivered'])
+      await api.post(`/v1/orders/${id}/status`, { status });
+
+    await signInToApp(page, email);
+    await page.goto('/cod');
+    await expect(page.getByText('Delivered without a courier').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Record cash' }).first().click();
+    const dialog = page.getByRole('dialog', { name: /Record cash collected: order #/ });
+    await expect(dialog.getByLabel(/Amount received/)).toHaveValue('1060.00');
+    // more than is due is refused in the form, before anything is sent
+    await dialog.getByLabel(/Amount received/).fill('1060.01');
+    await dialog.getByRole('button', { name: 'Record cash' }).click();
+    await expect(dialog.getByText('That is more than the ৳1,060.00 still due')).toBeVisible();
+    await dialog.getByLabel(/Amount received/).fill('1060');
+    await dialog.getByLabel(/Note/).fill('Own rider');
+    await dialog.getByRole('button', { name: 'Record cash' }).click();
+    await expect(dialog).toBeHidden();
+    // nothing left to collect: the list is gone
+    await expect(page.getByText('Delivered without a courier')).toHaveCount(0);
+
+    // the order shows the cash and who recorded how much; the Collected tile counts it
+    await page.goto(seeded.orderUrl);
+    await expect(page.getByRole('heading', { name: 'Cash you collected' })).toBeVisible();
+    await expect(page.getByRole('group', { name: /^Collected: ৳1,060\.00/ })).toBeVisible();
+    await expect(page.getByText('Own rider', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Record cash collected' })).toHaveCount(0);
+    await expectAccessible(page);
+
+    // a mistake is voided with a reason, and the cash is owed again
+    await page.getByRole('button', { name: 'Void', exact: true }).click();
+    const voiding = page.getByRole('dialog', { name: 'Void this cash entry' });
+    await voiding.getByLabel('Reason').fill('Entered on the wrong day');
+    await voiding.getByRole('button', { name: 'Void entry' }).click();
+    await expect(page.getByText(/voided: Entered on the wrong day/)).toBeVisible();
+    await expect(page.getByRole('group', { name: /^Collected: ৳0\.00/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Record cash collected' })).toBeVisible();
   });
 });

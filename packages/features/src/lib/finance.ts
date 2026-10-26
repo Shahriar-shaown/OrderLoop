@@ -81,6 +81,7 @@ export const SOURCE_LABEL: Record<string, string> = {
   orders: 'From your orders',
   settlements: 'From courier statements',
   manual_costs: 'Entered by hand',
+  manual_receipts: 'Cash recorded by your team',
   catalog_costs: 'From product cost prices',
   derived: 'Worked out from the figures above',
 };

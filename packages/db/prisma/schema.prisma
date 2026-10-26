@@ -107,6 +107,7 @@ model Tenant {
   settlementEvents     SettlementItemEvent[]
   discrepancies        Discrepancy[]
   manualCosts          ManualCost[]
+  codReceipts          CodReceipt[]
   idempotencyKeys      IdempotencyKey[]
   automationRules      AutomationRule[]
   automationRuns       AutomationRun[]
@@ -644,6 +645,7 @@ model Order {
   settlementItems SettlementItem[]
   discrepancies   Discrepancy[]
   manualCosts     ManualCost[]
+  codReceipts     CodReceipt[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, orderNumber])
@@ -1046,6 +1048,34 @@ model ManualCost {
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, incurredOn])
   @@map("manual_costs")
+}
+
+/// Cash the business itself collected for a delivered COD order (its own rider, a hand-over, a pick-up): recorded by a person,
+/// not reported by a courier. It counts toward the order's collected cash next to matched statement lines. Never edited or
+/// deleted: a mistake is voided with a reason.
+model CodReceipt {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  orderId        String    @map("order_id") @db.Uuid
+  amountMinor    Int       @map("amount_minor")
+  receivedOn     DateTime  @map("received_on") @db.Date
+  note           String?
+  idempotencyKey String    @map("idempotency_key")
+  requestHash    String    @map("request_hash")
+  voidedAt       DateTime? @map("voided_at") @db.Timestamptz(3)
+  voidedById     String?   @map("voided_by_id") @db.Uuid
+  voidReason     String?   @map("void_reason")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order  Order  @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, orderId])
+  @@index([tenantId, receivedOn])
+  @@map("cod_receipts")
 }
 
 /// Tenant-scoped, or user-scoped when tenant_id is null (creating a business happens before the tenant exists). A retried

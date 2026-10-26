@@ -246,6 +246,19 @@ export const OutstandingRow = z.object({
 });
 export type OutstandingRow = z.infer<typeof OutstandingRow>;
 
+/** A delivered COD order with no courier shipment whose cash is not yet recorded as collected. */
+export const UntrackedCodRow = z.object({
+  orderId: Uuid,
+  orderNumber: z.number().int(),
+  deliveredAt: z.string().nullable(),
+  ageDays: z.number().int().nullable(),
+  expectedMinor: Minor,
+  /** Cash a person already recorded for it (a part payment). */
+  collectedMinor: Minor,
+  outstandingMinor: Minor,
+});
+export type UntrackedCodRow = z.infer<typeof UntrackedCodRow>;
+
 export const OutstandingCod = z.object({
   asOf: z.string(),
   /** COD for delivered orders that have a courier shipment. */
@@ -256,9 +269,11 @@ export const OutstandingCod = z.object({
   outstandingMinor: Minor,
   /** COD on orders still with a courier: not yet due. */
   onTheWayMinor: Minor,
-  /** Delivered orders with COD but no courier shipment: cash is handled outside the system and is not tracked here. */
+  /** Delivered orders with COD, no courier shipment and cash not yet recorded as collected: a person records that cash by hand. */
   untrackedDeliveredCount: z.number().int(),
   untrackedDeliveredMinor: Minor,
+  /** The orders behind that count, oldest first (at most 500), so cash collected by hand can be recorded against each. */
+  untrackedRows: z.array(UntrackedCodRow),
   byProvider: z.array(
     z.object({ provider: CourierProvider, orders: z.number().int(), outstandingMinor: Minor }),
   ),
@@ -274,6 +289,7 @@ export const FigureSource = z.enum([
   'orders',
   'settlements',
   'manual_costs',
+  'manual_receipts',
   'catalog_costs',
   'derived',
 ]);
@@ -338,3 +354,27 @@ export const ManualCost = z.object({
 });
 export type ManualCost = z.infer<typeof ManualCost>;
 export const CostQuery = z.object({ from: Day.optional(), to: Day.optional() });
+
+// ---- cash the business collected itself -------------------------------------------------------------------------------------
+
+export const CreateCodReceiptBody = z.object({
+  amountMinor: z.number().int().min(1).max(MAX_MINOR),
+  /** The day the cash was received. */
+  receivedOn: Day,
+  note: z.string().trim().max(300).optional(),
+  idempotencyKey: IdempotencyKey,
+});
+export type CreateCodReceiptBody = z.infer<typeof CreateCodReceiptBody>;
+
+export const CodReceipt = z.object({
+  id: Uuid,
+  orderId: Uuid,
+  orderNumber: z.number().int(),
+  amountMinor: Minor,
+  receivedOn: Day,
+  note: z.string().nullable(),
+  voidedAt: z.string().nullable(),
+  voidReason: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type CodReceipt = z.infer<typeof CodReceipt>;

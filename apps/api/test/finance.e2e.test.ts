@@ -812,9 +812,14 @@ describe('profit and the figures behind it', () => {
     // every figure says where it came from
     for (const fig of s.figures) {
       expect(fig.note.length).toBeGreaterThan(10);
-      expect(['orders', 'settlements', 'manual_costs', 'catalog_costs', 'derived']).toContain(
-        fig.source,
-      );
+      expect([
+        'orders',
+        'settlements',
+        'manual_costs',
+        'manual_receipts',
+        'catalog_costs',
+        'derived',
+      ]).toContain(fig.source);
     }
     // voiding a cost takes it out; costs are never deleted
     const costs = (await api.get(`/v1/finance/costs?from=${d}&to=${d}`)).body as { id: string }[];
@@ -1084,5 +1089,249 @@ describe('sums that exceed what one 32-bit column holds', () => {
     ).toMatchObject({
       collectedMinor: 4_000_000_000,
     });
+  });
+});
+
+describe('cash the business collected itself', () => {
+  /** A delivered COD order that never went to a courier (own rider, hand-over). COD = 1,000.00 + 60.00 delivery. */
+  async function selfDelivered(
+    owner: Who,
+    api: Api,
+    deliver = true,
+  ): Promise<{ id: string; number: number }> {
+    const p = await t.http
+      .post('/v1/products')
+      .set(bearer(owner.accessToken))
+      .send({
+        name: `Tee ${++seq}`,
+        variants: [{ sku: `SELF-${Date.now()}-${seq}`, priceMinor: 100_000 }],
+      })
+      .expect(201);
+    const variantId = p.body.variants[0].id as string;
+    await api.post('/v1/inventory/receive', { variantId, quantity: 50 }).expect(201);
+    const order = await api
+      .post('/v1/orders', {
+        customer: { name: 'Rina Akter', phone: `0171${String(1000000 + ++phoneSeq).slice(-7)}` },
+        address: {
+          recipientName: 'Rina Akter',
+          phone: '01712345678',
+          line1: 'House 5, Road 3',
+          area: 'Dhanmondi',
+          district: 'Dhaka',
+          division: 'Dhaka',
+        },
+        items: [{ variantId, quantity: 1 }],
+        deliveryChargeMinor: 6_000,
+        idempotencyKey: key('ord'),
+        confirm: true,
+      })
+      .expect(201);
+    const to = deliver
+      ? ['ready_to_ship', 'shipped', 'in_transit', 'delivered']
+      : ['ready_to_ship'];
+    for (const status of to)
+      await api.post(`/v1/orders/${order.body.id}/status`, { status }).expect(200);
+    return { id: order.body.id as string, number: order.body.orderNumber as number };
+  }
+  const receipt = (api: Api, orderId: string, amountMinor: number, extra: object = {}) =>
+    api.post(`/v1/orders/${orderId}/cod-receipts`, {
+      amountMinor,
+      receivedOn: today(),
+      idempotencyKey: key('rc'),
+      ...extra,
+    });
+  const cash = async (api: Api, id: string) =>
+    (await api.get(`/v1/orders/${id}/cash`).expect(200)).body;
+  const paymentOf = async (api: Api, id: string) =>
+    (await api.get(`/v1/orders?limit=100`).expect(200)).body.items.find(
+      (o: { id: string }) => o.id === id,
+    ).payment as string;
+
+  it('lists a delivered no-courier order, takes part payments up to the COD, and shows each in the order’s cash', async () => {
+    const { owner, api } = await shop();
+    const o = await selfDelivered(owner, api);
+    let out = await outstanding(api);
+    expect(out.untrackedDeliveredCount).toBe(1);
+    expect(out.untrackedRows).toEqual([
+      expect.objectContaining({
+        orderId: o.id,
+        expectedMinor: 106_000,
+        collectedMinor: 0,
+        outstandingMinor: 106_000,
+      }),
+    ]);
+    expect(await paymentOf(api, o.id)).toBe('cod_untracked');
+
+    const first = await receipt(api, o.id, 40_000, { note: 'Rider Sumon, bKash later' }).expect(
+      201,
+    );
+    expect(first.body).toMatchObject({
+      orderId: o.id,
+      orderNumber: o.number,
+      amountMinor: 40_000,
+      voidedAt: null,
+    });
+    expect(await cash(api, o.id)).toMatchObject({
+      state: 'partial',
+      expectedMinor: 106_000,
+      collectedMinor: 40_000,
+      manualCollectedMinor: 40_000,
+      outstandingMinor: 66_000,
+    });
+    expect(await paymentOf(api, o.id)).toBe('cod_partial');
+    out = await outstanding(api);
+    expect(out.untrackedRows[0]).toMatchObject({
+      collectedMinor: 40_000,
+      outstandingMinor: 66_000,
+    });
+
+    // more than is still due is refused, naming the field
+    const over = await receipt(api, o.id, 66_001).expect(400);
+    expect(JSON.stringify(over.body)).toContain('body.amountMinor');
+
+    await receipt(api, o.id, 66_000).expect(201);
+    expect(await cash(api, o.id)).toMatchObject({
+      state: 'paid',
+      outstandingMinor: 0,
+      manualCollectedMinor: 106_000,
+    });
+    expect(await paymentOf(api, o.id)).toBe('cod_collected');
+    expect((await outstanding(api)).untrackedDeliveredCount).toBe(0);
+    // nothing left to collect
+    await receipt(api, o.id, 1).expect(409);
+    expect((await api.get(`/v1/orders/${o.id}/cod-receipts`).expect(200)).body).toHaveLength(2);
+  });
+
+  it('records the same entry once however often it is sent, and refuses a reused key for a different amount', async () => {
+    const { owner, api } = await shop();
+    const o = await selfDelivered(owner, api);
+    const k = key('same');
+    const a = await receipt(api, o.id, 30_000, { idempotencyKey: k }).expect(201);
+    const b = await receipt(api, o.id, 30_000, { idempotencyKey: k }).expect(201);
+    expect(b.body.id).toBe(a.body.id);
+    expect((await cash(api, o.id)).manualCollectedMinor).toBe(30_000);
+    const clash = await receipt(api, o.id, 31_000, { idempotencyKey: k });
+    expect(clash.status).toBe(409);
+    expect((await cash(api, o.id)).manualCollectedMinor).toBe(30_000);
+  });
+
+  it('refuses cash for an order that is not delivered, one with nothing to collect, a future date and a missing order', async () => {
+    const { owner, api } = await shop();
+    const notYet = await selfDelivered(owner, api, false);
+    expect((await receipt(api, notYet.id, 1_000).expect(409)).body.detail).toMatch(/delivered/i);
+    const o = await selfDelivered(owner, api);
+    const tomorrow = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+    expect(
+      JSON.stringify((await receipt(api, o.id, 1_000, { receivedOn: tomorrow }).expect(400)).body),
+    ).toContain('body.receivedOn');
+    expect(
+      JSON.stringify(
+        (await receipt(api, o.id, 1_000, { receivedOn: '2026-02-30' }).expect(400)).body,
+      ),
+    ).toContain('body.receivedOn');
+    await receipt(api, o.id, 0).expect(400);
+    await receipt(api, '01a00000-0000-7000-8000-000000000000', 1_000).expect(404);
+  });
+
+  it('a voided entry stops counting, needs a reason, and can only be voided once', async () => {
+    const { owner, api } = await shop();
+    const o = await selfDelivered(owner, api);
+    const r = await receipt(api, o.id, 50_000).expect(201);
+    await api.post(`/v1/finance/cod-receipts/${r.body.id}/void`, {}).expect(400);
+    const v = await api
+      .post(`/v1/finance/cod-receipts/${r.body.id}/void`, { reason: 'Typed the wrong order' })
+      .expect(200);
+    expect(v.body).toMatchObject({ voidReason: 'Typed the wrong order' });
+    expect(v.body.voidedAt).not.toBeNull();
+    expect(await cash(api, o.id)).toMatchObject({
+      collectedMinor: 0,
+      manualCollectedMinor: 0,
+      outstandingMinor: 106_000,
+    });
+    expect((await outstanding(api)).untrackedDeliveredCount).toBe(1);
+    await api.post(`/v1/finance/cod-receipts/${r.body.id}/void`, { reason: 'again' }).expect(409);
+    // the entry stays on record, marked voided
+    const list = (await api.get(`/v1/orders/${o.id}/cod-receipts`).expect(200)).body;
+    expect(list).toHaveLength(1);
+    expect(list[0].voidedAt).not.toBeNull();
+    // and the whole amount can be recorded again
+    await receipt(api, o.id, 106_000).expect(201);
+  });
+
+  it('counts toward a courier order too: a later statement for the same cash is flagged as possibly counted twice', async () => {
+    const { owner, api, hookPath } = await shop();
+    const p = await booked(owner, api);
+    await deliver(hookPath, p);
+    expect((await outstanding(api)).outstandingMinor).toBe(106_000);
+    const r = await receipt(api, p.id, 106_000).expect(201);
+    const out = await outstanding(api);
+    expect(out.outstandingMinor).toBe(0);
+    expect(out.rows).toEqual([]);
+    expect(await paymentOf(api, p.id)).toBe('cod_collected');
+    // the courier's statement then reports the same 1,060.00
+    await importFile(
+      api,
+      file(`T1,${p.consignmentId},,,,${today()},cod,1060,60,10.60,0,0,,`),
+    ).expect(200);
+    const flagged = (await open(api)).filter((d) => d.orderNumber === p.number);
+    expect(flagged.map((d) => d.type)).toContain('over_paid');
+    const detail = (await api.get('/v1/finance/discrepancies?status=open')).body.find(
+      (d: { type: string; orderNumber: number }) =>
+        d.type === 'over_paid' && d.orderNumber === p.number,
+    );
+    expect(detail.message).toMatch(/counted twice/);
+    // voiding the entry the statement already covers clears the flag
+    await api
+      .post(`/v1/finance/cod-receipts/${r.body.id}/void`, { reason: 'Courier paid it' })
+      .expect(200);
+    expect((await open(api)).filter((d) => d.orderNumber === p.number)).toEqual([]);
+    expect((await cash(api, p.id)).state).toBe('paid');
+  });
+
+  it('shows the cash in the period’s summary as its own figure, by the day it was received', async () => {
+    const { owner, api } = await shop();
+    const o = await selfDelivered(owner, api);
+    await receipt(api, o.id, 25_000).expect(201);
+    await receipt(api, o.id, 10_000, { receivedOn: '2025-01-05' }).expect(201);
+    const f = async (from: string, to: string) =>
+      (await api.get(`/v1/finance/summary?from=${from}&to=${to}`).expect(200)).body.figures.find(
+        (x: { key: string }) => x.key === 'cash_manual',
+      );
+    expect(await f(today(), today())).toMatchObject({
+      amountMinor: 25_000,
+      source: 'manual_receipts',
+    });
+    expect(await f('2025-01-01', '2025-01-31')).toMatchObject({ amountMinor: 10_000 });
+  });
+
+  it('keeps one business’s entries from another, and the database refuses to edit the amount or delete an entry', async () => {
+    const a = await shop();
+    const b = await shop();
+    const o = await selfDelivered(a.owner, a.api);
+    const r = await receipt(a.api, o.id, 20_000).expect(201);
+    expect((await b.api.get(`/v1/orders/${o.id}/cod-receipts`)).status).toBe(404);
+    expect((await receipt(b.api, o.id, 1_000)).status).toBe(404);
+    expect(
+      (await b.api.post(`/v1/finance/cod-receipts/${r.body.id}/void`, { reason: 'mine now' }))
+        .status,
+    ).toBe(404);
+    expect((await b.api.get('/v1/finance/outstanding')).body.untrackedRows).toEqual([]);
+
+    const ctx = { tenantId: a.tenantId, userId: a.owner.user.id };
+    await expect(
+      t.db.withContext(ctx, (tx) =>
+        tx.codReceipt.update({ where: { id: r.body.id }, data: { amountMinor: 1 } }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      t.db.withContext(ctx, (tx) => tx.codReceipt.delete({ where: { id: r.body.id } })),
+    ).rejects.toThrow();
+    // a half-filled void is refused too
+    await expect(
+      t.db.withContext(ctx, (tx) =>
+        tx.codReceipt.update({ where: { id: r.body.id }, data: { voidedAt: new Date() } }),
+      ),
+    ).rejects.toThrow();
+    expect((await cash(a.api, o.id)).manualCollectedMinor).toBe(20_000);
   });
 });

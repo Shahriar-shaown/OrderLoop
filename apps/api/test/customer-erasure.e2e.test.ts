@@ -321,6 +321,17 @@ describe('what an erasure does', () => {
       })
       .then((r) => expect([201, 400]).toContain(r.status));
 
+    // cash the business collected itself for another delivered order, with a note that names the customer
+    const handed = await order(s, RAHIM, 'delivered');
+    await a
+      .post(`/v1/orders/${handed.id}/cod-receipts`, {
+        amountMinor: 50_000,
+        receivedOn: d,
+        note: 'Cash from Rahim Uddin 01712345678',
+        idempotencyKey: key('rc'),
+      })
+      .then((r) => expect([201, 409]).toContain(r.status));
+
     const moneyBefore = await money();
     const leaksBefore = await withAdmin(async (c) =>
       findLeaks(await tenantText(c, s.tenantId), ['Rahim Uddin', '1712345678', 'Dhanmondi, Dhaka']),
@@ -336,6 +347,7 @@ describe('what an erasure does', () => {
         'settlement_items.raw',
         'shipment_events.payload',
         'order_status_history.reason',
+        'cod_receipts.note',
         'idempotency_keys.response_body',
       ]),
     );
@@ -351,7 +363,7 @@ describe('what an erasure does', () => {
       confirm: true,
       reason: 'Customer Rahim Uddin asked by phone',
     }).expect(200);
-    expect(res.body).toMatchObject({ customerId: id, ordersAnonymised: 2 });
+    expect(res.body).toMatchObject({ customerId: id, ordersAnonymised: 3 });
     expect(typeof res.body.erasedAt).toBe('string');
 
     // 1. no copy of the old details anywhere in the business (every text and JSON column of every table)
@@ -443,7 +455,7 @@ describe('what an erasure does', () => {
     const entries = audit.filter((e) => e.action === 'customer.erased');
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ targetId: id });
-    expect(entries[0]!.metadata).toMatchObject({ orders: 2, addresses: 2 });
+    expect(entries[0]!.metadata).toMatchObject({ orders: 3, addresses: 2 });
     expect(JSON.stringify(entries[0]!.metadata)).not.toMatch(/Rahim|Uddin|1712345678/);
     expect(entries[0]!.metadata['reason']).toBe('Customer [erased] asked by phone');
   });

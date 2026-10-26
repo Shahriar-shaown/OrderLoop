@@ -408,6 +408,14 @@ export function createApiClient(options: ApiClientOptions) {
         call(routes.createCost, { body }),
       voidCost: (id: string, reason: string) =>
         call(routes.voidCost, { params: { id }, body: { reason } }),
+      codReceipts: (orderId: string) =>
+        call(routes.listOrderCodReceipts, { params: { id: orderId } }),
+      createCodReceipt: (
+        orderId: string,
+        body: RouteInput<typeof routes.createCodReceipt>['body'],
+      ) => call(routes.createCodReceipt, { params: { id: orderId }, body }),
+      voidCodReceipt: (id: string, reason: string) =>
+        call(routes.voidCodReceipt, { params: { id }, body: { reason } }),
     },
     reservations: {
       list: (query: RouteInput<typeof routes.listReservations>['query'] = {}) =>

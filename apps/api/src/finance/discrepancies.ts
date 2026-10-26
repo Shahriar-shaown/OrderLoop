@@ -141,19 +141,35 @@ async function unreconcile(tx: Tx, tenantId: string, s: Subject): Promise<void> 
     });
 }
 
-/** Cash reported for one order, summed over every matched cash line (any parcel of the order, duplicates and ignored lines excluded). */
+/**
+ * Cash collected for each order: what matched statement lines report (any parcel of the order, duplicates and ignored lines
+ * excluded) and, separately, what a person recorded as collected by hand (voided entries excluded).
+ */
 export async function collectedForOrders(
   tx: Tx,
   tenantId: string,
   orderIds: string[],
-): Promise<Map<string, number>> {
-  if (!orderIds.length) return new Map();
-  const rows = await tx.settlementItem.groupBy({
+): Promise<Map<string, { statementMinor: number; manualMinor: number }>> {
+  const out = new Map<string, { statementMinor: number; manualMinor: number }>();
+  if (!orderIds.length) return out;
+  const statements = await tx.settlementItem.groupBy({
     by: ['orderId'],
     where: { tenantId, orderId: { in: orderIds }, matchStatus: 'matched', kind: 'cod' },
     _sum: { collectedMinor: true },
   });
-  return new Map(rows.map((r) => [r.orderId as string, r._sum.collectedMinor ?? 0]));
+  const manual = await tx.codReceipt.groupBy({
+    by: ['orderId'],
+    where: { tenantId, orderId: { in: orderIds }, voidedAt: null },
+    _sum: { amountMinor: true },
+  });
+  for (const r of statements)
+    out.set(r.orderId as string, { statementMinor: r._sum.collectedMinor ?? 0, manualMinor: 0 });
+  for (const r of manual) {
+    const e = out.get(r.orderId) ?? { statementMinor: 0, manualMinor: 0 };
+    e.manualMinor = r._sum.amountMinor ?? 0;
+    out.set(r.orderId, e);
+  }
+  return out;
 }
 
 /**
@@ -180,7 +196,16 @@ export async function evaluate(
     });
     const collected = await collectedForOrders(tx, tenantId, orderIds);
     for (const o of orders) {
-      const c = collected.get(o.id) ?? 0;
+      const parts = collected.get(o.id) ?? { statementMinor: 0, manualMinor: 0 };
+      const c = parts.statementMinor + parts.manualMinor;
+      // Who says so, in the words of each message: a courier's statement, a person's own entry, or both.
+      const who =
+        parts.manualMinor === 0
+          ? 'the courier reported'
+          : parts.statementMinor === 0
+            ? 'you recorded as collected'
+            : 'the courier reported and you recorded as collected, together,';
+      const whoNow = parts.manualMinor === 0 ? 'the courier reports' : who;
       const pos = cashPosition({
         status: o.status as OrderStatusName,
         codAmountMinor: o.codAmountMinor,
@@ -193,7 +218,7 @@ export async function evaluate(
             ? {
                 expectedMinor: pos.expectedMinor,
                 actualMinor: c,
-                message: `${label}: the courier reported ${money(c)} of ${money(pos.expectedMinor)}. ${money(pos.outstandingMinor)} is still owed.`,
+                message: `${label}: ${who} ${money(c)} of ${money(pos.expectedMinor)}. ${money(pos.outstandingMinor)} is still owed.`,
               }
             : null,
         over_paid:
@@ -201,7 +226,7 @@ export async function evaluate(
             ? {
                 expectedMinor: pos.expectedMinor,
                 actualMinor: c,
-                message: `${label}: the courier reported ${money(c)}, ${money(pos.excessMinor)} more than the ${money(pos.expectedMinor)} due.`,
+                message: `${label}: ${who} ${money(c)}, ${money(pos.excessMinor)} more than the ${money(pos.expectedMinor)} due.${parts.manualMinor > 0 && parts.statementMinor > 0 ? ' The same cash may have been counted twice: void your entry if the statement already includes it.' : ''}`,
               }
             : null,
         cash_before_delivery:
@@ -209,7 +234,7 @@ export async function evaluate(
             ? {
                 expectedMinor: pos.expectedMinor,
                 actualMinor: c,
-                message: `${label}: the courier reports ${money(c)} collected but the order is not marked delivered.`,
+                message: `${label}: ${whoNow} ${money(c)} collected but the order is not marked delivered.`,
               }
             : null,
         cash_on_closed_order:
@@ -217,7 +242,7 @@ export async function evaluate(
             ? {
                 expectedMinor: 0,
                 actualMinor: c,
-                message: `${label} is ${o.status.replace(/_/g, ' ')}, yet the courier reports ${money(c)} collected.`,
+                message: `${label} is ${o.status.replace(/_/g, ' ')}, yet ${whoNow} ${money(c)} collected.`,
               }
             : null,
       };

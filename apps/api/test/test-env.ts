@@ -7,6 +7,11 @@ try {
   // CI and containers inject variables directly.
 }
 
+// A developer's own .env may hold real Meta or TikTok credentials (and a live mode). Tests must not see them: a test that wants
+// a provider configured sets it itself, and everything else runs as it does on CI.
+for (const name of Object.keys(process.env))
+  if (/^(META|TIKTOK)_/.test(name)) delete process.env[name];
+
 function need(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`${name} is not set; copy .env.example to .env and run pnpm db:setup`);

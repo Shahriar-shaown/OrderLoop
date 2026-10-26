@@ -44,6 +44,7 @@ import {
   useOrder,
   useOrderPayment,
 } from '../../lib/orders';
+import { CodReceiptsCard } from '../../components/logistics/CodReceiptsCard';
 import { useCan } from '../../core/permissions';
 import { useApi } from '../../core/runtime';
 
@@ -225,6 +226,14 @@ export function OrderDetailScreen({ id }: { id: string }) {
           asideWidth={400}
           main={
             <>
+              {canSeeCash && (
+                <CodReceiptsCard
+                  orderId={o.id}
+                  orderNumber={o.orderNumber}
+                  delivered={o.status === 'delivered'}
+                  cash={cash.data}
+                />
+              )}
               <OrderTimeline order={o} shipment={shipment.data} payment={payment.data} />
               <OrderItemsSection order={o} />
               {o.notes && (
