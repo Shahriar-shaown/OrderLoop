@@ -66,7 +66,7 @@ export function MetaIntegrationsScreen({
 
   const overview = query.data;
   const mock = overview?.mode === 'mock';
-  const anyMockAccount = overview?.connections.some((c) => c.mock) ?? false;
+  const anyMockAccount = overview?.connections.some((c) => c.mock && c.status !== 'disconnected') ?? false;
 
   async function signIn(start: () => Promise<{ authorizeUrl: string }>, key: string) {
     setWorking(key);

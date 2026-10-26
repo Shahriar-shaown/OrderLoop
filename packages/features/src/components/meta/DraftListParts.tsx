@@ -7,6 +7,9 @@ import { SourceBadge } from './SourceBadge';
 /** The API gives the first 60 characters of the first message: a snippet that long was probably cut off. */
 const SNIPPET_LENGTH = 60;
 
+/** A table cell lets its content grow to its natural width: cap it at the cell so a long message is cut with "…" instead of running into the next column. */
+const FIT = { maxWidth: '100%' } as const;
+
 const who = (d: SocialDraftSummary) => d.customerName ?? 'Name not found yet';
 
 /** The start of the first message, as a list label. It is the customer's own words: shown as written, never translated. */
@@ -44,14 +47,16 @@ export const draftColumns: Column<SocialDraftSummary>[] = [
     flex: 2,
     minWidth: 160,
     render: (d) => (
-      <Stack gap={1}>
-        <Link href={`/social-orders/${d.id}`} weight="medium">
-          {who(d)}
-        </Link>
-        {/* A list can be seen over a shoulder: the full number is on the review screen. */}
-        <Text variant="caption" tone="muted">
-          {maskPhone(d.phone)}
-        </Text>
+      <Stack gap={2} style={FIT}>
+        <Stack gap={1}>
+          <Link href={`/social-orders/${d.id}`} weight="medium">
+            {who(d)}
+          </Link>
+          {/* A list can be seen over a shoulder: the full number is on the review screen. */}
+          <Text variant="caption" tone="muted">
+            {maskPhone(d.phone)}
+          </Text>
+        </Stack>
         <Snippet draft={d} />
       </Stack>
     ),
@@ -62,9 +67,9 @@ export const draftColumns: Column<SocialDraftSummary>[] = [
     flex: 1.5,
     minWidth: 150,
     render: (d) => (
-      <Stack gap={1}>
+      <Stack gap={2} style={FIT}>
         <SourceBadge provider={d.provider} mock={d.mock} />
-        <Text variant="caption" tone="muted">
+        <Text variant="caption" tone="muted" numberOfLines={1}>
           {d.connectionName}
         </Text>
       </Stack>

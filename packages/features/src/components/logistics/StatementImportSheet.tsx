@@ -18,9 +18,6 @@ import { useFormState } from '../../forms/forms';
 import { formatPrice } from '../../lib/money';
 import { useApi } from '../../core/runtime';
 
-const TEMPLATE =
-  'transaction_id,consignment_id,tracking_code,reference,phone,date,type,collected,delivery_charge,cod_fee,return_charge,other_deduction,net,note\n';
-
 function Result({ r }: { r: SettlementImportResult }) {
   const c = r.counts;
   const failed = !!r.fatal || r.errors.length > 0;
@@ -79,6 +76,12 @@ export function StatementImportSheet({ open, onClose }: { open: boolean; onClose
   const [busy, setBusy] = useState<'check' | 'import' | null>(null);
 
   async function run(dryRun: boolean) {
+    // Nothing to send: say so next to the box, not with the server's schema message.
+    if (form.values.csv.trim() === '') {
+      form.clear();
+      form.setErrors({ csv: 'Paste the statement CSV first.' });
+      return;
+    }
     setBusy(dryRun ? 'check' : 'import');
     form.clear();
     try {
@@ -145,7 +148,7 @@ export function StatementImportSheet({ open, onClose }: { open: boolean; onClose
           multiline
           numberOfLines={8}
           autoCapitalize="none"
-          placeholder={TEMPLATE}
+          placeholder="Paste the contents of the CSV file here"
           {...form.field('csv')}
           hint="Columns: transaction_id, consignment_id, tracking_code, reference, phone, date, type, collected, delivery_charge, cod_fee, return_charge, other_deduction, net, note. Amounts in taka."
         />

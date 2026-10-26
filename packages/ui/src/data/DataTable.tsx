@@ -134,7 +134,7 @@ export function DataTable<T>({
   const t = useT();
   const { breakpoint, isMobile } = useBreakpoint();
   const visible = columns.filter((c) => RANK[breakpoint] >= NEEDS[c.show ?? 'always']);
-  const CHECK = 44;
+  const CHECK = 52;
   const minTotal = visible.reduce((n, c) => n + (c.minWidth ?? 120), 0) + (selection ? CHECK : 0);
   const cell = (c: Column<T>) => ({
     flexGrow: c.flex ?? 1,

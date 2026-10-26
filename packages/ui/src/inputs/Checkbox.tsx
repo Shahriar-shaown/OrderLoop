@@ -36,6 +36,8 @@ export function Checkbox({
         {
           flexDirection: 'row',
           alignItems: 'center',
+          // with no label the box is centred in its touch target, so it never sits against the edge of a table cell
+          justifyContent: hideLabel ? 'center' : 'flex-start',
           gap: space[2],
           minHeight: touchTarget,
           minWidth: touchTarget,
