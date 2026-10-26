@@ -491,12 +491,7 @@ export function cashPosition(input: {
 // ---- profit -----------------------------------------------------------------------------------------------------------
 
 export type FigureSource =
-  | 'orders'
-  | 'settlements'
-  | 'manual_costs'
-  | 'manual_receipts'
-  | 'catalog_costs'
-  | 'derived';
+  'orders' | 'settlements' | 'manual_costs' | 'manual_receipts' | 'catalog_costs' | 'derived';
 
 export interface FinanceFigure {
   key: string;

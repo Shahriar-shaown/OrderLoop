@@ -1029,7 +1029,12 @@ export class FinanceService {
 
   listOrderCodReceipts(auth: AuthContext, orderId: string): Promise<CodReceiptDto[]> {
     return this.db.withContext({ tenantId: auth.tenantId }, async (tx) => {
-      if (!(await tx.order.findFirst({ where: { id: orderId, tenantId: auth.tenantId }, select: { id: true } })))
+      if (
+        !(await tx.order.findFirst({
+          where: { id: orderId, tenantId: auth.tenantId },
+          select: { id: true },
+        }))
+      )
         throw ApiError.notFound('Order not found');
       const rows = await tx.codReceipt.findMany({
         where: { tenantId: auth.tenantId, orderId },
