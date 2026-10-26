@@ -8,7 +8,7 @@
     "./eslint": "./eslint.mjs"
   },
   "dependencies": {
-    "typescript-eslint": "^8.0.0"
+    "typescript-eslint": "^8.72.0"
   },
   "peerDependencies": {
     "eslint": ">=9"
