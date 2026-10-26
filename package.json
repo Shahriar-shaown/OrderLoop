@@ -34,7 +34,8 @@
     "sessions:revoke": "pnpm --filter @orderloop/api sessions:revoke",
     "mail:test": "pnpm --filter @orderloop/api mail:test",
     "courier:verify": "pnpm --filter @orderloop/api courier:verify",
-    "services:mail": "docker compose -f infra/docker-compose.yml --profile mail up -d mailpit"
+    "services:mail": "docker compose -f infra/docker-compose.yml --profile mail up -d mailpit",
+    "tunnel": "node scripts/tunnel.mjs"
   },
   "devDependencies": {
     "turbo": "2.11.9",
