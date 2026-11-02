@@ -17,7 +17,7 @@
     "@orderloop/contracts": "workspace:*",
     "@orderloop/features": "workspace:*",
     "@orderloop/ui": "workspace:*",
-    "next": "16.4.2",
+    "next": "16.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native-web": "~0.21.4"
@@ -32,7 +32,7 @@
     "@types/react": "~19.2.2",
     "@types/react-dom": "~19.2.0",
     "eslint": "^9",
-    "eslint-config-next": "16.4.2",
+    "eslint-config-next": "16.4.3",
     "ioredis": "^5.0.0",
     "jsdom": "^26.0.0",
     "react-native": "0.86.3",
