@@ -38,9 +38,9 @@
     "tunnel": "node scripts/tunnel.mjs"
   },
   "devDependencies": {
-    "turbo": "2.11.9",
+    "turbo": "2.11.11",
     "typescript": "6.0.3",
-    "prettier": "^3.6.0"
+    "prettier": "^3.10.1"
   },
   "workspaces": [
     "apps/*",
