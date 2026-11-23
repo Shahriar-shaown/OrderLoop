@@ -23,7 +23,7 @@
     "@types/node": "^22.0.0",
     "eslint": "^10.0.0",
     "vitest": "^3.0.0",
-    "fast-check": "^4.0.0"
+    "fast-check": "^4.10.3"
   },
   "dependencies": {
     "@orderloop/contracts": "workspace:*"
